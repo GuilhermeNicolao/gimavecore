@@ -10,7 +10,7 @@ import time
 
 load_dotenv()
 
-# url = "https://script.google.com/macros/s//exec"
+url = "https://script.google.com/a/macros/angelscapital.com.br/s/AKfycbyxvZBaE5Ug0jmBCAZ_ym7NdSWwO5Q3AcIPPScGt5TfdYCUJsSW_VMt_RUDQqiHoM_Ang/exec"
 driver = webdriver.Chrome()
 driver.get("https://fomento.eucard.com.br/transferencias")
 time.sleep(3)  
@@ -50,7 +50,6 @@ time.sleep(1)
 #CLICAR NO "TRANSFERÊNCIAS"
 transferencias_link = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, "//a[@href='/transferencias' and contains(@class, 'menu__item')]")))
 transferencias_link.click()
-
 
 
 while True:
