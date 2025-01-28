@@ -51,6 +51,52 @@ time.sleep(1)
 transferencias_link = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, "//a[@href='/transferencias' and contains(@class, 'menu__item')]")))
 transferencias_link.click()
 
+time.sleep(10)
+
+
+
+def ler_celula(cell):
+    params = {"action": "read", "cell": cell}
+    response = requests.get(url, params=params)
+    if response.status_code == 200:
+        data = response.json()
+        return data.get("value", None)
+    else:
+        print(f"Erro ao ler a célula {cell}: {response.status_code} - {response.text}")
+        return None
+
+
+def escrever_celula(cell, value):
+    params = {"action": "write", "cell": cell, "value": value}
+    response = requests.get(url, params=params)
+    if response.status_code == 200:
+        data = response.json()
+        print(f"{value}' célula {cell}")
+    else:
+        print(f"Erro ao escrever na célula {cell}: {response.status_code} - {response.text}")
+
+
+row = 97
+
+for i in range(3):
+
+    cell_a = f"A{row}"
+    value_a = ler_celula(cell_a)
+
+    try:
+        #CAPTURAR NOME PAINELFOMENTO
+        xpath_dinamico = f"//td[@class='text-left' and contains(text(), '{value_a}')]"
+        nome_td = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, xpath_dinamico)))
+        nome = nome_td.text
+
+        #pressionar_botao = nome_td.find_element(By.XPATH, "./preceding-sibling::td//div[@class='q-toggle__track']")
+        #pressionar_botao.click()
+
+        print("Nome capturado:", nome)
+    except Exception as e:
+        print(f"Erro ao buscar o nome na linha {row}: {str(e)}")
+
+    row +=1
 
 while True:
     pass
