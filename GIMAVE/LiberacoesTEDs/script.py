@@ -100,7 +100,7 @@ while True:
         if value_h.strip().upper() == "PROCESSANDO":
             rows_to_process.append(row)  # Adicionar a linha à lista de transferências a serem processadas
 
-        if len(rows_to_process) >= 3 or len(rows_to_process) < 3:  # Se encontrou 3 linhas "PROCESSANDO", interrompe a busca
+        if len(rows_to_process) >= 3:  # Se encontrou 3 linhas "PROCESSANDO", interrompe a busca
             break
 
     if len(rows_to_process) == 0:
