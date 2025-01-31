@@ -77,7 +77,7 @@ def escrever_celula(cell, value):
     else:
         print(f"Erro ao escrever na célula {cell}: {response.status_code} - {response.text}")
 
-last_processed_row = 2  # Inicializando na linha 2, onde começa a busca
+last_processed_row = 97  # Inicializando na linha x, onde começa a busca
 
 while True:
 
@@ -189,6 +189,6 @@ while True:
             print(f"Erro ao clicar no botão de transferências: {str(e)}")
 
 
-    time.sleep(15)
+    time.sleep(35)
 
 
