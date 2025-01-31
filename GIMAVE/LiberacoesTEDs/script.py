@@ -1,20 +1,21 @@
 import os
 import requests
+import time
 from dotenv import load_dotenv
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
-import time
 
 load_dotenv()
+id_value = os.getenv("ID")
 
-url = "https://script.google.com/a/macros/angelscapital.com.br/s/AKfycbyxvZBaE5Ug0jmBCAZ_ym7NdSWwO5Q3AcIPPScGt5TfdYCUJsSW_VMt_RUDQqiHoM_Ang/exec"
+url = f"https://script.google.com/a/macros/angelscapital.com.br/s/{id_value}/exec"
 driver = webdriver.Chrome()
 driver.get("https://fomento.eucard.com.br/transferencias")
 time.sleep(3)  
+
 
 #LOGIN
 cpf_field = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//input[@aria-label='CPF *']")))
@@ -52,7 +53,7 @@ time.sleep(1)
 transferencias_link = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, "//a[@href='/transferencias' and contains(@class, 'menu__item')]")))
 transferencias_link.click()
 
-time.sleep(20)
+time.sleep(15)
 
 
 
@@ -72,21 +73,20 @@ def escrever_celula(cell, value):
     response = requests.get(url, params=params)
     if response.status_code == 200:
         data = response.json()
-        print(f"{value}' célula {cell}")
+        print(f"célula {cell}")
     else:
         print(f"Erro ao escrever na célula {cell}: {response.status_code} - {response.text}")
 
-
-#Célula inicial
-row = 2
-
+last_processed_row = 2  # Inicializando na linha 2, onde começa a busca
 
 while True:
+
+    rows_processed = 0  # Contador de transferências processadas
+    rows_to_process = []  # Lista para armazenar as linhas com status "PROCESSANDO"
     
-    bloco_processado = False
 
-    for i in range(7):
 
+    for row in range(last_processed_row, 1000):
         cell_a = f"A{row}"
         value_a = ler_celula(cell_a)
 
@@ -98,63 +98,97 @@ while True:
         value_h = ler_celula(cell_h)
 
         if value_h.strip().upper() == "PROCESSANDO":
-            try:
-                #CAPTURAR NOME PAINELFOMENTO
-                xpath_dinamico = f"//td[@class='text-left' and contains(text(), '{value_a}')]"
-                nome_td = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, xpath_dinamico)))
-                nome = nome_td.text
+            rows_to_process.append(row)  # Adicionar a linha à lista de transferências a serem processadas
 
-                #Capturar Cartão, valor e beneficiário 
-                #.
-                #.
-                #.
-                
-                #CAPTURAR BOTÃO DE SELECIONAR
-                botaoselecionar = xpath_dinamico + "/preceding-sibling::td[1]//div[contains(@class, 'q-toggle')]"
-                botao1 = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, botaoselecionar)))
-                #CLICAR NO BOTÃO
-                actions = ActionChains(driver)
-                actions.move_to_element(botao1).click().perform()
+        if len(rows_to_process) >= 3 or len(rows_to_process) < 3:  # Se encontrou 3 linhas "PROCESSANDO", interrompe a busca
+            break
 
-                bloco_processado = True
+    if len(rows_to_process) == 0:
+        print("Nenhuma transferência com status 'PROCESSANDO' encontrada. Encerrando...")
+        break
+    
 
-                cell_h = f"H{row}"
-                escrever_celula(cell_h, "LIBERADO")
+    for row in rows_to_process:
 
-                print("Nome capturado:", nome)
-            except Exception as e:
-                print(f"Erro ao buscar o nome na linha {row}: {str(e)}")
+        cell_a = f"A{row}"
+        value_a = ler_celula(cell_a)
 
-            row +=1
+        cell_h = f"H{row}"
+        value_h = ler_celula(cell_h)
+
+        cell_b = f"B{row}"
+        value_b = ler_celula(cell_b)
+
+        cell_f = f"f{row}"
+        value_f = ler_celula(cell_f)
+
+
+        try:
+            #CAPTURAR NOME PAINELFOMENTO
+            xpathnome = f"//td[@class='text-left' and contains(text(), '{value_a}')]"
+            nome_td = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, xpathnome)))
+            nome = nome_td.text
+
+            #CAPTURAR NÚMERO CARTAO
+            tdnumerocartao = f"//td[@class='text-left' and contains(text(), '{value_a}')]/following-sibling::td[contains(text(), '{value_b}')]"
+            td_centro = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, tdnumerocartao)))
+            numero_td = td_centro.text
+
+            #CAPTURAR O FAVORECIDO
+            xpath_td_nome = f"//td[@class='text-center' and contains(text(), '{value_f}')]"
+            td_nome = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, xpath_td_nome)))
+            favorecido = td_nome.text
+
+
+
+            #CAPTURAR BOTÃO DE SELECIONAR
+            botaoselecionar = xpathnome + "/preceding-sibling::td[1]//div[contains(@class, 'q-toggle')]"
+            botao1 = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, botaoselecionar)))
+            #CLICAR NO BOTÃO
+            actions = ActionChains(driver)
+            actions.move_to_element(botao1).click().perform()
+
+            print(f"Nome capturado na linha {row}: {nome}, Número capturado: {numero_td}, Favorecido capturado: {favorecido}")
+
+            cell_h = f"H{row}"
+            escrever_celula(cell_h, "LIBERADO")
+
+            print("Nome capturado:", nome)
+        except Exception as e:
+            print(f"Erro ao buscar o nome na linha {row}: {str(e)}")
+
+    
+    last_processed_row = rows_to_process[-1] + 1  # A última linha processada + 1
+
 
     #Esperar para clicar em "Enviar Transferências Selecionadas"
     time.sleep(3)
 
-    if bloco_processado:
-        try:
-            #ENVIAR TRANSFERÊNCIAS SELECIONADAS
-            botaotransferencias = "//span[contains(@class, 'q-btn__content') and span[text()='Enviar Transferências Selecionadas']]"
-            botao2 = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, botaotransferencias)))
-            #CLICAR NO BOTÃO
-            actions = ActionChains(driver)
-            actions.move_to_element(botao2).click().perform()
-            print("Botão 'Enviar Transferências Selecionadas' clicado com sucesso!")
+
+    try:
+        #ENVIAR TRANSFERÊNCIAS SELECIONADAS
+        botaotransferencias = "//span[contains(@class, 'q-btn__content') and span[text()='Enviar Transferências Selecionadas']]"
+        botao2 = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, botaotransferencias)))
+        #CLICAR NO BOTÃO
+        actions = ActionChains(driver)
+        actions.move_to_element(botao2).click().perform()
+        print("Botão 'Enviar Transferências Selecionadas' clicado com sucesso!")
 
 
-            time.sleep(2)
+        time.sleep(2)
 
 
-            #ENVIAR
-            botao_enviar = "//span[@class='block' and text()='Enviar']"
-            botao3 = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, botao_enviar)))
-            #CLICAR NO BOTÃO
-            actions = ActionChains(driver)
-            actions.move_to_element(botao_enviar).click().perform()
+        #ENVIAR
+        botao_enviar = "//span[@class='block' and text()='Enviar']"
+        botao3 = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, botao_enviar)))
+        #CLICAR NO BOTÃO
+        actions = ActionChains(driver)
+        actions.move_to_element(botao3).click().perform()
 
-        except Exception as e:
+    except Exception as e:
             print(f"Erro ao clicar no botão de transferências: {str(e)}")
 
 
-    time.sleep(40)
+    time.sleep(15)
 
 
