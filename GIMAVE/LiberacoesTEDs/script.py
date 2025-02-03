@@ -38,8 +38,8 @@ time.sleep(2)
 
 
 #ABRIR MENU
-menu_icon = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, "//i[@class='q-icon notranslate material-icons' and @aria-hidden='true']")))
-menu_icon.click()
+menu_button = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, "//button[contains(@class, 'toolbar__hamburguer')]")))
+menu_button.click()
 
 time.sleep(1)
 
@@ -77,7 +77,7 @@ def escrever_celula(cell, value):
     else:
         print(f"Erro ao escrever na célula {cell}: {response.status_code} - {response.text}")
 
-last_processed_row = 97  # Inicializando na linha x, onde começa a busca
+last_processed_row = 144  # Inicializando na linha x, onde começa a busca
 
 while True:
 
@@ -189,6 +189,6 @@ while True:
             print(f"Erro ao clicar no botão de transferências: {str(e)}")
 
 
-    time.sleep(35)
+    time.sleep(15)
 
 
