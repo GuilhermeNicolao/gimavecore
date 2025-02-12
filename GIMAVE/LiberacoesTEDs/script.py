@@ -71,7 +71,13 @@ def executar_script():
 
     time.sleep(15)
 
+    #CLICAR NA SETA
+    dropdown_button = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, "//i[contains(@class, 'q-select__dropdown-icon')]")))
+    dropdown_button.click()
 
+    #CLICAR NO 100
+    item_100 = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, "//div[@class='q-item__label' and text()='100']")))
+    item_100.click()
 
     def ler_celula(cell):
         params = {"action": "read", "cell": cell}
