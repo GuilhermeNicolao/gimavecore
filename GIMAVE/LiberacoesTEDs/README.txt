@@ -10,5 +10,3 @@ A rejeição das TEDs deverá ser feita manualmente.
 
 3) Lembre de gerar suas credenciais em um arquivo .env , pois na hora de você puxar o arquivo do repositório o arquivo com as
 credenciais não será puxado (.gitignore).
-
-4) Sempre configure a linha "last_processed_row", pois a mesma é a célula inicial do script.

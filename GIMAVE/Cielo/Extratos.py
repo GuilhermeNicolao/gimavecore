@@ -599,9 +599,9 @@ def fechar_popup_anuncio(driver, xpath, tempo_espera=30):
 
 
 # Preencher Usuário e Senha
-esperar_e_inserir_texto (navegador , '//*[@id="loginMainField"]/div/input' , "032.961.829-69")
+esperar_e_inserir_texto (navegador , '//*[@id="loginMainField"]/div/input' , "1234567890")
 esperar_e_clicar(navegador,'//*[@id="bt-submit"]')
-esperar_e_inserir_texto(navegador,'//*[@id="flui-input-v2-1"]/div/input',"789070")
+esperar_e_inserir_texto(navegador,'//*[@id="flui-input-v2-1"]/div/input',"1234567890")
 esperar_e_clicar(navegador, '//*[@id="bt-submit"]')
 time.sleep(10)
 

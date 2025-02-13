@@ -45,8 +45,8 @@ Sete_Dias = f"{Sete.day:02d}/{Sete.month:02d}/{Sete.year}"
 navegador.get("https://portaleucard.virtusinfo.com.br:8443/SGC/relatorios/contas_receber/relatorio.xhtml")
 
 # Preencher Usuário e Senha
-navegador.find_element(By.XPATH, '//*[@id="formLogin:Usuario"]').send_keys("Gilberto.Neto")
-navegador.find_element(By.XPATH, '//*[@id="formLogin:senha"]').send_keys("g1MAVE@9988")
+navegador.find_element(By.XPATH, '//*[@id="formLogin:Usuario"]').send_keys("1234567890")
+navegador.find_element(By.XPATH, '//*[@id="formLogin:senha"]').send_keys("1234567890")
 navegador.find_element(By.XPATH, '//*[@id="formLogin:j_idt24"]/span').click()
 
 # Espera explícita para garantir que o elemento esteja presente

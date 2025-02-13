@@ -19,7 +19,7 @@ def iniciar_script():
         return
     
     last_processed_row = int(valor)
-    root.destroy()  # Fecha a interface e inicia o script
+    root.destroy() 
     executar_script()
 
 
@@ -50,8 +50,6 @@ def executar_script():
     entrar_button.click()
 
     time.sleep(2)
-
-
 
     #ABRIR MENU
     menu_button = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, "//button[contains(@class, 'toolbar__hamburguer')]")))
@@ -116,7 +114,7 @@ def executar_script():
             value_h = ler_celula(cell_h)
 
             if value_h.strip().upper() == "PROCESSANDO":
-                rows_to_process.append(row)  # Adicionar a linha à lista de transferências a serem processadas
+                rows_to_process.append(row)  
 
             if len(rows_to_process) >= 3:  # Se encontrou 3 linhas "PROCESSANDO", interrompe a busca
                 break
@@ -166,20 +164,17 @@ def executar_script():
                 actions = ActionChains(driver)
                 actions.move_to_element(botao1).click().perform()
 
-                print(f"Nome capturado na linha {row}: {nome}, Número capturado: {numero_td}, Favorecido capturado: {favorecido}")
+                #print(f"Nome capturado na linha {row}: {nome}, Número capturado: {numero_td}, Favorecido capturado: {favorecido}")
 
                 cell_h = f"H{row}"
                 escrever_celula(cell_h, "LIBERADO")
 
-                print("Nome capturado:", nome)
+                #print("Nome capturado:", nome)
             except Exception as e:
                 print(f"Erro ao buscar o nome na linha {row}: {str(e)}")
 
-        
-        last_processed_row = rows_to_process[-1] + 1  # A última linha processada + 1
+        last_processed_row = rows_to_process[-1] + 1 
 
-
-        #Esperar para clicar em "Enviar Transferências Selecionadas"
         time.sleep(3)
 
 
@@ -190,7 +185,7 @@ def executar_script():
             #CLICAR NO BOTÃO
             actions = ActionChains(driver)
             actions.move_to_element(botao2).click().perform()
-            print("Botão 'Enviar Transferências Selecionadas' clicado com sucesso!")
+            #print("Botão 'Enviar Transferências Selecionadas' clicado com sucesso!")
 
 
             time.sleep(2)
