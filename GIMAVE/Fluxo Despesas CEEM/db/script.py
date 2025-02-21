@@ -17,7 +17,7 @@ conn = mysql.connector.connect(**db_config)
 cursor = conn.cursor()
 
 # Ler JSON
-json_path = (r"C:\Users\Guilherme.Silva\Desktop\gimavecore\GIMAVE\Fluxo Despesas CEEM\db\Book1.json")
+json_path = (r"C:\Users\Guilherme.Silva\Desktop\gimavecore\GIMAVE\Fluxo Despesas CEEM\db\importarcadastro.json")
 df = pd.read_json(json_path)
 
 # Substituir valores NaN por None
@@ -25,9 +25,11 @@ df = df.where(pd.notnull(df), None)
 
 # Criar query de inserção dinâmica (ajuste os nomes das colunas conforme necessário)
 query = """
-INSERT INTO pedidos_diarios (cod_pedido, cod_cliente, razao_social, produto, dt_pedido, dt_credito, tipo_pedido, 
-fase_pedido, vlr_pedido, vlr_taxa, vlr_desconto, vlr_estorno, vlr_emissaocrt, vlr_outros, faturas, grupo) 
-VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+INSERT INTO cadastro (cod,cnpj,razao_social,produto,dt_inicio,dt_fim,status_ctt,taxa,vlr_taxa,tp_desconto,vlr_desconto,cond_pgto,
+vlr_emissaocrt,vlr_novavia,cobranca,dt_fechamento,dt_apuracao,freq_apuracao,replica_limite,reposicao_automatica,tp_cartao,
+dados_bancarios,calculo_venc,logradouro,numero,complemento,bairro,cidade,estado) 
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
+%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
 """
 
 # Transformar DataFrame em Lista de Tuplas
