@@ -31,6 +31,7 @@ def executar_script():
     url = f"https://script.google.com/a/macros/angelscapital.com.br/s/{id_value}/exec"
     driver = webdriver.Chrome()
     driver.get("https://fomento.eucard.com.br/transferencias")
+
     time.sleep(3)  
 
     #LOGIN
@@ -43,13 +44,13 @@ def executar_script():
     senha_field.click() 
     senha_field.send_keys(os.getenv("SENHA"))
 
-    time.sleep(2)
+    time.sleep(1)
 
     #ENTRAR
     entrar_button = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, "span.q-btn__content.text-center")))
     entrar_button.click()
 
-    time.sleep(2)
+    time.sleep(1)
 
     #ABRIR MENU
     menu_button = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, "//button[contains(@class, 'toolbar__hamburguer')]")))
@@ -76,17 +77,48 @@ def executar_script():
     #CLICAR NO 100
     item_100 = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, "//div[@class='q-item__label' and text()='100']")))
     item_100.click()
+    
+
+    def exibir_popup_erro(mensagem):
+        root = tk.Tk()
+        root.withdraw()  # Oculta a janela principal
+        messagebox.showerror("Erro de Leitura", mensagem)
+        root.destroy()
 
     def ler_celula(cell):
         params = {"action": "read", "cell": cell}
         response = requests.get(url, params=params)
-        if response.status_code == 200:
-            data = response.json()
-            return data.get("value", None)
-        else:
-            print(f"Erro ao ler a célula {cell}: {response.status_code} - {response.text}")
-            return None
+        
+        try:
+            response = requests.get(url, params=params, timeout=10)  # Define um timeout de 10 segundos
 
+            if response.status_code == 200:
+                data = response.json()
+                return data.get("value", None)
+            
+            elif response.status_code == 400:
+                mensagem_erro = f"Erro 400: Solicitação inválida.\nVerifique se a célula '{cell}' está escrita corretamente."
+            
+            elif response.status_code == 404:
+                mensagem_erro = f"Erro 404: A célula '{cell}' não foi encontrada.\nPode ser um problema com a planilha ou a API."
+
+            elif response.status_code == 500:
+                mensagem_erro = "Erro 500: Erro interno do servidor.\nTente novamente mais tarde."
+
+            else:
+                mensagem_erro = f"Erro inesperado ({response.status_code}): {response.text}"
+            
+        except requests.ConnectionError:
+            mensagem_erro = "Erro de conexão: Verifique sua conexão com a internet."
+        
+        except requests.Timeout:
+            mensagem_erro = "Erro de timeout: O servidor demorou muito para responder."
+        
+        except Exception as e:
+            mensagem_erro = f"Erro desconhecido: {str(e)}"
+
+        exibir_popup_erro(mensagem_erro)
+        return None
 
     def escrever_celula(cell, value):
         params = {"action": "write", "cell": cell, "value": value}
