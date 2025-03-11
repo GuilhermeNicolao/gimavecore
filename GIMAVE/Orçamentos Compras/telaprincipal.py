@@ -53,7 +53,7 @@ def show_lancamentos():
         for index, row in enumerate(lancamentos):
             formatted_vlr_orcamento = locale.currency(row['vlr_orcamento'], grouping=True, symbol=True)
             color_tag = "#d7d7d7" if index % 2 == 0 else "#cccccc"
-            tree.insert("", "end", values=(row['cod'], row['dt'], row['produto'], row['fornecedor'], formatted_vlr_orcamento, row['observacao']), tags=(color_tag))
+            tree.insert("", "end", values=(row['cod'], row['dt'], row['produto'], row['fornecedor'], formatted_vlr_orcamento, row['observacao'], row['status']), tags=(color_tag))
         loaded_codes.clear()
         loaded_codes.extend([row['cod'] for row in lancamentos])
     else:
@@ -67,7 +67,8 @@ def sort_by_column(tree, column, reverse=False):
         "Produto": "produto",
         "Fornecedor": "fornecedor",
         "Valor Orçamento": "vlr_orcamento",
-        "Observação": "observacao"
+        "Observação": "observacao",
+        "Status": "status"
     }
     if column in column_map:
         lancamentos = sort_lancamentos(lancamentos, column_map[column], reverse)
@@ -75,7 +76,7 @@ def sort_by_column(tree, column, reverse=False):
     for index, row in enumerate(lancamentos):
         formatted_vlr_orcamento = locale.currency(row['vlr_orcamento'], grouping=True, symbol=True)
         color_tag = "#d7d7d7" if index % 2 == 0 else "#cccccc"
-        tree.insert("", "end", values=(row['cod'], row['dt'], row['produto'], row['fornecedor'], formatted_vlr_orcamento, row['observacao']), tags=(color_tag))
+        tree.insert("", "end", values=(row['cod'], row['dt'], row['produto'], row['fornecedor'], formatted_vlr_orcamento, row['observacao'], row['status']), tags=(color_tag))
 
 def on_item_selected(event):
     """Carrega os dados do orçamento selecionado para edição."""
@@ -97,6 +98,8 @@ def on_item_selected(event):
         entry_vlr_orcamento.insert(0, values[4].replace("R$ ", "").replace(".", "").replace(",", "."))
         entry_observacao.delete(0, tk.END)
         entry_observacao.insert(0, values[5])
+        entry_status.delete(0, tk.END)
+        entry_status.insert(0, values[6])  # Exibe o status
 
 def save_changes():
     """Salva as alterações no banco de dados e recarrega os lançamentos."""
@@ -106,6 +109,7 @@ def save_changes():
     fornecedor = entry_fornecedor.get()
     vlr_orcamento = float(entry_vlr_orcamento.get())
     observacao = entry_observacao.get()
+    status = entry_status.get()  # Obtém o valor do status
 
     # Converter DD/MM/YYYY para YYYY-MM-DD antes de salvar no banco
     try:
@@ -123,9 +127,9 @@ def save_changes():
         cursor = connection.cursor()
         cursor.execute(""" 
             UPDATE cadastro_orc 
-            SET dt = %s, produto = %s, fornecedor = %s, vlr_orcamento = %s, observacao = %s 
+            SET dt = %s, produto = %s, fornecedor = %s, vlr_orcamento = %s, observacao = %s, status = %s 
             WHERE cod = %s
-        """, (data_sql, produto, fornecedor, vlr_orcamento, observacao, cod))
+        """, (data_sql, produto, fornecedor, vlr_orcamento, observacao, status, cod))
         connection.commit()
         messagebox.showinfo("Sucesso", "Orçamento atualizado com sucesso!")
         
@@ -162,13 +166,14 @@ root.title("Lançamentos - Cadastro Orc")
 root.geometry("900x500")
 root.configure(bg="#dfdfdf")
 
-tree = ttk.Treeview(root, columns=("Código", "Data", "Produto", "Fornecedor", "Valor Orçamento", "Observação"), show="headings")
+tree = ttk.Treeview(root, columns=("Código", "Data", "Produto", "Fornecedor", "Valor Orçamento", "Observação", "Status"), show="headings")
 tree.heading("Código", text="Código", command=lambda: sort_by_column(tree, "Código", reverse=False))
 tree.heading("Data", text="Data", command=lambda: sort_by_column(tree, "Data", reverse=False))
 tree.heading("Produto", text="Produto", command=lambda: sort_by_column(tree, "Produto", reverse=False))
 tree.heading("Fornecedor", text="Fornecedor", command=lambda: sort_by_column(tree, "Fornecedor", reverse=False))
 tree.heading("Valor Orçamento", text="Valor Orçamento", command=lambda: sort_by_column(tree, "Valor Orçamento", reverse=False))
 tree.heading("Observação", text="Observação", command=lambda: sort_by_column(tree, "Observação", reverse=False))
+tree.heading("Status", text="Status", command=lambda: sort_by_column(tree, "Status", reverse=False))
 
 tree.column("Código", width=80)
 tree.column("Data", width=100)
@@ -176,6 +181,7 @@ tree.column("Produto", width=150)
 tree.column("Fornecedor", width=150)
 tree.column("Valor Orçamento", width=120)
 tree.column("Observação", width=200)
+tree.column("Status", width=100)
 
 tree.tag_configure("#d7d7d7", background="#d7d7d7")
 tree.tag_configure("#cccccc", background="#cccccc")
@@ -190,32 +196,40 @@ tree.pack(fill="both", expand=True, padx=10, pady=10)
 frame_edit = tk.Frame(root, bg="#dfdfdf")
 frame_edit.pack(pady=10)
 
-tk.Label(frame_edit, text="Código:").grid(row=0, column=0, padx=5)
-entry_cod = tk.Entry(frame_edit, state="readonly", width=10)  # Campo bloqueado
+tk.Label(frame_edit, text="Código:", bg="#DFDFDF").grid(row=0, column=0, padx=5)
+entry_cod = tk.Entry(frame_edit, state="readonly", width=10)
 entry_cod.grid(row=0, column=1, padx=5)
 
-ttk.Label(frame_edit, text="Data (DD/MM/YYYY):").grid(row=0, column=2, padx=5)
+tk.Label(frame_edit, text="Data:", bg="#DFDFDF").grid(row=0, column=2, padx=5)
 entry_data = tk.Entry(frame_edit, width=12)
 entry_data.grid(row=0, column=3, padx=5)
 
-tk.Label(frame_edit, text="Produto:").grid(row=0, column=4, padx=5)
+tk.Label(frame_edit, text="Produto:", bg="#DFDFDF").grid(row=0, column=4, padx=5)
 entry_produto = tk.Entry(frame_edit, width=20)
 entry_produto.grid(row=0, column=5, padx=5)
 
-tk.Label(frame_edit, text="Fornecedor:").grid(row=1, column=0, padx=5)
+# Linha 2
+tk.Label(frame_edit, text="Fornecedor:", bg="#DFDFDF").grid(row=1, column=0, padx=5)
 entry_fornecedor = tk.Entry(frame_edit, width=20)
 entry_fornecedor.grid(row=1, column=1, padx=5)
 
-tk.Label(frame_edit, text="Valor Orçamento:").grid(row=1, column=2, padx=5)
+tk.Label(frame_edit, text="Valor Orçamento:", bg="#DFDFDF").grid(row=1, column=2, padx=5)
 entry_vlr_orcamento = tk.Entry(frame_edit, width=12)
 entry_vlr_orcamento.grid(row=1, column=3, padx=5)
 
-tk.Label(frame_edit, text="Observação:").grid(row=1, column=4, padx=5)
+tk.Label(frame_edit, text="Observação:", bg="#DFDFDF").grid(row=1, column=4, padx=5)
 entry_observacao = tk.Entry(frame_edit, width=30)
 entry_observacao.grid(row=1, column=5, padx=5)
 
-tk.Button(root, text="Salvar Alterações", command=save_changes, bg="#28a745", fg="white").pack(pady=5)
-tk.Button(root, text="Carregar Lançamentos", command=show_lancamentos).pack(pady=5)
-tk.Button(root, text="Excluir Orçamento", command=delete_lancamento, bg="#dc3545", fg="white").pack(pady=5)
+tk.Label(frame_edit, text="Status:", bg="#DFDFDF").grid(row=2, column=0, padx=5)
+entry_status = tk.Entry(frame_edit, width=10)  # Campo para status
+entry_status.grid(row=2, column=1, padx=5)
+
+frame_buttons = tk.Frame(root, bg="#dfdfdf")
+frame_buttons.pack(pady=10)
+
+tk.Button(frame_buttons, text="Salvar Alterações", command=save_changes, bg="#28a745", fg="white").grid(row=0, column=0, padx=5)
+tk.Button(frame_buttons, text="Carregar Lançamentos", command=show_lancamentos).grid(row=0, column=1, padx=5)
+tk.Button(frame_buttons, text="Excluir Orçamento", command=delete_lancamento, bg="#dc3545", fg="white").grid(row=0, column=2, padx=5)
 
 root.mainloop()

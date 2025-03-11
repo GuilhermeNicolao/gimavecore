@@ -7,9 +7,12 @@ ALTER TABLE pedidos_diarios DROP COLUMN created_at;
 SELECT count(*) FROM pedidos_diarios;
 SELECT SUM(vlr_pedido) AS total FROM pedidos_diarios;
 
+SET SQL_SAFE_UPDATES = 0;
 
+ALTER TABLE cadastro_orc ADD COLUMN status varchar(255);
+UPDATE cadastro_orc SET status = NULL WHERE STATUS = 'REPROVADO';
 SELECT * FROM cadastro_orc;
-DELETE FROM cadastro_orc where cod = '2';
+DELETE FROM cadastro_orc where cod = '16';
 DESCRIBE cadastro;
 ALTER TABLE cadastro CHANGE COLUMN cnpj cnpj bigint;
 
