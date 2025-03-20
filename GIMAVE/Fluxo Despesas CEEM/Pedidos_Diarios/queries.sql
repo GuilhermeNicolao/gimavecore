@@ -10,11 +10,12 @@ SELECT SUM(vlr_pedido) AS total FROM pedidos_diarios;
 SET SQL_SAFE_UPDATES = 0;
 
 ALTER TABLE cadastro_orc ADD COLUMN status varchar(255);
-UPDATE cadastro_orc SET status = NULL WHERE STATUS = 'REPROVADO';
+UPDATE cadastro_orc SET status = NULL WHERE STATUS = 'APROVADO';
+UPDATE cadastro_orc SET status = 'APROVADO' where cod = '51';
 SELECT * FROM cadastro_orc;
-DELETE FROM cadastro_orc where cod = '16';
+DELETE FROM cadastro_orc where cod = '29';
 DESCRIBE cadastro;
-ALTER TABLE cadastro CHANGE COLUMN cnpj cnpj bigint;
+ALTER TABLE cadastro_orc CHANGE COLUMN observacao observacao bigint;
 
 CREATE TABLE cadastro_orc(
     cod INT PRIMARY KEY auto_increment,
