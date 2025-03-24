@@ -15,7 +15,14 @@ import pyperclip
 from dotenv import load_dotenv
 
 # Configurar opções do Chrome
+# Desativar o gerenciador de senhas e a oferta de salvar senhas
+
 options = Options()
+prefs = {
+    "credentials_enable_service": False,  # Desativa o serviço de credenciais
+    "profile.password_manager_enabled": False  # Desativa o gerenciador de senhas
+}
+options.add_experimental_option("prefs", prefs)
 options.add_argument("--start-maximized")
 options.add_argument("--disable-blink-features=AutomationControlled")
 options.add_experimental_option("excludeSwitches", ["enable-automation"])
@@ -32,6 +39,11 @@ def digitar_entrada_com_TAB(driver, texto, tab_count=0): #Qtde de TABS
     for _ in range(tab_count):
         driver.switch_to.active_element.send_keys(Keys.TAB)
     time.sleep(1)
+
+def clicar_TAB(driver, tab_count=0): #Qtde de TABS
+    for _ in range(tab_count):
+        driver.switch_to.active_element.send_keys(Keys.TAB)
+    time.sleep(2)    
 
 def digitar_entrada(driver, texto, tab_count=0): #Inserir textos
     driver.switch_to.active_element.send_keys(texto)
@@ -152,8 +164,8 @@ def Clique_Ousado(driver, imagem_alvo, timeout=30): #Reconhece a imagem e clica 
             print(f"Precisão da imagem encontrada: {max_val:.2f}")
 
             # Salvar a imagem detectada para análise
-            cv2.imwrite("imagem_detectada.png", screen_image)
-            print("Imagem detectada salva como 'imagem_detectada.png'")
+            # cv2.imwrite("imagem_detectada.png", screen_image)
+            # print("Imagem detectada salva como 'imagem_detectada.png'")
 
             if max_val >= 0.95:  # Ajuste de precisão para aceitar imagens com 98% de correspondência
                 template_h, template_w = template_gray.shape[:2]
@@ -163,8 +175,8 @@ def Clique_Ousado(driver, imagem_alvo, timeout=30): #Reconhece a imagem e clica 
                 cv2.rectangle(screen_image, (max_loc[0], max_loc[1]), 
                               (max_loc[0] + template_w, max_loc[1] + template_h), 
                               (0, 255, 0), 2)
-                cv2.imwrite("clicado.png", screen_image)
-                print("Print da área clicada salvo como 'clicado.png'.")
+                # cv2.imwrite("clicado.png", screen_image)
+                # print("Print da área clicada salvo como 'clicado.png'.")
 
                 scroll_x, scroll_y = driver.execute_script("return [window.scrollX, window.scrollY];")
 
@@ -190,18 +202,29 @@ def Clique_Ousado(driver, imagem_alvo, timeout=30): #Reconhece a imagem e clica 
     except Exception as e:
         print(f"Erro ao detectar ou clicar na imagem: {e}")
 
+diretorio_base = r'C:\Users\Guilherme.Silva\Desktop\gimavecore\GIMAVE\Baixa Credenciados'
+
+imagem_ok = os.path.join(diretorio_base, 'ok.png')
+imagem_totvs_inicio = os.path.join(diretorio_base, 'totvs_inicio.png')
+imagem_nome = os.path.join(diretorio_base, 'nome.png')
+imagem_favorito = os.path.join(diretorio_base, 'favorito.png')
+imagem_funcoes_cpg = os.path.join(diretorio_base, 'funcoes_cpg.png')
+imagem_confirmar = os.path.join(diretorio_base, 'confirmar.png')
+imagem_outrasacoes = os.path.join(diretorio_base, 'outras_acoes.png')
+imagem_bordero = os.path.join(diretorio_base, 'bordero.png')
+imagem_bordero2 = os.path.join(diretorio_base, 'bordero2.png')
+imagem_clicado2 = os.path.join(diretorio_base, 'clicado2.png')
+imagem_banco = os.path.join(diretorio_base, 'banco.png')
 
 # Abrir página
 navegador.get("http://an148124.protheus.cloudtotvs.com.br:1703/webapp/")
 WebDriverWait(navegador, 20).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
 actions = ActionChains(navegador)
 
-imagem_alvo = r'C:\Users\Guilherme.Silva\Desktop\gimavecore\GIMAVE\Teste Totvs Web\ok.png'
-detectar_e_clicar_imagem(navegador, imagem_alvo)
+detectar_e_clicar_imagem(navegador, imagem_ok)
 time.sleep(10)
 
-imagem_alvo = r'C:\Users\Guilherme.Silva\Desktop\gimavecore\GIMAVE\Teste Totvs Web\totvs_inicio.png'
-esperar_imagem_aparecer(navegador, imagem_alvo)
+esperar_imagem_aparecer(navegador, imagem_totvs_inicio)
 time.sleep(3)
 
 digitar_entrada_com_TAB(navegador, os.getenv("LOGIN"), 1)
@@ -209,8 +232,7 @@ digitar_entrada_com_TAB(navegador, os.getenv("SENHA"), 1)
 actions.send_keys(Keys.ENTER).perform()
 time.sleep(10)
 
-imagem_alvo = r'C:\Users\Guilherme.Silva\Desktop\gimavecore\GIMAVE\Teste Totvs Web\nome.png'
-esperar_imagem_aparecer(navegador, imagem_alvo)
+esperar_imagem_aparecer(navegador, imagem_nome)
 time.sleep(3)
 
 for _ in range(2):
@@ -219,7 +241,7 @@ for _ in range(2):
 
 time.sleep(2)
 
-digitar_entrada_com_TAB(navegador, "17/03/2025",2)
+digitar_entrada_com_TAB(navegador, "12/03/2025",2)
 time.sleep(0.5)
 actions.key_down(Keys.CONTROL).send_keys('a').key_up(Keys.CONTROL).perform()
 actions.key_down(Keys.CONTROL).send_keys('c').key_up(Keys.CONTROL).perform()
@@ -238,35 +260,42 @@ else:
         time.sleep(0.5)
 
 
-digitar_entrada_com_TAB(navegador, "5",5)
+digitar_entrada_com_TAB(navegador, "6",5)
 actions.send_keys(Keys.ENTER).perform()
 time.sleep(10)
 
-imagem_alvo = r'C:\Users\Guilherme.Silva\Desktop\gimavecore\GIMAVE\Teste Totvs Web\favorito.png'
-Clique_Ousado(navegador, imagem_alvo)
+Clique_Ousado(navegador, imagem_favorito)
 time.sleep(5)
 
-imagem_alvo = r'C:\Users\Guilherme.Silva\Desktop\gimavecore\GIMAVE\Teste Totvs Web\pedidos_venda.png'
-Clique_Ousado(navegador, imagem_alvo)
+Clique_Ousado(navegador, imagem_funcoes_cpg)
 time.sleep(5)
 
-imagem_alvo = r'C:\Users\Guilherme.Silva\Desktop\gimavecore\GIMAVE\Teste Totvs Web\esperar_data.png'
-esperar_imagem_aparecer(navegador, imagem_alvo)
+Clique_Ousado(navegador, imagem_confirmar)
+time.sleep(15)
+
+Clique_Ousado(navegador, imagem_outrasacoes)
+time.sleep(2)
+
+Clique_Ousado(navegador, imagem_bordero)
+time.sleep(2)
+
+Clique_Ousado(navegador, imagem_bordero2)
+time.sleep(2)
+
+clicar_TAB(navegador, 7)
+time.sleep(2)
+
+
+digitar_entrada_com_TAB(navegador, "756",1)
 time.sleep(1)
-digitar_entrada(navegador, "13/03/2025")
-time.sleep(2)
-
-actions.send_keys(Keys.ENTER).perform()
-time.sleep(2)
-
-imagem_alvo = r'C:\Users\Guilherme.Silva\Desktop\gimavecore\GIMAVE\Teste Totvs Web\esperar_nat.png'
-esperar_imagem_aparecer(navegador, imagem_alvo)
+digitar_entrada_com_TAB(navegador, "3337",1)
 time.sleep(1)
-digitar_entrada(navegador, "2152101005")
-time.sleep(2)
-
-actions.send_keys(Keys.ENTER).perform()
-time.sleep(10)
+digitar_entrada_com_TAB(navegador, "3780624",8)
+time.sleep(1)
+digitar_entrada_com_TAB(navegador,"02",1)
+time.sleep(1)
+digitar_entrada_com_TAB(navegador,"20",1)
+time.sleep(900)
 
 
 # Chamar função após o clique

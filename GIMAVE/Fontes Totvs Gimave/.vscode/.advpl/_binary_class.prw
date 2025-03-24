@@ -3441,7 +3441,7 @@ Retorna a coluna selecionada.
 
 @type method
 
-@return numeric, Índice da coluna selecionada.
+@return numeric, Ýndice da coluna selecionada.
 
 @author [VP Tecnologia](https://tdn.totvs.com/display/tec) - [TOTVS S.A.](https://www.totvs.com/)
 @see https://tdn.totvs.com/display/tec/colpos
@@ -3639,7 +3639,7 @@ Define a fonte de texto de uma coluna específica.
 
 @type method
 
-@param <ncol>, numeric, Índice da coluna \(iniciando em 1\).
+@param <ncol>, numeric, Ýndice da coluna \(iniciando em 1\).
 @param <ofont>, object, Indica o objeto do tipo [TFont](TFont) utilizado para definir as características da fonte aplicada na exibição do texto das linhas da coluna especificada.
 @author [VP Tecnologia](https://tdn.totvs.com/display/tec) - [TOTVS S.A.](https://www.totvs.com/)
 @see https://tdn.totvs.com/display/tec/setcolumnfont
@@ -5099,7 +5099,7 @@ Salva um arquivo anexo a mensagem em disco.
 
 @return logical, Retorna verdadeiro \(.T.\) caso consiga salvar o anexo com sucesso. Falso \(.F.\) caso contrário.
 
-@param <nindex>, numeric, Índice do anexo iniciando em 1.
+@param <nindex>, numeric, Ýndice do anexo iniciando em 1.
 @param <cpath>, character, Caminho com o nome do arquivo que será gravado.
 @author [VP Tecnologia](https://tdn.totvs.com/display/tec) - [TOTVS S.A.](https://www.totvs.com/)
 @see https://tdn.totvs.com/display/tec/saveattach
