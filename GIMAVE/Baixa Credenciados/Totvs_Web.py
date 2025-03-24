@@ -202,6 +202,70 @@ def Clique_Ousado(driver, imagem_alvo, timeout=30): #Reconhece a imagem e clica 
     except Exception as e:
         print(f"Erro ao detectar ou clicar na imagem: {e}")
 
+def Clique_Ousado_Scroll(driver, imagem_alvo, timeout=30, scroll_step=300):  
+    try:
+        if not os.path.exists(imagem_alvo):
+            print(f"Imagem alvo não encontrada: {imagem_alvo}")
+            return
+        
+        WebDriverWait(driver, timeout).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+
+        tempo_espera = 0
+        intervalo = 2
+        scroll_attempts = 5  # Quantidade de tentativas de rolagem antes de desistir
+
+        while tempo_espera < timeout:
+            for _ in range(scroll_attempts):
+                driver.execute_script("window.scrollBy(0, arguments[0]);", scroll_step)
+                time.sleep(1)
+
+                screenshot = driver.get_screenshot_as_png()
+                screen_array = np.frombuffer(screenshot, dtype=np.uint8)
+                screen_image = cv2.imdecode(screen_array, cv2.IMREAD_COLOR)
+                screen_gray = cv2.cvtColor(screen_image, cv2.COLOR_BGR2GRAY)
+
+                template = cv2.imread(imagem_alvo, cv2.IMREAD_COLOR)
+                if template is None:
+                    print(f"Erro ao carregar a imagem do template: {imagem_alvo}")
+                    return
+                
+                template_gray = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
+                result = cv2.matchTemplate(screen_gray, template_gray, cv2.TM_CCOEFF_NORMED)
+                
+                _, max_val, _, max_loc = cv2.minMaxLoc(result)
+                
+                print(f"Precisão da imagem encontrada: {max_val:.2f}")
+
+                if max_val >= 0.95:  
+                    template_h, template_w = template_gray.shape[:2]
+                    click_x = max_loc[0] + template_w // 2
+                    click_y = max_loc[1] + template_h // 2
+
+                    scroll_x, scroll_y = driver.execute_script("return [window.scrollX, window.scrollY];")
+
+                    # Ajuste para rolagem e posição real
+                    page_x = click_x + scroll_x
+                    page_y = click_y + scroll_y
+
+                    print(f"Clicando exatamente em X: {page_x}, Y: {page_y} (Scroll X: {scroll_x}, Y: {scroll_y})")
+
+                    # Rolar até o ponto do clique para garantir visibilidade
+                    driver.execute_script(f"window.scrollTo({page_x - 50}, {page_y - 50});")
+                    time.sleep(1)
+
+                    # Clique real usando JavaScript
+                    driver.execute_script(f"document.elementFromPoint({click_x}, {click_y}).click();")
+                    return  
+
+            print("Imagem não encontrada após rolar, tentando novamente...")
+            tempo_espera += intervalo
+            time.sleep(intervalo)
+        
+        print("Imagem não encontrada após tempo limite.")
+    except Exception as e:
+        print(f"Erro ao detectar ou clicar na imagem: {e}")
+
+
 diretorio_base = r'C:\Users\Guilherme.Silva\Desktop\gimavecore\GIMAVE\Baixa Credenciados'
 
 imagem_ok = os.path.join(diretorio_base, 'ok.png')
@@ -215,6 +279,8 @@ imagem_bordero = os.path.join(diretorio_base, 'bordero.png')
 imagem_bordero2 = os.path.join(diretorio_base, 'bordero2.png')
 imagem_clicado2 = os.path.join(diretorio_base, 'clicado2.png')
 imagem_banco = os.path.join(diretorio_base, 'banco.png')
+imagem_ok2 = os.path.join(diretorio_base, 'ok2.png')
+imagem_filial_vlrtitulo = os.path.join(diretorio_base, 'filial_vlrtitulo.png')
 
 # Abrir página
 navegador.get("http://an148124.protheus.cloudtotvs.com.br:1703/webapp/")
@@ -295,7 +361,11 @@ time.sleep(1)
 digitar_entrada_com_TAB(navegador,"02",1)
 time.sleep(1)
 digitar_entrada_com_TAB(navegador,"20",1)
-time.sleep(900)
+time.sleep(1)
+Clique_Ousado(navegador, imagem_ok2)
+time.sleep(3)
+
+Clique_Ousado_Scroll(navegador, imagem_filial_vlrtitulo)
 
 
 # Chamar função após o clique
