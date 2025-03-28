@@ -16,6 +16,7 @@ import pyperclip
 import matplotlib.pyplot as plt
 import pandas as pd
 from selenium.common.exceptions import TimeoutException
+from dotenv import load_dotenv
 
 
 
@@ -27,7 +28,7 @@ options.add_experimental_option("excludeSwitches", ["enable-automation"])
 options.add_experimental_option("useAutomationExtension", False)
 
 # Executar em modo headless
-options.add_argument("--headless=new")
+# options.add_argument("--headless=new")
 
 # Desativar o gerenciador de senhas e a oferta de salvar senhas
 prefs = {
@@ -39,6 +40,8 @@ options.add_experimental_option("prefs", prefs)
 # Inicializar navegador com as opções
 servico = Service(ChromeDriverManager().install())
 navegador = webdriver.Chrome(service=servico, options=options)
+
+load_dotenv()
 
 def apagar_Campo(driver, elemento_id, tempo_espera=30):
     """
@@ -216,7 +219,7 @@ def Clique_Ousado(driver, imagem_alvo, timeout=80):
             print(f"Precisão da imagem encontrada: {max_val:.2f}")
 
             # Salvar a imagem detectada para análise
-            cv2.imwrite("imagem_detectada.png", screen_image)
+            #cv2.imwrite("imagem_detectada.png", screen_image)
             print("Imagem detectada salva como 'imagem_detectada.png'")
 
             if max_val >= 0.90:  # Ajuste de precisão para aceitar imagens com 98% de correspondência
@@ -227,7 +230,7 @@ def Clique_Ousado(driver, imagem_alvo, timeout=80):
                 cv2.rectangle(screen_image, (max_loc[0], max_loc[1]), 
                               (max_loc[0] + template_w, max_loc[1] + template_h), 
                               (0, 255, 0), 2)
-                cv2.imwrite("clicado.png", screen_image)
+                #cv2.imwrite("clicado.png", screen_image)
                 print("Print da área clicada salvo como 'clicado.png'.")
 
                 scroll_x, scroll_y = driver.execute_script("return [window.scrollX, window.scrollY];")
@@ -479,28 +482,40 @@ def inserir_Com_Python(driver, elemento_id, texto, tempo_espera=30):
         driver.execute_script(f"document.getElementById('{elemento_id}').value = '{texto}';")
         print(f"Texto inserido via JavaScript no elemento {elemento_id}.")
 
+#Variáveis
+diretorio = r"C:\Users\Guilherme.Silva\Desktop\gimavecore\GIMAVE\Baixa Credenciados"
+imagem_ok = os.path.join(diretorio, "ok.png")
+imagem_inicio = os.path.join(diretorio, "totvs_inicio.png")
+imagem_nome = os.path.join(diretorio, "nome.png")
+imagem_favorito = os.path.join(diretorio, "favorito.png")
+imagem_funcoes_cpg = os.path.join(diretorio, "funcoescpg.png")
+imagem_renovacao = os.path.join(diretorio, "msg_renovacao.png")
+imagem_outrasacoes = os.path.join(diretorio, "outras_acoes.png")
+imagem_bordero = os.path.join(diretorio, "bordero.png")
+imagem_bordero2 = os.path.join(diretorio, "bordero2.png")
+imagem_antesbordero = os.path.join(diretorio, "antesbordero.png")
+data = "24/03/2025"
+
 
 # Abrir página
 navegador.get("http://an148124.protheus.cloudtotvs.com.br:1703/webapp/")
 WebDriverWait(navegador, 30).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
 actions = ActionChains(navegador)
-
-imagem_alvo = 'ok.png'
-detectar_e_clicar_imagem(navegador, imagem_alvo)
 time.sleep(5)
 
-imagem_alvo = 'totvs_inicio.png'
-esperar_imagem_aparecer(navegador, imagem_alvo)
+detectar_e_clicar_imagem(navegador, imagem_ok)
+time.sleep(5)
+
+esperar_imagem_aparecer(navegador, imagem_inicio)
 time.sleep(3)
 
-#Colocar loguin e senha
-digitar_entrada_com_TAB(navegador, "ADRYANCORDEIRO", 1)
-digitar_entrada_com_TAB(navegador, "123456", 1)
+#Colocar login e senha
+digitar_entrada_com_TAB(navegador, os.getenv("LOGIN"), 1)
+digitar_entrada_com_TAB(navegador, os.getenv("SENHA"), 1)
 actions.send_keys(Keys.ENTER).perform()
 time.sleep(5)
 
-imagem_alvo = 'nome.png'
-esperar_imagem_aparecer(navegador, imagem_alvo)
+esperar_imagem_aparecer(navegador, imagem_nome)
 time.sleep(1)
 
 for _ in range(2):
@@ -508,57 +523,19 @@ for _ in range(2):
     time.sleep(0.5)
 time.sleep(1)
 
-
 # Processar cada linha da tabela
-caminho_arquivo = "Base_Dados.xlsx"
+# caminho_arquivo = "bordero.xlsx"
 
 # Carregar a planilha, considerando que a primeira linha pode conter os nomes das colunas
-tabela_produtos = pd.read_excel(r"C:\Totvs_WEB\Parceiros\Base_Dados.xlsx", dtype=str, engine="openpyxl")
-
-# Exibir os nomes das colunas para verificar se "Data de crédito" está correto
-print("Nomes das colunas detectadas:", tabela_produtos.columns.tolist())
+# tabela_produtos = pd.read_excel(r"C:\Users\Guilherme.Silva\Desktop\gimavecore\GIMAVE\Baixa Credenciados\bordero.xlsx", dtype=str, engine="openpyxl")
 
 # Remover espaços extras dos nomes das colunas
-tabela_produtos.columns = tabela_produtos.columns.str.strip()
-
-# Verificar se "Dt Baixa" existe na primeira linha
-if "Dt Baixa" not in tabela_produtos.columns:
-    print("⚠️ A coluna 'Data de crédito' não foi encontrada na primeira linha. Verificando na segunda linha...")
-
-    # Carregar a planilha novamente, mas agora considerando a segunda linha como os nomes das colunas
-    tabela_produtos = pd.read_excel(r"C:\Totvs_WEB\Parceiros\Base_Dados.xlsx", header=1, dtype=str, engine="openpyxl")
-
-    # Exibir novamente os nomes das colunas
-    print("Novos nomes das colunas detectadas:", tabela_produtos.columns.tolist())
-
-    # Remover espaços extras novamente
-    tabela_produtos.columns = tabela_produtos.columns.str.strip()
-
-    # Verificar se "Data de crédito" agora está na segunda linha
-    if "Dt Baixa" not in tabela_produtos.columns:
-        print("⚠️ A coluna 'Dt Baixa' não foi encontrada na segunda linha. Verifique os dados.")
-    else:
-        print("✅ A coluna 'Dt Baixa' foi encontrada na segunda linha.")
-else:
-    print("✅ A coluna 'Dt Baixa' foi encontrada corretamente na primeira linha.")
-
-# Mostrar as primeiras linhas para depuração
-print(tabela_produtos.head())
+# tabela_produtos.columns = tabela_produtos.columns.str.strip()
 
 # Obter a "terceira linha" (índice 1) da coluna "Data de crédito"
-primeira_data = tabela_produtos.loc[1, "Dt Baixa"]
+# primeira_data = tabela_produtos.loc[1, "Dt Baixa"]
 
-# Converter para datetime, caso não seja
-primeira_data = pd.to_datetime(primeira_data, errors='coerce')
-
-# Verificar se a conversão foi bem-sucedida
-if pd.isna(primeira_data):
-    print("Erro: Data inválida ou não encontrada.")
-else:
-    data_formatada = primeira_data.strftime('%d/%m/%Y')
-    print("Data formatada:", data_formatada)
-
-digitar_entrada_com_TAB(navegador, data_formatada ,2)
+digitar_entrada_com_TAB(navegador, data ,2)
 time.sleep(0.5)
 actions.key_down(Keys.CONTROL).send_keys('a').key_up(Keys.CONTROL).perform()
 actions.key_down(Keys.CONTROL).send_keys('c').key_up(Keys.CONTROL).perform()
@@ -582,249 +559,81 @@ actions.send_keys(Keys.ENTER).perform()
 time.sleep(5)
 
 # Clicar em Favorito
-imagem_alvo = 'favorito.png'
-Clique_Ousado(navegador, imagem_alvo)
-time.sleep(5)
+Clique_Ousado(navegador, imagem_favorito)
+time.sleep(3)
 
-#Contas a Receber 
-imagem_alvo = 'baixas_Receber.png'
-Clique_Ousado(navegador, imagem_alvo)
-time.sleep(2)
+#Funções CPG
+Clique_Ousado(navegador, imagem_funcoes_cpg)
+time.sleep(3)
 
 try:
     elemento = WebDriverWait(navegador, 40).until(
-        EC.presence_of_element_located((By.ID, "COMP4512"))
+        EC.presence_of_element_located((By.ID, "COMP4522"))
     )
     elemento.click()
-    print("COMP4512 encontrado e clicado.")
+    print("COMP4522 encontrado e clicado.")
 except TimeoutException:
-    print("COMP4512 não encontrado, seguindo com o código.")
+    print("COMP4522 não encontrado, seguindo com o código.")
+time.sleep(7)
 
-#Esperar Filtro Aparecer
-imagem_alvo = 'filtro.png'
-esperar_imagem_aparecer(navegador, imagem_alvo)
+#Msg renovação
+esperar_e_clicar_simples(navegador, "COMP4512")
+time.sleep(7)
+
+esperar_imagem_aparecer(navegador, imagem_antesbordero)
+time.sleep(2)
+
+#Outras ações
+esperar_e_clicar_simples(navegador, "COMP4606")
+time.sleep(2)
+
+#Bordero
+esperar_e_clicar_simples(navegador, "COMP4614")
+time.sleep(2)
+
+#Bordero 2
+esperar_e_clicar_simples(navegador, "COMP4615")
+time.sleep(4)
+
+#Capturar número do bordero
+elemento = WebDriverWait(navegador, 40).until(EC.presence_of_element_located((By.ID, "COMP6018")))
+actions.key_down(Keys.CONTROL).send_keys('a').key_up(Keys.CONTROL).perform()
+actions.key_down(Keys.CONTROL).send_keys('c').key_up(Keys.CONTROL).perform()
+num_bordero = pyperclip.paste()
+
+#Banco
+inserir_Sem_Espaço(navegador,"COMP6022", "756",30)
 time.sleep(1)
 
-#CLICAR EM FILTRO
-esperar_e_clicar(navegador, 'COMP4526')
+#Agencia
+inserir_Sem_Espaço(navegador,"COMP6023" ,"3337",30)
 time.sleep(1)
 
-#Clicar em Pedido Filtro
-esperar_e_clicar(navegador, 'COMP6025')
+#Conta
+inserir_Sem_Espaço(navegador,"COMP6024", "3780624",30)
 time.sleep(1)
 
-#Clicar em Aplicar
-esperar_e_clicar(navegador, 'COMP6048')
+#Modelo
+inserir_Sem_Espaço(navegador,"COMP6030", "02",30)
+time.sleep(2)
+
+#Tipo Pagamento
+inserir_Sem_Espaço(navegador,"COMP6031" ,"20",30)
 time.sleep(1)
 
-# Inserir O valor: COMP9003
-digitar_entrada_com_TAB(navegador ,"056589")
+#OK
+esperar_e_clicar_simples(navegador, "COMP6032")
+time.sleep(5)
 
-#Clicar em avançar COMP9006
-esperar_e_clicar(navegador, '056589')
-time.sleep(1)
+# Filial + Vlr Titulo
+element = navegador.find_element(By.CLASS_NAME, "horizontal-scroll") 
+navegador.execute_script("arguments[0].scrollIntoView();", element)
+navegador.execute_script("window.scrollBy(0, 300);")  # Rola 300 pixels para baixo
 
-print(tabela_produtos.head())  # Mostra as primeiras linhas da tabela
-print(f"Total de linhas: {len(tabela_produtos)}")  # Exibe o total de registros
-
-# Processar cada linha da tabela
-def processar_linha(linha):
-    try:
-
-        # Extraindo dados da linha
-        Data_Baixa = pd.to_datetime(tabela_produtos.loc[linha, "Dt Baixa"])
-        Pedido = tabela_produtos.loc[linha, "Pedido"]
-        Fatura = tabela_produtos.loc[linha, "Fatura"]
-        Value_Titulo = tabela_produtos.loc[linha, "Valor"]
-        Hist = tabela_produtos.loc[linha, "Histórico"]
-
-        # Campos para baixar
-        Juros = tabela_produtos.loc[linha, "Juros"]
-        Desconto = tabela_produtos.loc[linha, "Desconto"]
-        Bank = "756"
-        Agen = "3337"
-        Cont = str(tabela_produtos.loc[linha, "Conta"])
-        statuns = tabela_produtos.loc[linha, "statuns"]
-
-        # Formatação de valores
-        try:
-            Value_Titulo = f"{float(Value_Titulo):.2f}".replace(".", ",")
-        except ValueError:
-            Value_Titulo = "0,00"
-   
-        try:
-            Juros = f"{float(Juros):.2f}".replace(".", ",")
-        except ValueError:
-            Juros = "0,00"
-
-        try:
-            Desconto = f"{float(Desconto):.2f}".replace(".", ",")
-        except ValueError:
-            Desconto = "0,00"
-        
-        #Formatação De Datas
-        data_formatada = Data_Baixa.strftime('%m/%d/%Y')
-        Data_Baixa = data_formatada
-        
-        #CLICAR EM FILTRO
-        esperar_e_clicar(navegador, 'COMP4526')
-        time.sleep(1)
-
-        #Aqui vai Tentar Clicar em aplicar se Der erro vai voltar e clicar no filtro antes 
-        try:
-            ##Esperara Baixass
-            imagem_alvo = 'aplicar.png'
-            esperar_imagem_aparecer(navegador, imagem_alvo)
-            time.sleep(2)
-
-            #Clicar em Aplicar
-            esperar_e_clicar(navegador, 'COMP6024')
-            time.sleep(1)
-
-        except Exception as e:
-            print(f"Erro ao clicar em 'não': {e}")
-            
-            try:
-                #CLICAR EM FILTRO
-                esperar_e_clicar(navegador, 'COMP4526')
-                time.sleep(2)
-
-                ##Esperara Baixass
-                imagem_alvo = 'aplicar.png'
-                esperar_imagem_aparecer(navegador, imagem_alvo)
-                time.sleep(2)
-                    
-                #Clicar em Aplicar
-                esperar_e_clicar(navegador, 'COMP6024')
-                time.sleep(2)
-            except Exception as e:
-                print(f"Erro ao Esperar a tela de baixas: {e}")
-
-
-        # Inserir O valor: PEDIDO
-        digitar_entrada_com_TAB(navegador ,Pedido)
-
-        #Clicar em avançar COMP9006
-        esperar_e_clicar_simples(navegador, Pedido)
-        time.sleep(1)
-
-        def formatar_moeda(valor):
-            """
-            Converte um número para o formato de moeda brasileira, removendo separadores de milhar.
-            """
-            valor_formatado = f"{valor:.2f}".replace(".", ",")
-            return valor_formatado
-        
-         # Chamar fatura passando todos os parâmetros necessários
-        if fatura(navegador, 'faturado.png'):
-            print(f"Pedido R$ {Pedido} do valor {Value_Titulo} não foi faturado")
-            tabela_produtos.at[linha, "statuns"] = "não faturado"
-            tabela_produtos.to_excel(caminho_arquivo, sheet_name="Cascavel", index=False)
-            time.sleep(3)
-            return
-        else:
-            print("Tudo certo, seguindo para o fluxo")
-
-
-        #Clicar em Baixas
-        esperar_e_clicar(navegador, 'COMP4598')
-        time.sleep(5)
-
-         #Aqui vai Esperar o campo de baixas aparecer, se der errado, ele vai clicar em baixar e esperar
-        try:
-            ##Esperara Baixass
-            imagem_alvo = 'espearar_aparecer.png'
-            esperar_imagem_aparecer(navegador, imagem_alvo)
-            time.sleep(2)
-
-        except Exception as e:
-            print(f"Erro ao clicar em 'não': {e}")
-            
-            try:
-                #Clicar em Baixas
-                esperar_e_clicar(navegador, 'COMP4598')
-                time.sleep(5)
-                
-                ##Esperara Baixass
-                imagem_alvo = 'espearar_aparecer.png'
-                esperar_imagem_aparecer(navegador, imagem_alvo)
-                time.sleep(2)
-            except Exception as e:
-                print(f"Erro ao Esperar a tela de baixas: {e}")
-
-        #Colocar o banco
-        inserir_Sem_Espaço(navegador,'COMP6031',Bank)
-        time.sleep(1)
-        actions.send_keys(Keys.TAB).perform()
-        time.sleep(1)
-
-        #Colocar Conta
-        inserir_Sem_Espaço(navegador,'COMP6035',Cont)
-        time.sleep(3)
-
-        inserir_Sem_Espaço(navegador,'COMP6041', Hist)
-        time.sleep(2)
-
-        desc ="0,00"
-        # Apagar descontos
-        inserir_Com_Python(navegador, 'COMP6059', desc)
-        time.sleep(2)
-
-        # Apagar Multa
-        inserir_Com_Python(navegador, 'COMP6061', desc)
-        time.sleep(2)
-
-        Valor_Juros_Formatado = formatar_moeda(Juros)
-
-        # Apagar TX Perman
-        inserir_Com_Python(navegador, 'COMP6063', Valor_Juros_Formatado)
-        time.sleep(3)
-        actions.send_keys(Keys.TAB).perform()
-        time.sleep(0.5)
-        
-        #Clicar em Salvar
-        esperar_e_clicar(navegador,'COMP6076')
-        time.sleep(1)
-
-         #Aqui vai clica em não, se der erro vai clicar em salvar e depois em não
-        try:
-            ##Esperara Baixass
-            imagem_alvo = 'nao.png'
-            esperar_imagem_aparecer(navegador, imagem_alvo)
-            time.sleep(1)
-
-            #Clicar em não
-            esperar_e_clicar(navegador,'COMP6013')
-            time.sleep(1)
-
-            tabela_produtos.at[linha, "statuns"] = "OK"
-            tabela_produtos.to_excel(caminho_arquivo, sheet_name="Cascavel", index=False)
-            time.sleep(5)
-
-        except Exception as e:
-            print(f"Erro ao clicar em 'não': {e}")
-            
-            try:
-                #Clicar em Salvar
-                esperar_e_clicar(navegador,'COMP6076')
-                time.sleep(1)
-                
-                #Clicar em não
-                esperar_e_clicar(navegador,'COMP6013')
-                time.sleep(5)
-
-                tabela_produtos.at[linha, "statuns"] = "OK"
-                tabela_produtos.to_excel(caminho_arquivo, sheet_name="Cascavel", index=False)
-                time.sleep(5)
-
-            except Exception as e:
-                print(f"Erro ao tentar clicar não e depois em salvar: {e}")
-
-    except Exception as e:
-        print(f"Erro na linha {linha}: {e}") 
-
-for linha in tabela_produtos.index:
-    processar_linha(linha)
+linha = navegador.find_element(By.XPATH, '//tr[@id="8"]')
+navegador.execute_script("arguments[0].scrollIntoView();", linha)
+actions = ActionChains(navegador)
+actions.double_click(linha).perform()
 
 print('Processo concluído!')
 
