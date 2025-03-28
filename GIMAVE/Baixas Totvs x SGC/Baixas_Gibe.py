@@ -27,7 +27,7 @@ options.add_experimental_option("excludeSwitches", ["enable-automation"])
 options.add_experimental_option("useAutomationExtension", False)
 
 # Executar em modo headless
-options.add_argument("--headless=new")
+# options.add_argument("--headless=new")
 
 # Desativar o gerenciador de senhas e a oferta de salvar senhas
 prefs = {
@@ -494,8 +494,8 @@ esperar_imagem_aparecer(navegador, imagem_alvo)
 time.sleep(3)
 
 #Colocar loguin e senha
-digitar_entrada_com_TAB(navegador, "ADRYANCORDEIRO", 1)
-digitar_entrada_com_TAB(navegador, "123456", 1)
+digitar_entrada_com_TAB(navegador, "GILBERTONETO", 1)
+digitar_entrada_com_TAB(navegador, "G1mave@2025", 1)
 actions.send_keys(Keys.ENTER).perform()
 time.sleep(5)
 
@@ -510,55 +510,61 @@ time.sleep(1)
 
 
 # Processar cada linha da tabela
-caminho_arquivo = "Base_Dados.xlsx"
+# Caminho do arquivo
+caminho_arquivo = r"C:\Users\Gilberto.Neto\Desktop\Baixas TOTVS\Base_Dados.xlsx"
 
-# Carregar a planilha, considerando que a primeira linha pode conter os nomes das colunas
-tabela_produtos = pd.read_excel(r"C:\Totvs_WEB\Parceiros\Base_Dados.xlsx", dtype=str, engine="openpyxl")
-
-# Exibir os nomes das colunas para verificar se "Data de crédito" está correto
-print("Nomes das colunas detectadas:", tabela_produtos.columns.tolist())
+# Carregar a planilha
+try:
+    tabela_produtos = pd.read_excel(caminho_arquivo, dtype=str, engine="openpyxl")
+except Exception as e:
+    print(f"❌ Erro ao carregar a planilha: {e}")
+    exit()
 
 # Remover espaços extras dos nomes das colunas
 tabela_produtos.columns = tabela_produtos.columns.str.strip()
 
-# Verificar se "Dt Baixa" existe na primeira linha
+# Verificar se "Dt Baixa" está presente
 if "Dt Baixa" not in tabela_produtos.columns:
-    print("⚠️ A coluna 'Data de crédito' não foi encontrada na primeira linha. Verificando na segunda linha...")
+    print("⚠️ A coluna 'Dt Baixa' não foi encontrada. Tentando na segunda linha...")
 
-    # Carregar a planilha novamente, mas agora considerando a segunda linha como os nomes das colunas
-    tabela_produtos = pd.read_excel(r"C:\Totvs_WEB\Parceiros\Base_Dados.xlsx", header=1, dtype=str, engine="openpyxl")
+    try:
+        tabela_produtos = pd.read_excel(caminho_arquivo, header=1, dtype=str, engine="openpyxl")
+        tabela_produtos.columns = tabela_produtos.columns.str.strip()
 
-    # Exibir novamente os nomes das colunas
-    print("Novos nomes das colunas detectadas:", tabela_produtos.columns.tolist())
+        if "Dt Baixa" in tabela_produtos.columns:
+            print("✅ A coluna 'Dt Baixa' foi encontrada na segunda linha.")
+        else:
+            print("❌ A coluna 'Dt Baixa' NÃO foi encontrada. Verifique o arquivo.")
+            exit()
 
-    # Remover espaços extras novamente
-    tabela_produtos.columns = tabela_produtos.columns.str.strip()
-
-    # Verificar se "Data de crédito" agora está na segunda linha
-    if "Dt Baixa" not in tabela_produtos.columns:
-        print("⚠️ A coluna 'Dt Baixa' não foi encontrada na segunda linha. Verifique os dados.")
-    else:
-        print("✅ A coluna 'Dt Baixa' foi encontrada na segunda linha.")
+    except Exception as e:
+        print(f"❌ Erro ao recarregar a planilha: {e}")
+        exit()
 else:
     print("✅ A coluna 'Dt Baixa' foi encontrada corretamente na primeira linha.")
 
 # Mostrar as primeiras linhas para depuração
 print(tabela_produtos.head())
 
-# Obter a "terceira linha" (índice 1) da coluna "Data de crédito"
-primeira_data = tabela_produtos.loc[1, "Dt Baixa"]
+# Obter a primeira data válida da coluna "Dt Baixa"
+datas_validas = tabela_produtos["Dt Baixa"].dropna()  # Remove valores NaN
+if datas_validas.empty:
+    print("❌ Nenhuma data válida encontrada na coluna 'Dt Baixa'.")
+    exit()
 
-# Converter para datetime, caso não seja
-primeira_data = pd.to_datetime(primeira_data, errors='coerce')
+# Tentar converter a primeira data válida
+primeira_data = pd.to_datetime(datas_validas.iloc[0], errors='coerce')
 
 # Verificar se a conversão foi bem-sucedida
 if pd.isna(primeira_data):
-    print("Erro: Data inválida ou não encontrada.")
+    print("❌ Erro: Data inválida ou não encontrada.")
+    exit()
 else:
     data_formatada = primeira_data.strftime('%d/%m/%Y')
-    print("Data formatada:", data_formatada)
+    print("✅ Data formatada:", data_formatada)
 
-digitar_entrada_com_TAB(navegador, data_formatada ,2)
+# Chamar a função para digitar os dados no Selenium
+digitar_entrada_com_TAB(navegador, data_formatada, 2)
 time.sleep(0.5)
 actions.key_down(Keys.CONTROL).send_keys('a').key_up(Keys.CONTROL).perform()
 actions.key_down(Keys.CONTROL).send_keys('c').key_up(Keys.CONTROL).perform()
@@ -611,18 +617,23 @@ time.sleep(1)
 
 #Clicar em Pedido Filtro
 esperar_e_clicar(navegador, 'COMP6025')
+time.sleep(3)
+
+#Clicar em saldo diferente de zero
+esperar_e_clicar(navegador, 'COMP6017')
 time.sleep(1)
 
 #Clicar em Aplicar
 esperar_e_clicar(navegador, 'COMP6048')
-time.sleep(1)
+time.sleep(3)
 
 # Inserir O valor: COMP9003
 digitar_entrada_com_TAB(navegador ,"056589")
+time.sleep (2)
 
 #Clicar em avançar COMP9006
-esperar_e_clicar(navegador, '056589')
-time.sleep(1)
+esperar_e_clicar(navegador, 'COMP9006')
+time.sleep(5)
 
 print(tabela_produtos.head())  # Mostra as primeiras linhas da tabela
 print(f"Total de linhas: {len(tabela_produtos)}")  # Exibe o total de registros
@@ -668,7 +679,7 @@ def processar_linha(linha):
         
         #CLICAR EM FILTRO
         esperar_e_clicar(navegador, 'COMP4526')
-        time.sleep(1)
+        time.sleep(3)
 
         #Aqui vai Tentar Clicar em aplicar se Der erro vai voltar e clicar no filtro antes 
         try:
@@ -678,7 +689,7 @@ def processar_linha(linha):
             time.sleep(2)
 
             #Clicar em Aplicar
-            esperar_e_clicar(navegador, 'COMP6024')
+            esperar_e_clicar(navegador, 'COMP6048')
             time.sleep(1)
 
         except Exception as e:
@@ -695,18 +706,23 @@ def processar_linha(linha):
                 time.sleep(2)
                     
                 #Clicar em Aplicar
-                esperar_e_clicar(navegador, 'COMP6024')
+                esperar_e_clicar(navegador, 'COMP6048')
                 time.sleep(2)
             except Exception as e:
                 print(f"Erro ao Esperar a tela de baixas: {e}")
 
+        ##Esperara esperar_pedido
+        imagem_alvo = 'esperar_pedido.png'
+        esperar_imagem_aparecer(navegador, imagem_alvo)
+        time.sleep(2)
 
         # Inserir O valor: PEDIDO
-        digitar_entrada_com_TAB(navegador ,Pedido)
+        inserir_Com_Python(navegador,"COMP9003" ,Pedido)
+        time.sleep(2)
 
         #Clicar em avançar COMP9006
-        esperar_e_clicar_simples(navegador, Pedido)
-        time.sleep(1)
+        esperar_e_clicar(navegador, "COMP9006")
+        time.sleep(3)
 
         def formatar_moeda(valor):
             """
@@ -774,10 +790,9 @@ def processar_linha(linha):
         inserir_Com_Python(navegador, 'COMP6061', desc)
         time.sleep(2)
 
-        Valor_Juros_Formatado = formatar_moeda(Juros)
-
+        
         # Apagar TX Perman
-        inserir_Com_Python(navegador, 'COMP6063', Valor_Juros_Formatado)
+        inserir_Com_Python(navegador, 'COMP6063', Juros)
         time.sleep(3)
         actions.send_keys(Keys.TAB).perform()
         time.sleep(0.5)
