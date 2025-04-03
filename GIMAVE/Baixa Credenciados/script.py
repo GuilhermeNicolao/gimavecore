@@ -19,7 +19,6 @@ from selenium.common.exceptions import TimeoutException
 from dotenv import load_dotenv
 
 
-
 # Configurar opções do Chrome
 options = Options()
 options.add_argument("--start-maximized")
@@ -482,6 +481,7 @@ def inserir_Com_Python(driver, elemento_id, texto, tempo_espera=30):
         driver.execute_script(f"document.getElementById('{elemento_id}').value = '{texto}';")
         print(f"Texto inserido via JavaScript no elemento {elemento_id}.")
 
+
 #Variáveis
 diretorio = r"C:\Users\Guilherme.Silva\Desktop\gimavecore\GIMAVE\Baixa Credenciados"
 imagem_ok = os.path.join(diretorio, "ok.png")
@@ -574,11 +574,12 @@ try:
     print("COMP4522 encontrado e clicado.")
 except TimeoutException:
     print("COMP4522 não encontrado, seguindo com o código.")
-time.sleep(7)
+
+time.sleep(15)
 
 #Msg renovação
-esperar_e_clicar_simples(navegador, "COMP4512")
-time.sleep(7)
+#esperar_e_clicar_simples(navegador, "COMP4512")
+#time.sleep(7)
 
 esperar_imagem_aparecer(navegador, imagem_antesbordero)
 time.sleep(2)
@@ -623,20 +624,18 @@ time.sleep(1)
 
 #OK
 esperar_e_clicar_simples(navegador, "COMP6032")
-time.sleep(5)
-
-# Filial + Vlr Titulo
-element = navegador.find_element(By.CLASS_NAME, "horizontal-scroll") 
-navegador.execute_script("arguments[0].scrollIntoView();", element)
-navegador.execute_script("window.scrollBy(0, 300);")  # Rola 300 pixels para baixo
-
-linha = navegador.find_element(By.XPATH, '//tr[@id="8"]')
-navegador.execute_script("arguments[0].scrollIntoView();", linha)
-actions = ActionChains(navegador)
-actions.double_click(linha).perform()
-
-print('Processo concluído!')
+time.sleep(3)
 
 
+tcbrowse = navegador.find_element(By.ID, "COMP6003")
 
+for _ in range(10):  # Tenta rolar várias vezes para garantir visibilidade
+    tcbrowse.send_keys(Keys.PAGE_DOWN)
+    time.sleep(0.5)
 
+actions.send_keys(Keys.ENTER).perform()
+time.sleep(2)
+
+esperar_e_clicar(navegador,"COMP6008")
+
+time.sleep(900)
