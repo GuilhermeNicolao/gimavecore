@@ -494,8 +494,8 @@ imagem_outrasacoes = os.path.join(diretorio, "outras_acoes.png")
 imagem_bordero = os.path.join(diretorio, "bordero.png")
 imagem_bordero2 = os.path.join(diretorio, "bordero2.png")
 imagem_antesbordero = os.path.join(diretorio, "antesbordero.png")
+imagem_desmarcar = os.path.join(diretorio, "desmarcar_todos.png")
 data = "24/03/2025"
-
 
 # Abrir página
 navegador.get("http://an148124.protheus.cloudtotvs.com.br:1703/webapp/")
@@ -507,7 +507,7 @@ detectar_e_clicar_imagem(navegador, imagem_ok)
 time.sleep(5)
 
 esperar_imagem_aparecer(navegador, imagem_inicio)
-time.sleep(3)
+time.sleep(5)
 
 #Colocar login e senha
 digitar_entrada_com_TAB(navegador, os.getenv("LOGIN"), 1)
@@ -637,5 +637,41 @@ actions.send_keys(Keys.ENTER).perform()
 time.sleep(2)
 
 esperar_e_clicar(navegador,"COMP6008")
+time.sleep(6)
 
-time.sleep(900)
+
+wa_element = navegador.find_element(By.ID, "COMP6008")
+navegador.execute_script("""
+    const shadow = arguments[0].shadowRoot;
+    const target = shadow.querySelector('th[id="0"]');
+    if (target) {
+        target.click();
+    } else {
+        console.error("Elemento <th id='0'> não encontrado.");
+    }
+""", wa_element)
+
+time.sleep(20)
+
+
+# Executa JS para acessar os dados da coluna 4 (índice 3)
+dados_coluna_5 = navegador.execute_script("""
+    const shadow = arguments[0].shadowRoot;
+    const tabela = shadow.querySelector("table");
+    if (!tabela) return [];
+
+    const linhas = tabela.querySelectorAll("tr");
+    const valores = [];
+
+    for (let i = 0; i < linhas.length; i++) {
+        const colunas = linhas[i].querySelectorAll("td");
+        if (colunas.length > 4) {
+            valores.push(colunas[4].innerText.trim());
+        }
+    }
+    return valores;
+""", wa_element)
+
+# Exibe os valores capturados
+for valor in dados_coluna_5:
+    print(valor)
