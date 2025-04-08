@@ -8,6 +8,8 @@ from selenium.webdriver.support import expected_conditions as EC
 from datetime import timedelta
 import time
 import numpy as np
+from openpyxl import load_workbook
+from openpyxl.styles import PatternFill
 import cv2
 import os 
 from selenium.webdriver.common.keys import Keys
@@ -329,55 +331,6 @@ def Clique_Ousado_Duas_Vezes(driver, imagem_alvo, timeout=80):
     except Exception as e:
         print(f"Erro ao detectar ou clicar na imagem: {e}")
 
-def fatura (driver, imagem_alvo, tempo_maximo=3, confidence=0.7):
-    """
-    Verifica se o pedido está faturado em segundo plano sem interações diretas.
-
-    :param driver: Instância do WebDriver do Selenium.
-    :param imagem_alvo: Caminho para a imagem de referência.
-    :param tempo_maximo: Tempo máximo de espera para encontrar a imagem.
-    :param confidence: Precisão mínima para considerar a imagem como encontrada.
-    :return: True se a imagem for encontrada, False caso contrário.
-    """
-    if not os.path.exists(imagem_alvo):
-        print(f"Imagem alvo não encontrada: {imagem_alvo}")
-        return False
-
-    # Esperar a página carregar completamente
-    WebDriverWait(driver, tempo_maximo).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
-
-    inicio = time.time()
-    intervalo = 0.5  # Intervalo entre verificações
-    template = cv2.imread(imagem_alvo, cv2.IMREAD_COLOR)
-    
-    if template is None:
-        print(f"Erro ao carregar a imagem de referência: {imagem_alvo}")
-        return False
-    
-    template_gray = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
-
-    while time.time() - inicio < tempo_maximo:
-        # Capturar tela do navegador
-        screenshot = driver.get_screenshot_as_png()
-        screen_array = np.frombuffer(screenshot, dtype=np.uint8)
-        screen_image = cv2.imdecode(screen_array, cv2.IMREAD_COLOR)
-        screen_gray = cv2.cvtColor(screen_image, cv2.COLOR_BGR2GRAY)
-
-        # Comparação da imagem
-        result = cv2.matchTemplate(screen_gray, template_gray, cv2.TM_CCOEFF_NORMED)
-        _, max_val, _, _ = cv2.minMaxLoc(result)
-
-        print(f"Precisão da imagem detectada: {max_val:.2f}")
-
-        if max_val >= confidence:  # Se atingir a confiança esperada
-            print("Imagem encontrada!")
-            return True
-
-        time.sleep(intervalo)
-
-    print("Imagem não encontrada dentro do tempo máximo.")
-    return False
-
 def esperar_e_clicar(driver, elemento_id, tempo_espera=30, cliques=2):
     """
     Espera até que o elemento identificado pelo ID esteja presente e realiza múltiplos cliques.
@@ -481,9 +434,17 @@ def inserir_Com_Python(driver, elemento_id, texto, tempo_espera=30):
         driver.execute_script(f"document.getElementById('{elemento_id}').value = '{texto}';")
         print(f"Texto inserido via JavaScript no elemento {elemento_id}.")
 
+def dividir_em_blocos(lista, tamanho=10):
+    for i in range(0, len(lista), tamanho):
+        yield lista[i:i + tamanho]
 
 #Variáveis
 diretorio = r"C:\Users\Guilherme.Silva\Desktop\gimavecore\GIMAVE\Baixa Credenciados"
+dirbordero = r"C:\Users\Guilherme.Silva\Desktop\GIMAVE\Credenciados\Borderôs"
+arquivo = "BORDERO 01 - Copia.xlsx"
+caminho_arquivo = os.path.join(dirbordero, arquivo)
+wb = load_workbook(caminho_arquivo)
+ws = wb["Reembolso"]
 imagem_ok = os.path.join(diretorio, "ok.png")
 imagem_inicio = os.path.join(diretorio, "totvs_inicio.png")
 imagem_nome = os.path.join(diretorio, "nome.png")
@@ -495,7 +456,7 @@ imagem_bordero = os.path.join(diretorio, "bordero.png")
 imagem_bordero2 = os.path.join(diretorio, "bordero2.png")
 imagem_antesbordero = os.path.join(diretorio, "antesbordero.png")
 imagem_desmarcar = os.path.join(diretorio, "desmarcar_todos.png")
-data = "24/03/2025"
+data = "01/04/2025"
 
 # Abrir página
 navegador.get("http://an148124.protheus.cloudtotvs.com.br:1703/webapp/")
@@ -522,18 +483,6 @@ for _ in range(2):
     actions.key_down(Keys.SHIFT).send_keys(Keys.TAB).key_up(Keys.SHIFT).perform()
     time.sleep(0.5)
 time.sleep(1)
-
-# Processar cada linha da tabela
-# caminho_arquivo = "bordero.xlsx"
-
-# Carregar a planilha, considerando que a primeira linha pode conter os nomes das colunas
-# tabela_produtos = pd.read_excel(r"C:\Users\Guilherme.Silva\Desktop\gimavecore\GIMAVE\Baixa Credenciados\bordero.xlsx", dtype=str, engine="openpyxl")
-
-# Remover espaços extras dos nomes das colunas
-# tabela_produtos.columns = tabela_produtos.columns.str.strip()
-
-# Obter a "terceira linha" (índice 1) da coluna "Data de crédito"
-# primeira_data = tabela_produtos.loc[1, "Dt Baixa"]
 
 digitar_entrada_com_TAB(navegador, data ,2)
 time.sleep(0.5)
@@ -626,20 +575,23 @@ time.sleep(1)
 esperar_e_clicar_simples(navegador, "COMP6032")
 time.sleep(3)
 
-
+#Scroll down para localizar o filtro
 tcbrowse = navegador.find_element(By.ID, "COMP6003")
 
 for _ in range(10):  # Tenta rolar várias vezes para garantir visibilidade
     tcbrowse.send_keys(Keys.PAGE_DOWN)
     time.sleep(0.5)
 
+#Selecinar o filtro
 actions.send_keys(Keys.ENTER).perform()
 time.sleep(2)
 
+#Clicar no Confirmar
 esperar_e_clicar(navegador,"COMP6008")
-time.sleep(6)
+time.sleep(15)
 
 
+#Desmarcar todos os campos selecionados
 wa_element = navegador.find_element(By.ID, "COMP6008")
 navegador.execute_script("""
     const shadow = arguments[0].shadowRoot;
@@ -650,11 +602,10 @@ navegador.execute_script("""
         console.error("Elemento <th id='0'> não encontrado.");
     }
 """, wa_element)
+time.sleep(5)
 
-time.sleep(20)
 
-
-# Executa JS para acessar os dados da coluna 4 (índice 3)
+# Faz a leitura dos IDs de reembolsos DISPONÍVEIS NA PÁGINA
 dados_coluna_5 = navegador.execute_script("""
     const shadow = arguments[0].shadowRoot;
     const tabela = shadow.querySelector("table");
@@ -671,7 +622,44 @@ dados_coluna_5 = navegador.execute_script("""
     }
     return valores;
 """, wa_element)
+time.sleep(5)
 
-# Exibe os valores capturados
-for valor in dados_coluna_5:
-    print(valor)
+# Faz a leitura dos IDs de reembolsos na PLANILHA
+df = pd.read_excel(caminho_arquivo, sheet_name="Reembolso", engine="openpyxl")
+valores_coluna_f = df.iloc[1:, 5] #F2 em diante
+valores_nao_vazios = valores_coluna_f.dropna().astype(int).apply(lambda x: f"{x:09d}")
+
+
+fill_amarelo = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type = "solid")
+ids_erp = set(dados_coluna_5)
+total_linhas = len(ids_erp)
+ids_excel = {
+    f"{int(ws.cell(row=row, column=6).value):09d}": row
+    for row in range(2, 2 + total_linhas)
+    if ws.cell(row=row, column=6).value is not None and ws.cell(row=row, column=6).fill.start_color.rgb != "FFFFFF00"
+}
+
+for bloco in dividir_em_blocos(list(ids_erp), 10):
+    for id_erp in bloco:
+        if id_erp in ids_excel:
+            row = ids_excel[id_erp]
+            cell = ws.cell(row=row, column=6)
+            actions.send_keys(Keys.ENTER).perform()
+            print("Selecionado")
+            actions.send_keys(Keys.ARROW_DOWN).perform()
+            print("Seta para baixo")
+            cell.fill = fill_amarelo
+            print("Célula colorida!")
+        else:
+            actions.send_keys(Keys.ARROW_DOWN).perform()
+            print("Não localizado, Seta para baixo...")
+
+        time.sleep(4)  # Aguarda entre cada ação
+
+# Salvar alterações
+wb.save(caminho_arquivo)
+
+
+
+
+
