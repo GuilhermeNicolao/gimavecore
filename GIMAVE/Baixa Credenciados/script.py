@@ -12,6 +12,7 @@ from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
 import cv2
 import os 
+import pyperclip
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
 import pyperclip
@@ -434,10 +435,6 @@ def inserir_Com_Python(driver, elemento_id, texto, tempo_espera=30):
         driver.execute_script(f"document.getElementById('{elemento_id}').value = '{texto}';")
         print(f"Texto inserido via JavaScript no elemento {elemento_id}.")
 
-def dividir_em_blocos(lista, tamanho=10):
-    for i in range(0, len(lista), tamanho):
-        yield lista[i:i + tamanho]
-
 #Variáveis
 diretorio = r"C:\Users\Guilherme.Silva\Desktop\gimavecore\GIMAVE\Baixa Credenciados"
 dirbordero = r"C:\Users\Guilherme.Silva\Desktop\GIMAVE\Credenciados\Borderôs"
@@ -545,120 +542,137 @@ time.sleep(2)
 esperar_e_clicar_simples(navegador, "COMP4615")
 time.sleep(4)
 
-#Capturar número do bordero
-elemento = WebDriverWait(navegador, 40).until(EC.presence_of_element_located((By.ID, "COMP6018")))
-actions.key_down(Keys.CONTROL).send_keys('a').key_up(Keys.CONTROL).perform()
-actions.key_down(Keys.CONTROL).send_keys('c').key_up(Keys.CONTROL).perform()
-num_bordero = pyperclip.paste()
-
-#Banco
-inserir_Sem_Espaço(navegador,"COMP6022", "756",30)
-time.sleep(1)
-
-#Agencia
-inserir_Sem_Espaço(navegador,"COMP6023" ,"3337",30)
-time.sleep(1)
-
-#Conta
-inserir_Sem_Espaço(navegador,"COMP6024", "3780624",30)
-time.sleep(1)
-
-#Modelo
-inserir_Sem_Espaço(navegador,"COMP6030", "02",30)
-time.sleep(2)
-
-#Tipo Pagamento
-inserir_Sem_Espaço(navegador,"COMP6031" ,"20",30)
-time.sleep(1)
-
-#OK
-esperar_e_clicar_simples(navegador, "COMP6032")
-time.sleep(3)
-
-#Scroll down para localizar o filtro
-tcbrowse = navegador.find_element(By.ID, "COMP6003")
-
-for _ in range(10):  # Tenta rolar várias vezes para garantir visibilidade
-    tcbrowse.send_keys(Keys.PAGE_DOWN)
-    time.sleep(0.5)
-
-#Selecinar o filtro
-actions.send_keys(Keys.ENTER).perform()
-time.sleep(2)
-
-#Clicar no Confirmar
-esperar_e_clicar(navegador,"COMP6008")
-time.sleep(15)
-
-
-#Desmarcar todos os campos selecionados
-wa_element = navegador.find_element(By.ID, "COMP6008")
-navegador.execute_script("""
-    const shadow = arguments[0].shadowRoot;
-    const target = shadow.querySelector('th[id="0"]');
-    if (target) {
-        target.click();
-    } else {
-        console.error("Elemento <th id='0'> não encontrado.");
-    }
-""", wa_element)
-time.sleep(5)
-
-
-# Faz a leitura dos IDs de reembolsos DISPONÍVEIS NA PÁGINA
-dados_coluna_5 = navegador.execute_script("""
-    const shadow = arguments[0].shadowRoot;
-    const tabela = shadow.querySelector("table");
-    if (!tabela) return [];
-
-    const linhas = tabela.querySelectorAll("tr");
-    const valores = [];
-
-    for (let i = 0; i < linhas.length; i++) {
-        const colunas = linhas[i].querySelectorAll("td");
-        if (colunas.length > 4) {
-            valores.push(colunas[4].innerText.trim());
-        }
-    }
-    return valores;
-""", wa_element)
-time.sleep(5)
+# ------ MONTAGEM DO BORDERÔ -------------------#
 
 # Faz a leitura dos IDs de reembolsos na PLANILHA
 df = pd.read_excel(caminho_arquivo, sheet_name="Reembolso", engine="openpyxl")
-valores_coluna_f = df.iloc[1:, 5] #F2 em diante
+valores_coluna_f = df.iloc[:, 5] #F2 em diante
 valores_nao_vazios = valores_coluna_f.dropna().astype(int).apply(lambda x: f"{x:09d}")
+ids_planilha = valores_nao_vazios.tolist()
+fill_amarelo = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type = "solid") #Grifar IDs que estão no borderô
+
+ids_processados = set() #IDs já checados.
+
+while True:
+
+    #Capturar número do bordero
+    elemento = WebDriverWait(navegador, 40).until(EC.presence_of_element_located((By.ID, "COMP6018")))
+    actions.key_down(Keys.CONTROL).send_keys('a').key_up(Keys.CONTROL).perform()
+    actions.key_down(Keys.CONTROL).send_keys('c').key_up(Keys.CONTROL).perform()
+    num_bordero = pyperclip.paste()
+
+    #Banco
+    inserir_Sem_Espaço(navegador,"COMP6022", "756",30)
+    time.sleep(1)
+
+    #Agencia
+    inserir_Sem_Espaço(navegador,"COMP6023" ,"3337",30)
+    time.sleep(1)
+
+    #Conta
+    inserir_Sem_Espaço(navegador,"COMP6024", "3780624",30)
+    time.sleep(1)
+
+    #Modelo
+    inserir_Sem_Espaço(navegador,"COMP6030", "02",30)
+    time.sleep(2)
+
+    #Tipo Pagamento
+    inserir_Sem_Espaço(navegador,"COMP6031" ,"20",30)
+    time.sleep(1)
+
+    #OK
+    esperar_e_clicar_simples(navegador, "COMP6032")
+    time.sleep(3)
+
+    #Scroll down para localizar o filtro
+    tcbrowse = navegador.find_element(By.ID, "COMP6003")
+
+    for _ in range(10):  # Tenta rolar várias vezes para garantir visibilidade
+        tcbrowse.send_keys(Keys.PAGE_DOWN)
+        time.sleep(0.5)
+
+    #Selecinar o filtro
+    actions.send_keys(Keys.ENTER).perform()
+    time.sleep(2)
+
+    #Clicar no Confirmar
+    esperar_e_clicar(navegador,"COMP6008")
+    time.sleep(15)
 
 
-fill_amarelo = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type = "solid")
-ids_erp = set(dados_coluna_5)
-total_linhas = len(ids_erp)
-ids_excel = {
-    f"{int(ws.cell(row=row, column=6).value):09d}": row
-    for row in range(2, 2 + total_linhas)
-    if ws.cell(row=row, column=6).value is not None and ws.cell(row=row, column=6).fill.start_color.rgb != "FFFFFF00"
-}
+    #Desmarcar todos os campos selecionados
+    wa_element = navegador.find_element(By.ID, "COMP6008")
+    navegador.execute_script("""
+        const shadow = arguments[0].shadowRoot;
+        const target = shadow.querySelector('th[id="0"]');
+        if (target) {
+            target.click();
+        } else {
+            console.error("Elemento <th id='0'> não encontrado.");
+        }
+    """, wa_element)
+    time.sleep(5)
 
-for bloco in dividir_em_blocos(list(ids_erp), 10):
-    for id_erp in bloco:
-        if id_erp in ids_excel:
-            row = ids_excel[id_erp]
-            cell = ws.cell(row=row, column=6)
-            actions.send_keys(Keys.ENTER).perform()
-            print("Selecionado")
-            actions.send_keys(Keys.ARROW_DOWN).perform()
-            print("Seta para baixo")
-            cell.fill = fill_amarelo
-            print("Célula colorida!")
+    #Acessar o campo "Reembolso"
+    actions.send_keys(Keys.ARROW_RIGHT).perform()
+    time.sleep(1)
+    actions.send_keys(Keys.ARROW_RIGHT).perform()
+    time.sleep(1)
+    actions.send_keys(Keys.ARROW_RIGHT).perform()
+    time.sleep(1)
+
+    bordero = 0
+    encontrados_nesse_bordero = 0
+
+    while bordero <= 20: #Tamanho do borderô
+        actions = ActionChains(navegador)
+        actions.key_down(Keys.CONTROL).send_keys('c').key_up(Keys.CONTROL).perform()
+
+        time.sleep(0.2)  # Pequeno delay para garantir que o clipboard atualize
+        copied_text = pyperclip.paste()
+
+        print("ERP:", copied_text)
+
+        if copied_text in ids_planilha:
+            ActionChains(navegador).send_keys(Keys.ENTER).perform()
+            bordero +=1
+            encontrados_nesse_bordero +=1
+            ids_processados.add(copied_text)
+
+            # Localiza o índice do ID copiado na lista
+            index = ids_planilha.index(copied_text) 
+            excel_row = index + 2  # Linha real no Excel (F2 em diante)
+            ws[f"F{excel_row}"].fill = fill_amarelo
+            ws[f"I{excel_row}"] = num_bordero
+            print(f"Colorindo F{excel_row} de amarelo.")
+
+            
+            print("ID Encontrado. Títulos dentro do borderô no momento: ", {bordero})
+            time.sleep(3)
+            ActionChains(navegador).send_keys(Keys.ARROW_DOWN).perform()
+            time.sleep(3)
         else:
-            actions.send_keys(Keys.ARROW_DOWN).perform()
-            print("Não localizado, Seta para baixo...")
+            ActionChains(navegador).send_keys(Keys.ARROW_DOWN).perform()
+            print("ID NÃO ENCONTRADO. Prosseguindo...")
+            time.sleep(3)
 
-        time.sleep(4)  # Aguarda entre cada ação
+    #Salvar
+    esperar_e_clicar_simples(navegador, "COMP6013")
+    time.sleep(3)
 
-# Salvar alterações
-wb.save(caminho_arquivo)
+    # Salvar alterações Excel
+    wb.save(caminho_arquivo)
+    time.sleep(3)
 
+    # Verificação de fim de processamento
+    if encontrados_nesse_bordero == 0:
+        print("\n🚫 Nenhum novo ID foi encontrado. Encerrando geração de borderôs...")
+        time.sleep(7)
+        
+        break
+    else:
+        print(f"✅ Borderô gerado com {encontrados_nesse_bordero} IDs.")
 
 
 
