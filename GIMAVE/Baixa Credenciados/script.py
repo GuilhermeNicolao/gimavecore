@@ -5,21 +5,20 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from datetime import timedelta
-import time
-import numpy as np
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
-import cv2
-import os 
-import pyperclip
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
-import pyperclip
-import matplotlib.pyplot as plt
-import pandas as pd
 from selenium.common.exceptions import TimeoutException
 from dotenv import load_dotenv
+import time
+import numpy as np
+import cv2
+import sys
+import os 
+import pyperclip
+import pyperclip
+import pandas as pd
 
 
 # Configurar opções do Chrome
@@ -28,11 +27,7 @@ options.add_argument("--start-maximized")
 options.add_argument("--disable-blink-features=AutomationControlled")
 options.add_experimental_option("excludeSwitches", ["enable-automation"])
 options.add_experimental_option("useAutomationExtension", False)
-
-# Executar em modo headless
-# options.add_argument("--headless=new")
-
-# Desativar o gerenciador de senhas e a oferta de salvar senhas
+# options.add_argument("--headless=new") # Executar em modo headless
 prefs = {
     "credentials_enable_service": False,  # Desativa o serviço de credenciais
     "profile.password_manager_enabled": False  # Desativa o gerenciador de senhas
@@ -44,31 +39,6 @@ servico = Service(ChromeDriverManager().install())
 navegador = webdriver.Chrome(service=servico, options=options)
 
 load_dotenv()
-
-def apagar_Campo(driver, elemento_id, tempo_espera=30):
-    """
-    Espera até que o elemento identificado pelo ID seja clicável, clica, limpa o campo e define "0,00".
-
-    :param driver: Instância do WebDriver.
-    :param elemento_id: ID do elemento a ser manipulado.
-    :param tempo_espera: Tempo máximo de espera em segundos (padrão: 30 segundos).
-    """
-    try:
-        elemento = WebDriverWait(driver, tempo_espera).until(
-            EC.element_to_be_clickable((By.ID, elemento_id))
-        )
-        driver.execute_script(f"document.getElementById('{elemento_id}').click();")
-        print("Elemento clicado com sucesso.")
-
-        # Limpando o campo via JavaScript
-        driver.execute_script(f"document.getElementById('{elemento_id}').value = '';")
-        print("Campo limpo com sucesso.")
-
-        # Definindo o valor como "0,00"
-        driver.execute_script(f"document.getElementById('{elemento_id}').value = '0,00';")
-        print('Valor "0,00" definido com sucesso.')
-    except Exception as e:
-        print(f"Erro ao clicar, limpar ou definir o valor do elemento: {e}")
 
 def digitar_entrada_com_TAB(driver, texto, tab_count=0):
     driver.switch_to.active_element.send_keys(texto)
@@ -259,79 +229,6 @@ def Clique_Ousado(driver, imagem_alvo, timeout=80):
     except Exception as e:
         print(f"Erro ao detectar ou clicar na imagem: {e}")
 
-def Clique_Ousado_Duas_Vezes(driver, imagem_alvo, timeout=80):
-    try:
-        if not os.path.exists(imagem_alvo):
-            print(f"Imagem alvo não encontrada: {imagem_alvo}")
-            return
-        
-        WebDriverWait(driver, timeout).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
-
-        tempo_espera = 0
-        intervalo = 2
-        while tempo_espera < timeout:
-            screenshot = driver.get_screenshot_as_png()
-            screen_array = np.frombuffer(screenshot, dtype=np.uint8)
-            screen_image = cv2.imdecode(screen_array, cv2.IMREAD_COLOR)
-            screen_gray = cv2.cvtColor(screen_image, cv2.COLOR_BGR2GRAY)
-
-            template = cv2.imread(imagem_alvo, cv2.IMREAD_COLOR)
-            if template is None:
-                print(f"Erro ao carregar a imagem do template: {imagem_alvo}")
-                return
-            
-            template_gray = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
-            result = cv2.matchTemplate(screen_gray, template_gray, cv2.TM_CCOEFF_NORMED)
-            
-            _, max_val, _, max_loc = cv2.minMaxLoc(result)
-            
-            print(f"Precisão da imagem encontrada: {max_val:.2f}")
-
-            # Salvar a imagem detectada para análise
-            cv2.imwrite("imagem_detectada.png", screen_image)
-            print("Imagem detectada salva como 'imagem_detectada.png'")
-
-            if max_val >= 0.90:  # Ajuste de precisão para aceitar imagens com 90% de correspondência
-                template_h, template_w = template_gray.shape[:2]
-                click_x = max_loc[0] + template_w // 2
-                click_y = max_loc[1] + template_h // 2
-
-                cv2.rectangle(screen_image, (max_loc[0], max_loc[1]), 
-                              (max_loc[0] + template_w, max_loc[1] + template_h), 
-                              (0, 255, 0), 2)
-                cv2.imwrite("clicado.png", screen_image)
-                print("Print da área clicada salvo como 'clicado.png'.")
-
-                scroll_x, scroll_y = driver.execute_script("return [window.scrollX, window.scrollY];")
-
-                # Posição real do clique considerando a rolagem
-                page_x = click_x + scroll_x
-                page_y = click_y + scroll_y
-
-                print(f"Clicando exatamente em X: {page_x}, Y: {page_y} (Considerando scroll X: {scroll_x}, Y: {scroll_y})")
-
-                # Rolagem até a posição do clique para garantir visibilidade
-                driver.execute_script(f"window.scrollTo({page_x - 50}, {page_y - 50});")
-                time.sleep(1)
-
-                # Criando a ação de duplo clique com Selenium
-                elemento = driver.execute_script(f"return document.elementFromPoint({click_x}, {click_y});")
-                if elemento:
-                    action = ActionChains(driver)
-                    action.move_to_element(elemento).double_click().perform()
-                    print("Duplo clique realizado!")
-                    return
-                else:
-                    print("Elemento não encontrado para clique.")
-
-            print("Imagem não encontrada com 90% de precisão, aguardando...")
-            time.sleep(intervalo)
-            tempo_espera += intervalo
-        
-        print("Imagem não encontrada após tempo limite.")
-    except Exception as e:
-        print(f"Erro ao detectar ou clicar na imagem: {e}")
-
 def esperar_e_clicar(driver, elemento_id, tempo_espera=30, cliques=2):
     """
     Espera até que o elemento identificado pelo ID esteja presente e realiza múltiplos cliques.
@@ -397,48 +294,12 @@ def inserir_Sem_Espaço(driver, elemento_id, texto, tempo_espera=30):
 
         print(f"Erro ao inserir texto no elemento {elemento_id}: {e}")
 
-def inserir_Com_Python(driver, elemento_id, texto, tempo_espera=30):
-    texto = str(texto).strip()  # Converter para string antes de strip()
 
-    try:
-        elemento = WebDriverWait(driver, tempo_espera).until(
-            EC.presence_of_element_located((By.ID, elemento_id))
-        )
-
-        # Verificar se o elemento está habilitado e visível
-        if not elemento.is_enabled():
-            print(f"O elemento {elemento_id} está desabilitado.")
-            return
-        if not elemento.is_displayed():
-            print(f"O elemento {elemento_id} está oculto.")
-            return
-
-        elemento.click()  # Clicar para garantir que está ativo
-        time.sleep(0.5)  # Pequeno delay para evitar erros
-
-        elemento.send_keys(Keys.CONTROL + "a")  # Selecionar todo o texto
-        elemento.send_keys(Keys.BACKSPACE)  # Apagar texto anterior
-        time.sleep(0.5)  
-
-        # Inserir o texto caractere por caractere
-        for char in texto:
-            elemento.send_keys(char)
-            time.sleep(0.1)  # Pequeno delay entre caracteres
-
-        print(f"Texto '{texto}' inserido com sucesso no elemento {elemento_id}.")
-    
-    except TimeoutException:
-        print(f"Erro: Tempo limite excedido ao tentar acessar o elemento {elemento_id}.")
-    except Exception as e:
-        print(f"Erro inesperado ao inserir texto no elemento {elemento_id}: {e}")
-        # Tentar via JavaScript como fallback
-        driver.execute_script(f"document.getElementById('{elemento_id}').value = '{texto}';")
-        print(f"Texto inserido via JavaScript no elemento {elemento_id}.")
-
-#Variáveis
+#Variáveis / Diretórios / Loads
 diretorio = r"C:\Users\Guilherme.Silva\Desktop\gimavecore\GIMAVE\Baixa Credenciados"
 dirbordero = r"C:\Users\Guilherme.Silva\Desktop\GIMAVE\Credenciados\Borderôs"
-arquivo = "BORDERO 01 - Copia.xlsx"
+data = "01/04/2025"
+arquivo = "BORDERO 01.xlsx"
 caminho_arquivo = os.path.join(dirbordero, arquivo)
 wb = load_workbook(caminho_arquivo)
 ws = wb["Reembolso"]
@@ -447,13 +308,7 @@ imagem_inicio = os.path.join(diretorio, "totvs_inicio.png")
 imagem_nome = os.path.join(diretorio, "nome.png")
 imagem_favorito = os.path.join(diretorio, "favorito.png")
 imagem_funcoes_cpg = os.path.join(diretorio, "funcoescpg.png")
-imagem_renovacao = os.path.join(diretorio, "msg_renovacao.png")
-imagem_outrasacoes = os.path.join(diretorio, "outras_acoes.png")
-imagem_bordero = os.path.join(diretorio, "bordero.png")
-imagem_bordero2 = os.path.join(diretorio, "bordero2.png")
 imagem_antesbordero = os.path.join(diretorio, "antesbordero.png")
-imagem_desmarcar = os.path.join(diretorio, "desmarcar_todos.png")
-data = "01/04/2025"
 
 # Abrir página
 navegador.get("http://an148124.protheus.cloudtotvs.com.br:1703/webapp/")
@@ -481,6 +336,7 @@ for _ in range(2):
     time.sleep(0.5)
 time.sleep(1)
 
+#Checagem de Ambiente
 digitar_entrada_com_TAB(navegador, data ,2)
 time.sleep(0.5)
 actions.key_down(Keys.CONTROL).send_keys('a').key_up(Keys.CONTROL).perform()
@@ -523,10 +379,6 @@ except TimeoutException:
 
 time.sleep(15)
 
-#Msg renovação
-#esperar_e_clicar_simples(navegador, "COMP4512")
-#time.sleep(7)
-
 esperar_imagem_aparecer(navegador, imagem_antesbordero)
 time.sleep(2)
 
@@ -542,13 +394,18 @@ time.sleep(2)
 esperar_e_clicar_simples(navegador, "COMP4615")
 time.sleep(4)
 
+
 # ------ MONTAGEM DO BORDERÔ -------------------#
 
 # Faz a leitura dos IDs de reembolsos na PLANILHA
 df = pd.read_excel(caminho_arquivo, sheet_name="Reembolso", engine="openpyxl")
+
 valores_coluna_f = df.iloc[:, 5] #F2 em diante
+
 valores_nao_vazios = valores_coluna_f.dropna().astype(int).apply(lambda x: f"{x:09d}")
+
 ids_planilha = valores_nao_vazios.tolist()
+
 fill_amarelo = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type = "solid") #Grifar IDs que estão no borderô
 
 ids_processados = set() #IDs já checados.
@@ -587,8 +444,7 @@ while True:
 
     #Scroll down para localizar o filtro
     tcbrowse = navegador.find_element(By.ID, "COMP6003")
-
-    for _ in range(10):  # Tenta rolar várias vezes para garantir visibilidade
+    for _ in range(10):  
         tcbrowse.send_keys(Keys.PAGE_DOWN)
         time.sleep(0.5)
 
@@ -622,17 +478,37 @@ while True:
     actions.send_keys(Keys.ARROW_RIGHT).perform()
     time.sleep(1)
 
+    #Variáveis de controle
     bordero = 0
     encontrados_nesse_bordero = 0
+    tentativas_mesmo_id = 0
+    ultimo_id_lido = None
 
-    while bordero <= 20: #Tamanho do borderô
+    while bordero <= 99: #Tamanho do borderô
         actions = ActionChains(navegador)
         actions.key_down(Keys.CONTROL).send_keys('c').key_up(Keys.CONTROL).perform()
 
         time.sleep(0.2)  # Pequeno delay para garantir que o clipboard atualize
         copied_text = pyperclip.paste()
 
-        print("ERP:", copied_text)
+        #Verifica se está repetindo o mesmo ID
+        if copied_text == ultimo_id_lido:
+            tentativas_mesmo_id +=1
+        else:
+            tentativas_mesmo_id = 0 #Reinicia o contador
+            ultimo_id_lido = copied_text
+
+
+        #Se repetiu o mesmo ID 3 vezes, salva o borderô e finaliza o script
+        if tentativas_mesmo_id >= 3:
+
+            #Salvar
+            esperar_e_clicar_simples(navegador, "COMP6013")
+            print("\n🚫 Nenhum novo ID foi encontrado. Encerrando geração de borderôs...")
+            time.sleep(8)
+            sys.exit()
+            
+        print("Reembolso Protheus:", copied_text)
 
         if copied_text in ids_planilha:
             ActionChains(navegador).send_keys(Keys.ENTER).perform()
@@ -640,7 +516,7 @@ while True:
             encontrados_nesse_bordero +=1
             ids_processados.add(copied_text)
 
-            # Localiza o índice do ID copiado na lista
+            # Localiza o índice do ID copiado na lista e grifa de amarelo a célula no Excel
             index = ids_planilha.index(copied_text) 
             excel_row = index + 2  # Linha real no Excel (F2 em diante)
             ws[f"F{excel_row}"].fill = fill_amarelo
@@ -669,8 +545,7 @@ while True:
     if encontrados_nesse_bordero == 0:
         print("\n🚫 Nenhum novo ID foi encontrado. Encerrando geração de borderôs...")
         time.sleep(7)
-        
-        break
+        sys.exit()
     else:
         print(f"✅ Borderô gerado com {encontrados_nesse_bordero} IDs.")
 
