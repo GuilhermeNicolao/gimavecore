@@ -32,8 +32,6 @@ def executar_script():
     driver = webdriver.Chrome()
     driver.get("https://fomento.eucard.com.br/transferencias")
 
-    time.sleep(3)  
-
     #LOGIN
     cpf_field = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//input[@aria-label='CPF *']")))
     cpf_field.click() 
@@ -44,25 +42,20 @@ def executar_script():
     senha_field.click() 
     senha_field.send_keys(os.getenv("SENHA"))
 
-    time.sleep(1)
-
     #ENTRAR
     entrar_button = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, "span.q-btn__content.text-center")))
     entrar_button.click()
 
-    time.sleep(1)
 
     #ABRIR MENU
     menu_button = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, "//button[contains(@class, 'toolbar__hamburguer')]")))
     menu_button.click()
 
-    time.sleep(1)
 
     #CLICAR NO "EUCARD"
     eucard_button = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, "//div[contains(@class, 'q-item') and contains(., 'Eucard')]")))
     eucard_button.click()
 
-    time.sleep(1)
 
     #CLICAR NO "TRANSFERÊNCIAS"
     transferencias_link = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, "//a[@href='/transferencias' and contains(@class, 'menu__item')]")))
@@ -103,7 +96,7 @@ def executar_script():
                 mensagem_erro = f"Erro 404: A célula '{cell}' não foi encontrada.\nPode ser um problema com a planilha ou a API."
 
             elif response.status_code == 500:
-                mensagem_erro = "Erro 500: Erro interno do servidor.\nTente novamente mais tarde."
+                mensagem_erro = "Erro 500: Erro interno do servidor.Tente novamente mais tarde."
 
             else:
                 mensagem_erro = f"Erro inesperado ({response.status_code}): {response.text}"
@@ -148,7 +141,7 @@ def executar_script():
             if value_h.strip().upper() == "PROCESSANDO":
                 rows_to_process.append(row)  
 
-            if len(rows_to_process) >= 3:  # Se encontrou 3 linhas "PROCESSANDO", interrompe a busca
+            if len(rows_to_process) >= 5:  # Se encontrou 5 linhas "PROCESSANDO", interrompe a busca
                 break
 
         if len(rows_to_process) == 0:
@@ -174,59 +167,48 @@ def executar_script():
             try:
                 #CAPTURAR NOME PAINELFOMENTO
                 xpathnome = f"//td[@class='text-left' and contains(text(), '{value_a}')]"
-                nome_td = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, xpathnome)))
-                nome = nome_td.text
+                WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, xpathnome)))
 
                 #CAPTURAR NÚMERO CARTAO
                 tdnumerocartao = f"//td[@class='text-left' and contains(text(), '{value_a}')]/following-sibling::td[contains(text(), '{value_b}')]"
-                td_centro = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, tdnumerocartao)))
-                numero_td = td_centro.text
+                WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, tdnumerocartao)))
 
                 #CAPTURAR O FAVORECIDO
                 xpath_td_nome = f"//td[@class='text-center' and contains(text(), '{value_f}')]"
-                td_nome = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, xpath_td_nome)))
-                favorecido = td_nome.text
-
-
+                WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, xpath_td_nome)))
 
                 #CAPTURAR BOTÃO DE SELECIONAR
                 botaoselecionar = xpathnome + "/preceding-sibling::td[1]//div[contains(@class, 'q-toggle')]"
                 botao1 = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, botaoselecionar)))
+
                 #CLICAR NO BOTÃO
                 actions = ActionChains(driver)
                 actions.move_to_element(botao1).click().perform()
 
-                #print(f"Nome capturado na linha {row}: {nome}, Número capturado: {numero_td}, Favorecido capturado: {favorecido}")
-
                 cell_h = f"H{row}"
                 escrever_celula(cell_h, "LIBERADO")
 
-                #print("Nome capturado:", nome)
             except Exception as e:
                 print(f"Erro ao buscar o nome na linha {row}: {str(e)}")
 
         last_processed_row = rows_to_process[-1] + 1 
-
-        time.sleep(3)
-
+        time.sleep(1)
 
         try:
             #ENVIAR TRANSFERÊNCIAS SELECIONADAS
             botaotransferencias = "//span[contains(@class, 'q-btn__content') and span[text()='Enviar Transferências Selecionadas']]"
             botao2 = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, botaotransferencias)))
-            #CLICAR NO BOTÃO
+
+            #CLICAR NO BOTÃO "ENVIAR TRANSFERÊNCIAS SELECIONADAS"
             actions = ActionChains(driver)
             actions.move_to_element(botao2).click().perform()
-            #print("Botão 'Enviar Transferências Selecionadas' clicado com sucesso!")
-
-
-            time.sleep(2)
-
+            time.sleep(1)
 
             #ENVIAR
             botao_enviar = "//span[@class='block' and text()='Enviar']"
             botao3 = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, botao_enviar)))
-            #CLICAR NO BOTÃO
+
+            #CLICAR NO BOTÃO "ENVIAR"
             actions = ActionChains(driver)
             actions.move_to_element(botao3).click().perform()
 
@@ -234,10 +216,8 @@ def executar_script():
                 print(f"Erro ao clicar no botão de transferências: {str(e)}")
 
 
-        time.sleep(15)
+ #------INTERFACE---------------#
 
-
-# Interface
 root = tk.Tk()
 root.title("Liberação de TEDS")
 root.geometry("300x150")
