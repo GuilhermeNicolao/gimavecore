@@ -11,7 +11,7 @@ SET SQL_SAFE_UPDATES = 0;
 
 ALTER TABLE cadastro_orc ADD COLUMN status varchar(255);
 UPDATE cadastro_orc SET status = NULL WHERE STATUS = 'APROVADO';
-UPDATE cadastro_orc SET status = 'APROVADO' where cod = '51';
+UPDATE cadastro_orc SET status = 'APROVADO' where cod = '61';
 SELECT * FROM cadastro_orc;
 DELETE FROM cadastro_orc where cod = '29';
 DESCRIBE cadastro;

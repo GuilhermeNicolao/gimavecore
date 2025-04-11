@@ -298,8 +298,8 @@ def inserir_Sem_Espaço(driver, elemento_id, texto, tempo_espera=30):
 #Variáveis / Diretórios / Loads
 diretorio = r"C:\Users\Guilherme.Silva\Desktop\gimavecore\GIMAVE\Baixa Credenciados"
 dirbordero = r"C:\Users\Guilherme.Silva\Desktop\GIMAVE\Credenciados\Borderôs"
-data = "04/04/2025"
-arquivo = "BORDERO 04.xlsx"
+data = "07/04/2025"
+arquivo = "BORDERO 07.xlsx"
 caminho_arquivo = os.path.join(dirbordero, arquivo)
 wb = load_workbook(caminho_arquivo)
 ws = wb["Reembolso"]
@@ -468,15 +468,15 @@ while True:
             console.error("Elemento <th id='0'> não encontrado.");
         }
     """, wa_element)
-    time.sleep(5)
+    time.sleep(10)
 
     #Acessar o campo "Reembolso"
     actions.send_keys(Keys.ARROW_RIGHT).perform()
-    time.sleep(1)
+    time.sleep(4)
     actions.send_keys(Keys.ARROW_RIGHT).perform()
-    time.sleep(1)
+    time.sleep(4)
     actions.send_keys(Keys.ARROW_RIGHT).perform()
-    time.sleep(1)
+    time.sleep(4)
 
     #Variáveis de controle
     bordero = 0
