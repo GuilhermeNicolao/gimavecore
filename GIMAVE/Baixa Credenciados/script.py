@@ -298,8 +298,8 @@ def inserir_Sem_Espaço(driver, elemento_id, texto, tempo_espera=30):
 #Variáveis / Diretórios / Loads
 diretorio = r"C:\Users\Guilherme.Silva\Desktop\gimavecore\GIMAVE\Baixa Credenciados"
 dirbordero = r"C:\Users\Guilherme.Silva\Desktop\GIMAVE\Credenciados\Borderôs"
-data = "07/04/2025"
-arquivo = "BORDERO 07.xlsx"
+data = "09/04/2025"
+arquivo = "BORDERO 09.xlsx"
 caminho_arquivo = os.path.join(dirbordero, arquivo)
 wb = load_workbook(caminho_arquivo)
 ws = wb["Reembolso"]
@@ -507,7 +507,9 @@ while True:
 
             # Salvar alterações Excel
             wb.save(caminho_arquivo)
+            print(f"✅ Borderô gerado com {encontrados_nesse_bordero} IDs.")
             time.sleep(3)
+            
 
             print("\n🚫 Nenhum novo ID foi encontrado. Encerrando geração de borderôs...")
             time.sleep(8)
