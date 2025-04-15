@@ -83,11 +83,12 @@
     <a href="{{url_for('home')}}">Home</a>
 
     <div class="dropdown">
-        <div class="dropdown-btn">Cadastros (3)</div>
+        <div class="dropdown-btn">Cadastros (4)</div>
         <div class="dropdown-container">
+            <a href="{{ url_for('cadastro_form') }}">Orçamentos</a>
             <a href="{{ url_for('fornecedores_form') }}">Fornecedores</a>
             <a href="{{ url_for('produtos_form') }}">Produtos</a>
-            <a href="{{ url_for('cadastro_form') }}">Orçamentos</a>
+            <a href="{{ url_for('categorias_form')}}">Categorias</a>
         </div>
     </div>
 
@@ -96,11 +97,14 @@
     <a href="dash.html">Dashboard</a>
 </div>
 
+<!--Página principal-->
 <div class="main">
     <h2 style="text-align: center; margin-top: 50px;">Bem-vindo(a), Usuário!</h2>
 </div>
 
+<!--JS-->
 <script>
+    // Menu Lateral
     document.addEventListener("DOMContentLoaded", function () {
         const dropdownButtons = document.querySelectorAll(".dropdown-btn");
 

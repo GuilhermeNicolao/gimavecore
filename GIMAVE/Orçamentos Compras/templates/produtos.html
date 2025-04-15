@@ -119,8 +119,8 @@
         .form-container h2{
             color: #218f0b;
         }
-        /* Alerta */
 
+        /* Alerta */
         .flash-messages {
             margin: 20px auto;
             max-width: 500px;
@@ -259,12 +259,154 @@
 
         #sugestoes-fornecedor {
         border: none;
+        border-radius: 5px;
         box-shadow: none;
         margin-top: 0;
-        padding: 0;
-        background: #d8d8d8;
+        margin-bottom: 4px;
+        background-color: #eeebeb;
         }
-        
+
+        #sugestoes-fornecedor div:hover {
+        background-color: #858383; /* cor desejada ao passar o mouse */
+        cursor: pointer; 
+        color: white;
+        }
+
+        .autocomplete-container {
+        position: relative;
+        }
+
+        .autocomplete-box {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ccc;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 999;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .sugestao-item {
+            padding: 8px;
+            cursor: pointer;
+        }
+
+        .sugestao-item:hover {
+            background-color: #f0f0f0;
+        }
+
+        /* Lista de Categorias */
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1001;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+            font-family: Arial, sans-serif;
+        }
+
+        .modal-content {
+            background-color: #fff;
+            margin: 8% auto;
+            padding: 20px 30px;
+            width: 50%;
+            max-height: 70vh;
+            overflow-y: auto;
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.2);
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 26px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: #333;
+        }
+
+        .modal-content h3 {
+            margin-top: 0;
+            font-size: 15px;
+            color: #333;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+
+        #lista-categorias {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        #lista-categorias li {
+            font-size: 14px;
+            padding: 12px 15px;
+            margin-bottom: 8px;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            transition: background-color 0.2s, transform 0.2s;
+            cursor: pointer;
+        }
+
+        #lista-categorias li:hover {
+            background-color: #eaeaea;
+            transform: scale(1.02);
+        }
+
+        #sugestoes-categoria {
+            border: none;
+            border-radius: 5px;
+            box-shadow: none;
+            margin-top: 0;
+            margin-bottom: 4px;
+            background-color: #eeebeb;
+        }
+
+        #sugestoes-categoria div:hover {
+            background-color: #858383;
+            cursor: pointer; 
+            color: white;
+        }
+
+        .autocomplete-container {
+            position: relative;
+        }
+
+        .autocomplete-box {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ccc;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 999;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .sugestao-item {
+            padding: 8px;
+            cursor: pointer;
+        }
+
+        .sugestao-item:hover {
+            background-color: #f0f0f0;
+        }
     </style>
 </head>
 
@@ -286,11 +428,12 @@
     <a href="{{url_for('home')}}">Home</a>
 
     <div class="dropdown">
-        <div class="dropdown-btn">Cadastros (3)</div>
+        <div class="dropdown-btn">Cadastros (4)</div>
         <div class="dropdown-container">
-            <a href="{{ url_for('fornecedores_form') }}">Fornecedores</a>
-            <a href="produtos.html">Produtos</a>
             <a href="{{ url_for('cadastro_form') }}">Orçamentos</a>
+            <a href="{{ url_for('fornecedores_form') }}">Fornecedores</a>
+            <a href="{{ url_for('produtos_form') }}">Produtos</a>
+            <a href="{{ url_for('categorias_form')}}">Categorias</a>
         </div>
     </div>
 
@@ -308,6 +451,15 @@
     </div>
 </div>
 
+<!--Lista de categorias (atrelado a lupinha)-->
+<div id="modal-categorias" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="fecharModalCategorias()">&times;</span>
+        <h3>Escolha uma Categoria</h3>
+        <ul id="lista-categorias"></ul>
+    </div>
+</div>
+
 <!--Cadastro de produtos-->
 <div class="form-container">
     <h2>Cadastro de Produtos</h2>
@@ -317,17 +469,18 @@
         <input type="text" id="nome" name="nome" required placeholder="Ex: Impressora HP 2546">
 
         <label for="categoria">Categoria *</label>
-        <input type="text" id="categoria" name="categoria" required placeholder="Ex: Informática">
-
-        <label for="preco">Preço *</label>
-        <input type="text" id="preco" name="preco" required placeholder="0,00">
+        <div class="input-icon">
+            <input type="text" id="categoria" name="categoria" required placeholder="Ex: Informática">
+            <i class="fa fa-search" onclick="abrirModalCategorias()"></i>
+            <div id="sugestoes-categoria" class="autocomplete-box"></div>
+        </div>
 
         <label for="fornecedor">Fornecedor *</label>
         <div class="input-icon">
             <input type="text" id="fornecedor" name="fornecedor" required placeholder="Digite ou clique na lupa">
             <i class="fa fa-search" onclick="abrirModalFornecedores()"></i>
+            <div id ="sugestoes-fornecedor" class="autocomplete-box"></div>
         </div>
-        <div id="sugestoes-fornecedor" class="autocomplete-box"></div>
 
         <label for="descricao">Descrição</label>
         <textarea id="descricao" name="descricao" rows="4" placeholder="Detalhes adicionais..."></textarea>
@@ -336,7 +489,6 @@
     </form>
 </div>
 
-<script src="https://unpkg.com/imask"></script>
 <script src="https://unpkg.com/imask"></script>
 <script>
     // Menu lateral
@@ -352,19 +504,6 @@
             });
         });
     });
-
-    // Mask Valor
-    var valorElement = document.getElementById('valor');
-    var mask = IMask(valorElement, {
-    mask: Number,
-    scale: 2,  // duas casas decimais
-    signed: false,
-    thousandsSeparator: '.',
-    padFractionalZeros: true,
-    normalizeZeros: true,
-    radix: ',',  // vírgula como separador decimal
-    mapToRadix: ['.']  // permite usar ponto como vírgula também
-});
 
     // Pesquisa de fornecedores
     document.getElementById('fornecedor').addEventListener('input', function () {
@@ -393,7 +532,7 @@
         });
 });
 
-    // Abrir lista de fornecedores
+    // Abrir e fechar lista de fornecedores
     function abrirModalFornecedores() {
         fetch('/fornecedores_sugestoes?q=')  // busca todos
         .then(res => res.json())
@@ -416,6 +555,58 @@
     function fecharModalFornecedores() {
         document.getElementById('modal-fornecedores').style.display = 'none';
     }
+
+    // Pesquisa de Categorias
+    document.getElementById('categoria').addEventListener('input', function () {
+        let query = this.value;
+
+        if (query.length < 2) {
+            document.getElementById('sugestoes-categoria').innerHTML = '';
+            return;
+        }
+
+        fetch(`/categorias_sugestoes?q=${query}`)
+            .then(response => response.json())
+            .then(data => {
+                let box = document.getElementById('sugestoes-categoria');
+                box.innerHTML = '';
+                data.forEach(nome => {
+                    let div = document.createElement('div');
+                    div.classList.add('sugestao-item');
+                    div.textContent = nome;
+                    div.onclick = () => {
+                        document.getElementById('categoria').value = nome;
+                        box.innerHTML = '';
+                    };
+                    box.appendChild(div);
+                });
+            });
+    });
+
+    // Abrir e fechar lista de Categorias
+    function abrirModalCategorias() {
+        fetch('/categorias_sugestoes?q=')  // busca todas
+        .then(res => res.json())
+        .then(data => {
+            let lista = document.getElementById('lista-categorias');
+            lista.innerHTML = '';
+            data.forEach(nome => {
+                let li = document.createElement('li');
+                li.textContent = nome;
+                li.onclick = () => {
+                    document.getElementById('categoria').value = nome;
+                    fecharModalCategorias();
+                };
+                lista.appendChild(li);
+            });
+            document.getElementById('modal-categorias').style.display = 'block';
+        });
+    }
+
+    function fecharModalCategorias() {
+        document.getElementById('modal-categorias').style.display = 'none';
+    }
+
 </script>
 
 </body>
