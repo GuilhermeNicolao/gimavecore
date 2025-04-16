@@ -50,7 +50,7 @@ def cadastrar():
 
         # Formatando data e valor para padrão MySQL
         data_formatada = datetime.strptime(data, "%Y-%m-%d").date()
-        vlr_formatado = float(valor.replace(',', '.'))
+        vlr_formatado = float(valor.replace('.', '').replace(',', '.')) 
 
         # Abrindo conexão com o banco
         conn = mysql.connector.connect(**db_config)
@@ -180,6 +180,7 @@ def produtos_sugestoes():
     return jsonify(resultados)
 
 
+
 #Rotas de cadastro de produtos
 @app.route('/produtos')
 def produtos_form():
@@ -238,6 +239,43 @@ def cadastrar_produto():
         flash(f'Erro ao inserir os dados: {err}', 'erro')
         return redirect('/produtos')
 
+@app.route('/api/produtos')
+def listar_produtos():
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT id, nome FROM produtos_orc ORDER BY nome")
+    produtos = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return jsonify(produtos)
+
+@app.route('/api/produtos/<int:id>', methods=['PUT'])
+def editar_produtos(id):
+    novo_nome = request.json.get('nome', '').strip()
+
+    if not novo_nome:
+        return jsonify({'erro': 'Nome não pode estar vazio'}), 400
+
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor()
+    cursor.execute("UPDATE produtos_orc SET nome = %s WHERE id = %s", (novo_nome, id))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return jsonify({'sucesso': True})
+
+@app.route('/api/produtos/<int:id>', methods=['DELETE'])
+def excluir_produtos(id):
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM produtos_orc WHERE id = %s", (id,))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return jsonify({'sucesso': True})
+
+
+
 
 #Rotas para cadastro de categorias
 @app.route('/categorias')
@@ -253,9 +291,23 @@ def cadastrar_categoria():
             flash('Preencha o campo de descrição!', 'erro')
             return redirect('/categorias')
 
-        # Inserção no banco
+        # Conexão com o banco
         conn = mysql.connector.connect(**db_config)
         cursor = conn.cursor()
+
+
+        # Verifica se a categoria já existe (ignorando maiúsculas/minúsculas)
+        query_verifica = "SELECT COUNT(*) FROM categoria_orc WHERE LOWER(TRIM(descricao)) = LOWER(%s)"
+        cursor.execute(query_verifica, (descricao,))
+        (existe,) = cursor.fetchone()
+
+        if existe > 0:
+            flash('Categoria já cadastrada!', 'erro')
+            cursor.close()
+            conn.close()
+            return redirect('/categorias')
+
+
         query = "INSERT INTO categoria_orc (descricao) VALUES (%s)"
         cursor.execute(query, (descricao,))
         conn.commit()
@@ -269,6 +321,40 @@ def cadastrar_categoria():
         flash(f'Erro ao inserir os dados: {err}', 'erro')
         return redirect('/categorias')
 
+@app.route('/api/categorias')
+def listar_categorias():
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT id_categoria, descricao FROM categoria_orc ORDER BY descricao")
+    categorias = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return jsonify(categorias)
+
+@app.route('/api/categorias/<int:id>', methods=['PUT'])
+def editar_categoria(id):
+    nova_descricao = request.json.get('descricao', '').strip()
+
+    if not nova_descricao:
+        return jsonify({'erro': 'Descrição não pode estar vazia'}), 400
+
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor()
+    cursor.execute("UPDATE categoria_orc SET descricao = %s WHERE id_categoria = %s", (nova_descricao, id))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return jsonify({'sucesso': True})
+
+@app.route('/api/categorias/<int:id>', methods=['DELETE'])
+def excluir_categoria(id):
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM categoria_orc WHERE id_categoria = %s", (id,))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return jsonify({'sucesso': True})
 
 
 if __name__ == '__main__':

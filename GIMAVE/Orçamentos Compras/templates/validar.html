@@ -2,14 +2,16 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Orçamento Compras v2.0</title>
+    <title>Validação</title>
      <style>
         body {
             margin: 0;
             font-family: Calibri Light;
             background-color: #F2F2F2;
+            padding:20px
         }
 
+        /* Menu Lateral */
         .sidenav {
             height: 100%;
             width: 150px;
@@ -73,14 +75,49 @@
         .sidenav:hover + .main {
             margin-left: 200px;
         }
+
+        /* Formulário */
+
+        h2 {
+        margin-bottom: 20px;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        table th, table td {
+            border: 1px solid #ccc;
+            padding: 8px 12px;
+            text-align: left;
+        }
+
+        table th {
+            background-color: #f4f4f4;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
     </style>
 </head>
 <body>
-
+    <h2>Validação de Orçamentos</h2>
 
 <!-- Menu -->
 <div class="sidenav">
-<a href="{{url_for('home')}}">Home</a>
+    <a href="{{url_for('home')}}">Home</a>
 
     <div class="dropdown">
         <div class="dropdown-btn">Cadastros (4)</div>
@@ -104,10 +141,38 @@
     <a href="dash.html">Dashboard</a>
 </div>
 
-<!--Página principal-->
-<div class="main">
-    <h2 style="text-align: center; margin-top: 50px;">Bem-vindo(a), Usuário!</h2>
-</div>
+<!--Principal-->
+<form id="form-validacao" method="POST" action="/validar_orcamentos">
+    <table>
+        <thead>
+            <tr>
+                <th>Selecionar</th>
+                <th>ID</th>
+                <th>Linha</th>
+                <th>Fornecedor</th>
+                <th>Categoria</th>
+                <th>Descrição</th>
+                <th>Valor</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for orc in orcamentos %}
+            <tr>
+                <td><input type="checkbox" name="selecionados" value="{{ orc.id }}"></td>
+                <td>{{ orc.id }}</td>
+                <td>{{ orc.linha }}</td>
+                <td>{{ orc.fornecedor }}</td>
+                <td>{{ orc.categoria }}</td>
+                <td>{{ orc.descricao }}</td>
+                <td>R$ {{ "%.2f"|format(orc.valor) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <button type="submit">Validar Selecionados</button>
+</form>
+
+<script src="{{ url_for('static', filename='js/validar.js') }}"></script>
 
 <!--JS-->
 <script>
@@ -124,6 +189,15 @@
             });
         });
     });
+
+    //Formulário
+    document.getElementById('form-validacao').addEventListener('submit', function (e) {
+    const selecionados = document.querySelectorAll('input[name="selecionados"]:checked');
+    if (selecionados.length === 0) {
+        e.preventDefault();
+        alert('Selecione ao menos um orçamento para validar!');
+    }
+});
 </script>
 
 </body>

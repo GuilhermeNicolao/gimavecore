@@ -15,7 +15,7 @@
 
         .sidenav {
             height: 100%;
-            width: 130px;
+            width: 150px;
             position: fixed;
             top: 0;
             left: 0;
@@ -196,8 +196,15 @@
         </div>
     </div>
 
-    <a href="validar.html">Validar</a>
-    <a href="orcamentos.html">Orçamentos</a>
+    <div class="dropdown">
+        <div class="dropdown-btn">Orçamentos (3)</div>
+        <div class="dropdown-container">
+            <a href="validar.html">Validar</a>
+            <a href="visualizar.html">Visualizar</a>
+            <a href="relatorios.html">Relatórios</a>
+        </div>
+    </div>
+
     <a href="dash.html">Dashboard</a>
 </div>
 
@@ -209,16 +216,16 @@
         <input type="text" id="cnpj" name="cnpj" placeholder="Apenas números"  required>
 
         <label for="razao_social">Razão Social *</label>
-        <input type="text" id="razao_social" name="razao_social" required>
+        <input type="text" id="razao_social" name="razao_social" placeholder="Digite o nome" required>
 
         <label for="rua">Rua *</label>
-        <input type="text" id="rua" name="rua" required>
+        <input type="text" id="rua" name="rua" placeholder="Apenas o nome da rua, sem o número." required>
 
         <label for="numero">Número *</label>
-        <input type="text" id="numero" name="numero" required>
+        <input type="text" id="numero" name="numero" placeholder="Apenas números" required>
 
         <label for="cep">CEP *</label>
-        <input type="text" id="cep" name="cep" required>
+        <input type="text" id="cep" name="cep" placeholder="Apenas números" required>
 
         <button type="submit"><b>CADASTRAR</b></button>
     </form>
