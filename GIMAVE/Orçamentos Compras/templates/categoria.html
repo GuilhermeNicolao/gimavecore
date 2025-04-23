@@ -1,323 +1,288 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <title>Cadastro de Categoria</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <style>
-        body {
-            margin: 0;
-            font-family: Calibri Light;
-            background-color: #F2F2F2;
-        }
+{% extends "base.html" %}
 
-        /* Menu lateral */
-        body {
-            margin: 0;
-            font-family: Calibri Light;
-            background-color: #F2F2F2;
-        }
+{% block head_extra %}
+<style>
+    
+    /* Formulário */
+    .form-container {
+        max-width: 450px;
+        margin: 20px auto;
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 0 10px #ccc;
+        margin-top: 50px;
+    }
 
-        .sidenav {
-            height: 100%;
-            width: 150px;
-            position: fixed;
-            top: 0;
-            left: 0;
-            background-color: #333;
-            padding-top: 20px;
-            overflow-x: hidden;
-            transition: 0.3s;
-        }
+    label {
+        display: block;
+        margin-top: 15px;
+    }
 
-        .sidenav:hover {
-            width: 200px;
-        }
-        
-        .sidenav a,
-        .dropdown-btn {
-            padding: 16px 16px 16px 24px;
-            font-size: 18px;
-            color: white;
-            display: block;
-            text-align: left;
-            text-decoration: none;
-            background: none;
-            border: none;
-            width: 100%;
-            font-family: Calibri;
-            cursor: pointer;
-            transition: 0.3s;
-        }
+    input {
+        width: 100%;
+        padding: 8px;
+        margin-top: 5px;
+        box-sizing: border-box;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+    }
 
-        .sidenav a:hover,
-        .dropdown-btn:hover {
-            background-color: #575757;
-        }
+    button {
+        margin-top: 20px;
+        padding: 10px;
+        width: 100%;
+        background-color: #333;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
 
-        .dropdown {
-            position: relative;
-        }
+    button:hover {
+        background-color: #555;
+    }
 
-        .dropdown-container {
-            display: none;
-            background-color: #444;
-            padding-left: 10px;
-        }
+    .form-container h2 {
+        color: #4f0b8f;
+        text-align: center;
+        font-family: Arial, sans-serif;
+        margin: 2px;
+    }
 
-        .dropdown:hover .dropdown-container {
-            display: block;
-        }
 
-        .dropdown-container a {
-        font-size: 16px; /* Tamanho da fonte */
-        }
 
-        .main {
-            margin-left: 60px;
-            padding: 20px;
-        }
+    /* Alerta */
+    .flash-messages {
+        margin: 20px auto;
+        max-width: 500px;
+    }
 
-        .sidenav:hover + .main {
-            margin-left: 200px;
-        }
+    .alert {
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+        text-align: center;
+        font-weight: bold;
+    }
 
-        /* Formulário */
-        .form-container {
-            max-width: 450px;
-            margin: 20px auto;
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px #ccc;
-            margin-top: 50px
-        }
+    .alert.sucesso {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
 
-        label {
-            display: block;
-            margin-top: 15px;
-        }
+    .alert.erro {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
 
-        input {
-            width: 100%;
-            padding: 8px;
-            margin-top: 5px;
-            box-sizing: border-box;
-            border-radius: 5px;
-            border: 1px solid #ccc;
-        }
 
-        button {
-            margin-top: 20px;
-            padding: 10px;
-            width: 100%;
-            background-color: #333;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
+    /* Ícone Lupa */
+    .input-icon{
+        position: relative;
+    }
 
-        button:hover {
-            background-color: #555;
-        }
+    .input-icon input{
+        padding-right: 30px;
+        width: 100%;
+    }
 
-        .form-container h2 {
-            color: #4f0b8f;
-        }
+    .input-icon i{
+        position:absolute;
+        right: 10px;
+        top: 59%;
+        transform: translateY(-50%);
+        color: #666;
+        cursor: pointer;
+    }
 
-        /* Alerta */
-        .flash-messages {
-            margin: 20px auto;
-            max-width: 500px;
-        }
 
-        .alert {
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            text-align: center;
-            font-weight: bold;
-        }
+    /* Modal */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1001;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0, 0, 0, 0.6); /* Fundo mais suave */
+        font-family: Arial, sans-serif;
+        transition: all 0.3s ease; /* Animação ao abrir e fechar */
+    }
 
-        .alert.sucesso {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
+    .modal-content {
+        position: relative;
+        background-color: #f2f2f2;
+        margin: 5% auto;
+        padding: 25px;
+        width: 60%;
+        max-height: 80vh;
+        overflow-y: auto;
+        border-radius: 15px;
+        box-shadow: 0 6px 25px rgba(0, 0, 0, 0.2);
+        transition: transform 0.3s ease-in-out;
+    }
 
-        .alert.erro {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
+    .close {
+        position: absolute;
+        top: 25px;
+        right: 15px;
+        color: #aaa;
+        font-size: 30px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: color 0.3s;
+    }
 
-        /* Ícone para pesquisa de fornecedores (feature futura) */
-        .input-icon{
-            position: relative;
-        }
+    .close:hover {
+        color: #ff6347; /* Cor mais vibrante para o botão de fechar */
+    }
 
-        .input-icon input{
-            padding-right: 30px;
-            width: 100%;
-        }
+    .modal-content h2 {
+        margin-top: 0;
+        font-size: 24px;
+        color: #4f0b8f;
+        font-weight: 600;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 15px;
+        text-align: center;
+    }
 
-        .input-icon i{
-            position:absolute;
-            right: 10px;
-            top: 59%;
-            transform: translateY(-50%);
-            color: #666;
-            cursor: pointer;
-        }
 
-        /* Modal */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1001;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            background-color: rgba(0, 0, 0, 0.6); /* Fundo mais suave */
-            font-family: Arial, sans-serif;
-            transition: all 0.3s ease; /* Animação ao abrir e fechar */
-        }
+    /* Tabela */
+    .tabela-categorias {
+        width: 100%;
+        border-collapse: collapse;
+    }
 
-        .modal-content {
-            background-color: #fff;
-            margin: 5% auto;
-            padding: 25px;
-            width: 60%;
-            max-height: 80vh;
-            overflow-y: auto;
-            border-radius: 15px;
-            box-shadow: 0 6px 25px rgba(0, 0, 0, 0.2);
-            transition: transform 0.3s ease-in-out;
-        }
+    .tabela-categorias th, .tabela-categorias td {
+        padding: 8px 12px;
+        text-align: left;
+        font-size: 14px;
+        border-bottom: 1px solid #ddd;
+    }
 
-        .close {
-            color: #aaa;
-            font-size: 30px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: color 0.3s;
-        }
+    .tabela-categorias th {
+        background-color: #cfcece;
+        color: #333;
+        text-align: center;
+    }
 
-        .close:hover {
-            color: #ff6347; /* Cor mais vibrante para o botão de fechar */
-        }
+    .tabela-categorias tr:hover {
+        background-color: #f5f5f5;
+        transform: scale(1.02);
+        transition: all 0.3s ease;
+    }
 
-        /* Título do Modal */
-        .modal-content h2 {
-            margin-top: 0;
-            font-size: 24px;
-            color: #333;
-            font-weight: 600;
-            border-bottom: 2px solid #eee;
-            padding-bottom: 15px;
-        }
+    .tabela-categorias button {
+        padding: 6px 12px;
+        margin: 2px;
+        width: 180px;
+        font-weight: bold;
+        background-color: #646363;
+        border: 1px solid #696969;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    }
 
-        /* Tabela */
-        .tabela-categorias {
-            width: 100%;
-            border-collapse: collapse;
-        }
+    .tabela-categorias button:hover {
+        background-color: #a5a5a5;
+    }
 
-        .tabela-categorias th, .tabela-categorias td {
-            padding: 8px 12px;
-            text-align: left;
-            font-size: 14px;
-            border-bottom: 1px solid #ddd;
-        }
+    .tabela-categorias td {
+        text-align: center;
+        vertical-align: middle;
+    }
 
-        .tabela-categorias th {
-            background-color: #f2f2f2;
-            color: #333;
-        }
 
-        .tabela-categorias tr:hover {
-            background-color: #f5f5f5;
-            transform: scale(1.02);
-            transition: all 0.3s ease;
-        }
+    /* Lista de Categorias */
+    #lista-categorias {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
 
-        /* Lista de Categorias */
-        #lista-categorias {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
+    #lista-categorias li {
+        font-size: 12px;
+        padding: 6px 10px;
+        margin-bottom: 4px;
+        background-color: #f9f9f9;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        transition: background-color 0.3s, transform 0.3s;
+        cursor: pointer;
+    }
 
-        #lista-categorias li {
-            font-size: 12px;
-            padding: 6px 10px;
-            margin-bottom: 4px;
-            background-color: #f9f9f9;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            transition: background-color 0.3s, transform 0.3s;
-            cursor: pointer;
-        }
+    #lista-categorias li:hover {
+        background-color: #eaeaea;
+        transform: scale(1.02);
+    }
 
-        #lista-categorias li:hover {
-            background-color: #eaeaea;
-            transform: scale(1.02);
-        }
 
-        /* Autocomplete */
-        .autocomplete-container {
-            position: relative;
-        }
+    /* Pop-up */
+    .popup {
+        display: none;
+        position: fixed;
+        z-index: 1001;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.6);
+        font-family: Arial, sans-serif;
+        transition: all 0.3s ease;
+    }
 
-        .autocomplete-box {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background: white;
-            border: none;
-            max-height: 150px;
-            overflow-y: auto;
-            z-index: 999;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-            border-radius: 5px;
-            transition: opacity 0.3s ease;
-        }
+    .popup-content {
+        position: relative;
+        background-color: #f2f2f2;
+        margin: 50px auto;
+        padding: 25px;
+        width: 40%;
+        max-height: 80vh;
+        border-radius: 8px;
+        box-shadow: 0 6px 25px rgba(0, 0, 0, 0.2);
+        text-align: center;
+    }
 
-        .sugestao-item {
-            padding: 8px;
-            font-size: 14px;
-            cursor: pointer;
-        }
+    .popup button {
+        padding: 10px 20px;
+        font-size: 16px;
+        margin-top: 15px;
+        background-color: #646363;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
 
-        .sugestao-item:hover {
-            background-color: #f0f0f0;
-            color: #333;
-        }
+    .popup button:hover {
+        background-color: #555555;
+    }
 
-        /* Estilo do campo de pesquisa */
-        #sugestoes-categoria {
-            border: 1px solid #ccc;
-            border-radius: 8px;
-            padding: 6px 10px;
-            background-color: #f9f9f9;
-            width: 100%;
-            font-size: 14px;
-            box-sizing: border-box;
-            transition: border-color 0.3s ease;
-        }
 
-        #sugestoes-categoria:focus {
-            border-color: #3498db;
-            outline: none;
-        }
-    </style>
-</head>
-<body>
+    /* Modal de Edição */
+    #modal-editar .modal-content {
+        width: 400px;
+    }
 
+    #modal-editar input {
+        width: 100%;
+        padding: 10px;
+        margin-top: 10px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+    }
+
+</style>
+{% endblock %}
+
+{% block content %}
 <!-- Alerta -->
 {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
@@ -329,52 +294,6 @@
     {% endif %}
 {% endwith %}
 
-<!-- Menu -->
-<div class="sidenav">
-    <a href="{{url_for('home')}}">Home</a>
-
-    <div class="dropdown">
-        <div class="dropdown-btn">Cadastros (4)</div>
-        <div class="dropdown-container">
-            <a href="{{ url_for('cadastro_form') }}">Orçamentos</a>
-            <a href="{{ url_for('fornecedores_form') }}">Fornecedores</a>
-            <a href="{{ url_for('produtos_form') }}">Produtos</a>
-            <a href="{{ url_for('categorias_form')}}">Categorias</a>
-        </div>
-    </div>
-
-    <div class="dropdown">
-        <div class="dropdown-btn">Orçamentos (3)</div>
-        <div class="dropdown-container">
-            <a href="validar.html">Validar</a>
-            <a href="visualizar.html">Visualizar</a>
-            <a href="relatorios.html">Relatórios</a>
-        </div>
-    </div>
-
-    <a href="dash.html">Dashboard</a>
-</div>
-
-<!--Lista de categorias (atrelado a lupinha)-->
-<div id="modal-categorias" class="modal">
-    <div class="modal-content">
-        <span class="close" onclick="fecharModalCategorias()">&times;</span>
-        <h2>Categorias Cadastradas</h2>
-
-        <table class="tabela-categorias">
-            <thead>
-                <tr>
-                    <th>Descrição</th>
-                    <th>Ações</th>
-                </tr>
-            </thead>
-            <tbody id="lista-categorias">
-                <!-- Vai ser preenchido via JavaScript -->
-            </tbody>
-        </table>
-    </div>
-</div>
-
 <!-- Formulário de Cadastro de Categoria -->
 <div class="form-container">
     <h2>Cadastro de Categorias</h2>
@@ -383,113 +302,186 @@
         <div class="input-icon">
             <input type="text" id="descricao" name="descricao" required placeholder="Nome da Categoria">
             <i class="fa fa-search" onclick="abrirModalCategorias()"></i>
-            <div id="" class="autocomplete-box"></div>
+            <div id="sugestoes-categoria" class="autocomplete-box"></div>
         </div>
 
         <button type="submit"><b>CADASTRAR</b></button>
     </form>
-    
 </div>
 
+<!-- Modal de categorias -->
+<div id="modal-categorias" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="fecharModalCategorias()">&times;</span>
+        <h2>Categorias Cadastradas</h2>
+        <table class="tabela-categorias">
+            <thead>
+                <tr>
+                    <th>Descrição</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="lista-categorias">
+                <!-- Preenchido via JavaScript -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal de Edição da Categoria -->
+<div id="modal-editar" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="fecharModalEditar()">&times;</span>
+        <h2>Editar Categoria</h2>
+        <form id="form-editar-categoria">
+            <label for="nova-descricao">Nova Descrição *</label>
+            <input type="text" id="nova-descricao" name="nova-descricao" required placeholder="Digite a nova descrição">
+            <button type="submit"><b>OK</b></button>
+        </form>
+    </div>
+</div>
+
+<!-- Pop-up de Sucesso para Alteração -->
+<div id="popup-alteracao" class="popup">
+    <div class="popup-content">
+        <p>Alteração realizada!</p>
+        <button onclick="fecharPopup('popup-alteracao')">Ok</button>
+    </div>
+</div>
+
+<!-- Pop-up de Confirmação de Exclusão -->
+<div id="popup-exclusao" class="popup">
+    <div class="popup-content">
+        <p><b>Deseja mesmo excluir esta categoria?</b></p>
+        <button onclick="confirmarExclusao()">Sim</button>
+        <button onclick="fecharPopup('popup-exclusao')">Não</button>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+
 <script src="https://unpkg.com/imask"></script>
+
 <script>
-    // Menu lateral
-    document.addEventListener("DOMContentLoaded", function () {
-        const dropdownButtons = document.querySelectorAll(".dropdown-btn");
-
-        dropdownButtons.forEach(function (btn) {
-            btn.addEventListener("click", function () {
-                const dropdown = btn.nextElementSibling;
-                if (dropdown && dropdown.classList.contains("dropdown-container")) {
-                    dropdown.style.display = dropdown.style.display === "block" ? "none" : "block";
-                }
-            });
-        });
-    });
-
-    // Pesquisa de Categorias
-    document.getElementById('categoria').addEventListener('input', function () {
-        let query = this.value;
-
-        if (query.length < 2) {
-            document.getElementById('').innerHTML = '';
-            return;
-        }
-
-        fetch(`/categorias_sugestoes?q=${query}`)
+    // Abrir lista de categorias
+    function abrirModalCategorias() {
+        fetch('/api/categorias')
             .then(response => response.json())
             .then(data => {
-                let box = document.getElementById('sugestoes-categoria');
-                box.innerHTML = '';
-                data.forEach(nome => {
-                    let div = document.createElement('div');
-                    div.classList.add('sugestao-item');
-                    div.textContent = nome;
-                    div.onclick = () => {
-                        document.getElementById('categoria').value = nome;
-                        box.innerHTML = '';
-                    };
-                    box.appendChild(div);
+                const lista = document.getElementById('lista-categorias');
+                lista.innerHTML = '';
+                data.forEach(cat => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${cat.descricao}</td>
+                        <td>
+                            <button onclick="abrirModalEditar(${cat.id_categoria}, '${cat.descricao}')">Editar</button>
+                            <button onclick="excluirCategoria(${cat.id_categoria})">Excluir</button>
+                        </td>
+                    `;
+                    lista.appendChild(row);
                 });
-            });
-    });
+                document.getElementById('modal-categorias').style.display = 'block';
+            })
+            .catch(err => console.error("Erro ao carregar categorias:", err));
+    }
 
-    // Abrir e fechar lista de categorias
-    function abrirModalCategorias() {
-    fetch('/api/categorias')
-        .then(response => response.json())
-        .then(data => {
-            const lista = document.getElementById('lista-categorias');
-            lista.innerHTML = '';
-
-            data.forEach(cat => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td contenteditable="true" onblur="editarCategoria(${cat.id_categoria}, this.innerText)">${cat.descricao}</td>
-                    <td><button onclick="excluirCategoria(${cat.id_categoria})">Excluir</button></td>
-                `;
-                lista.appendChild(row);
-            });
-
-            document.getElementById('modal-categorias').style.display = 'block';
-        })
-        .catch(err => {
-            console.error("Erro ao carregar categorias:", err);
-        });
-}
-
+    // Fechar lista de categorias
     function fecharModalCategorias() {
-    document.getElementById('modal-categorias').style.display = 'none';
-}
+        document.getElementById('modal-categorias').style.display = 'none';
+    }
 
-    // Editar lista de categorias
-    function editarCategoria(id, novaDescricao) {
-    fetch(`/api/categorias/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ descricao: novaDescricao.trim() })
-    })
-    .then(response => {
-        if (!response.ok) {
-            alert("Erro ao editar categoria.");
-        }
-    });
-}
 
-    // Excluir lista de produtos
-    function excluirCategoria(id) {
-    if (!confirm("Tem certeza que deseja excluir esta categoria?")) return;
 
-    fetch(`/api/categorias/${id}`, { method: 'DELETE' })
+    // Exibir modal de edição de categoria
+    function abrirModalEditar(id, descricaoAtual) {
+        document.getElementById('modal-editar').style.display = 'block';
+        document.getElementById('nova-descricao').value = descricaoAtual; // Preenche o campo com a descrição atual
+        document.getElementById('form-editar-categoria').onsubmit = function(event) {
+            event.preventDefault();
+            editarCategoria(id); // Chama a função de editar ao submeter o formulário
+        };
+    }
+
+    // Fechar modal de edição
+    function fecharModalEditar() {
+        document.getElementById('modal-editar').style.display = 'none';
+    }
+
+    // Editar categoria
+    function editarCategoria(id) {
+        const novaDescricao = document.getElementById('nova-descricao').value.trim();
+        if (novaDescricao === "") return;
+
+        fetch(`/api/categorias/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ descricao: novaDescricao })
+        })
         .then(response => {
             if (response.ok) {
-                abrirModalCategorias();
+                fecharModalEditar(); // Fecha o modal de edição
+                abrirModalCategorias(); // Atualiza a lista de categorias
+                mostrarPopupAlteracao(); // Exibe o pop-up de alteração realizada
             } else {
-                alert("Erro ao excluir categoria.");
+                alert("Erro ao editar categoria.");
             }
         });
-}
+    }
+
+    // Exibir pop-up de alteração realizada
+    function mostrarPopupAlteracao() {
+        document.getElementById('popup-alteracao').style.display = 'block';
+    }
+
+
+
+    // Excluir categoria
+    function excluirCategoria(id) {
+        mostrarPopupExclusao(id); // Exibe o pop-up de confirmação
+    }
+
+    // Exibir pop-up de exclusão
+    function mostrarPopupExclusao(id) {
+        document.getElementById('popup-exclusao').style.display = 'block';
+        document.getElementById('popup-exclusao').dataset.idCategoria = id; // Armazena o id da categoria a ser excluída
+    }
+
+    // Confirmar exclusão
+    function confirmarExclusao() {
+        const idCategoria = document.getElementById('popup-exclusao').dataset.idCategoria;
+
+        fetch(`/api/categorias/${idCategoria}`, { method: 'DELETE' })
+            .then(response => {
+                if (response.ok) {
+                    abrirModalCategorias(); // Atualiza a lista
+                    mostrarPopupExclusaoSucesso(); // Exibe o pop-up de sucesso
+                    fecharPopup('popup-exclusao');
+                } else {
+                    alert("Erro ao excluir categoria.");
+                }
+            });
+    }
+
+    // Fechar qualquer pop-up
+    function fecharPopup(popupId) {
+        document.getElementById(popupId).style.display = 'none';
+    }
+
+    // Exibir pop-up de exclusão com sucesso
+    function mostrarPopupExclusaoSucesso() {
+        alert("Categoria excluída com sucesso!");
+    }
+
+    // Fechar pop-up de exclusão
+    function fecharModalExcluir() {
+        document.getElementById('popup-exclusao').style.display = 'none';
+    }
+
+
 
 </script>
-</body>
-</html>
+
+{% endblock %}

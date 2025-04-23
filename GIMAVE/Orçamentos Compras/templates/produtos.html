@@ -538,7 +538,7 @@
     <div class="dropdown">
         <div class="dropdown-btn">Orçamentos (3)</div>
         <div class="dropdown-container">
-            <a href="validar.html">Validar</a>
+            <a href="{{ url_for('validar') }}">Validar</a>
             <a href="visualizar.html">Visualizar</a>
             <a href="relatorios.html">Relatórios</a>
         </div>
@@ -634,6 +634,8 @@
         });
     });
 
+
+    
     // Pesquisa de fornecedores
     document.getElementById('fornecedor').addEventListener('input', function () {
     let query = this.value;
@@ -685,6 +687,8 @@
         document.getElementById('modal-fornecedores').style.display = 'none';
     }
 
+
+
     // Pesquisa de Categorias
     document.getElementById('categoria').addEventListener('input', function () {
         let query = this.value;
@@ -735,6 +739,8 @@
     function fecharModalCategorias() {
         document.getElementById('modal-categorias').style.display = 'none';
     }
+
+
 
     // Abrir e fechar lista de Produtos
     function abrirModalProdutos() {

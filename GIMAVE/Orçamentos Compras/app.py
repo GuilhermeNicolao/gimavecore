@@ -1,15 +1,9 @@
-from flask import Flask, render_template, request, redirect, flash, jsonify
+from flask import Flask, render_template, request, redirect, flash, jsonify, url_for
 import os
 import re
-import sys
-import subprocess
 import mysql.connector
 from dotenv import load_dotenv
 from datetime import datetime
-import locale
-from tkcalendar import DateEntry
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 load_dotenv()
 
@@ -27,6 +21,7 @@ db_config = {
 @app.route('/home')
 def home():
     return render_template('index.html')
+
 
 #Rotas de cadastro de orçamentos
 @app.route('/cadastro')
@@ -355,6 +350,179 @@ def excluir_categoria(id):
     cursor.close()
     conn.close()
     return jsonify({'sucesso': True})
+
+
+
+#Rota para validar orçamentos
+@app.route('/validar', methods=['GET', 'POST'])
+def validar():
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor(dictionary=True)
+
+    filtro = request.args.get('filtro')
+    valor = request.args.get('valor')
+
+    query_base = """
+        SELECT cod, dt, produto, fornecedor, vlr_orcamento, observacao, status 
+        FROM cadastro_orc_teste 
+        WHERE 1=1
+    """
+    params = []
+
+    filtros_sql = {
+        "produto": " AND produto LIKE %s",
+        "fornecedor": " AND fornecedor LIKE %s",
+        "data": " AND DATE(dt) = %s",
+        "status": " AND status LIKE %s"
+    }
+
+    if filtro in filtros_sql and valor:
+        query_base += filtros_sql[filtro]
+        
+        if filtro in ['produto', 'fornecedor', 'status']:
+            params.append(f"%{valor}%")
+        
+        elif filtro == 'data':
+            try:
+                # Converte de "DD/MM/YY" para "YYYY-MM-DD"
+                data_formatada = datetime.strptime(valor, '%d/%m/%y').strftime('%Y-%m-%d')
+                params.append(data_formatada)
+            except ValueError:
+                # Data inválida: força a query a não retornar nada
+                query_base += " AND 1=0"
+
+    query_base += " ORDER BY dt DESC"
+
+    cursor.execute(query_base, params)
+    orcamentos = cursor.fetchall()
+
+    if request.method == 'POST':
+        ids_selecionados = request.form.getlist('orcamento_ids')
+        acao = request.form.get('acao')
+        if ids_selecionados:
+            status = 'Aprovado' if acao == 'aprovar' else 'Reprovado'
+            format_strings = ','.join(['%s'] * len(ids_selecionados))
+            update_query = f"UPDATE cadastro_orc_teste SET status = %s WHERE cod IN ({format_strings})"
+            cursor.execute(update_query, [status] + ids_selecionados)
+            conn.commit()
+
+    cursor.close()
+    conn.close()
+
+    return render_template('validar.html', orcamentos=orcamentos, filtro=filtro, valor=valor)
+
+@app.route('/autocomplete')
+def autocomplete():
+    termo = request.args.get('term', '')
+    filtro = request.args.get('filtro', '')
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor()
+
+    colunas_permitidas = {
+        'produto': 'produto',
+        'fornecedor': 'fornecedor'
+    }
+
+    if filtro in colunas_permitidas:
+        coluna = colunas_permitidas[filtro]
+        query = f"SELECT DISTINCT {coluna} FROM cadastro_orc_teste WHERE {coluna} LIKE %s LIMIT 10"
+        cursor.execute(query, (f"%{termo}%",))
+        resultados = [row[0] for row in cursor.fetchall()]
+    else:
+        resultados = []
+
+    cursor.close()
+    conn.close()
+
+    return jsonify(resultados)
+
+
+#Rota para visualizar, editar e excluir orçamentos
+@app.route('/visualizar', methods=['GET'])
+def visualizar():
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor(dictionary=True)
+
+    filtro = request.args.get('filtro')
+    valor = request.args.get('valor')
+
+    query_base = "SELECT cod, dt, produto, fornecedor, vlr_orcamento, observacao, status FROM cadastro_orc_teste WHERE 1=1"
+    params = []
+
+    filtros_sql = {
+        "produto": " AND produto LIKE %s",
+        "fornecedor": " AND fornecedor LIKE %s",
+        "data": " AND DATE_FORMAT(dt, '%%d/%%m/%%y') = %s",
+        "status": " AND status LIKE %s"
+    }
+
+    if filtro in filtros_sql and valor:
+        query_base += filtros_sql[filtro]
+        if filtro in ['produto', 'fornecedor', 'status']:
+            params.append(f"%{valor}%")
+        elif filtro == 'data':
+            try:
+                data_formatada = datetime.strptime(valor, '%d/%m/%y').strftime('%Y-%m-%d')
+                params.append(data_formatada)
+            except ValueError:
+                params.append('0000-00-00')
+
+    query_base += " ORDER BY dt DESC"
+
+    cursor.execute(query_base, params)
+    orcamentos = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return render_template('visualizar.html', orcamentos=orcamentos, filtro=filtro, valor=valor)
+
+@app.route('/editar_orcamento/<int:cod>', methods=['POST'])
+def editar_orcamento(cod):
+    produto = request.form['produto']
+    fornecedor = request.form['fornecedor']
+    vlr_orcamento = request.form['vlr_orcamento']
+    observacao = request.form['observacao']
+    dt = request.form['dt']
+
+    # Validar os dados
+    try:
+        vlr_orcamento = float(vlr_orcamento)
+        dt_formatada = datetime.strptime(dt, "%d/%m/%Y").strftime("%Y-%m-%d")
+    except ValueError:
+        flash('Dados inválidos! Verifique o valor e a data.', 'danger')
+        return redirect(url_for('visualizar'))
+
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        UPDATE cadastro_orc_teste 
+        SET produto = %s, fornecedor = %s, vlr_orcamento = %s, observacao = %s, dt = %s 
+        WHERE cod = %s
+    """, (produto, fornecedor, vlr_orcamento, observacao, dt_formatada, cod))
+    
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    flash('Orçamento atualizado com sucesso!', 'success')
+    return redirect(url_for('visualizar'))
+
+@app.route('/remover_orcamento/<int:cod>', methods=['GET'])
+def remover_orcamento(cod):
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor()
+
+    # Excluir o orçamento com base no cod
+    cursor.execute("DELETE FROM cadastro_orc_teste WHERE cod = %s", (cod,))
+    conn.commit()
+
+    cursor.close()
+    conn.close()
+
+    flash('Orçamento removido com sucesso!', 'success')
+    return redirect(url_for('visualizar'))
 
 
 if __name__ == '__main__':

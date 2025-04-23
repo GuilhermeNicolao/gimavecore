@@ -1,0 +1,118 @@
+<!-- templates/base.html -->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+
+        /* Main */
+        body {
+            margin: 0;
+            font-family: Calibri Light;
+            background-color: #F2F2F2;
+        }
+            
+        .main {
+            margin-left: 160px;
+            padding: 20px;
+        }
+
+        
+        /* Menu Lateral */
+        .sidenav {
+            height: 100%;
+            width: 160px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            background-color: #333;
+            padding-top: 20px;
+            overflow-x: hidden;
+            transition: 0.3s;
+        }
+
+        .sidenav:hover {
+            width: 200px;
+        }
+
+        .sidenav a,
+        .dropdown-btn {
+            padding: 16px 16px 16px 24px;
+            font-size: 18px;
+            color: white;
+            display: block;
+            text-align: left;
+            text-decoration: none;
+            background: none;
+            border: none;
+            width: 100%;
+            font-family: Calibri;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .sidenav a:hover,
+        .dropdown-btn:hover {
+            background-color: #575757;
+        }
+
+        .dropdown {
+            position: relative;
+        }
+
+        .dropdown-container {
+            display: none;
+            background-color: #444;
+            padding-left: 10px;
+        }
+
+        .dropdown:hover .dropdown-container {
+            display: block;
+        }
+
+        .dropdown-container a {
+            font-size: 16px;
+        }
+
+    </style>
+
+    {% block head_extra %}{% endblock %}
+</head>
+<body>
+
+<!-- Menu -->
+<div class="sidenav">
+    <a href="{{url_for('home')}}">Home</a>
+
+    <div class="dropdown">
+        <div class="dropdown-btn">Cadastros (4)</div>
+        <div class="dropdown-container">
+            <a href="{{ url_for('cadastro_form') }}">Orçamentos</a>
+            <a href="{{ url_for('fornecedores_form') }}">Fornecedores</a>
+            <a href="{{ url_for('produtos_form') }}">Produtos</a>
+            <a href="{{ url_for('categorias_form')}}">Categorias</a>
+        </div>
+    </div>
+
+    <div class="dropdown">
+        <div class="dropdown-btn">Orçamentos (3)</div>
+        <div class="dropdown-container">
+            <a href="{{ url_for('validar') }}">Validar</a>
+            <a href="{{ url_for('visualizar') }}">Visualizar</a>
+            <a href="relatorios.html">Relatórios</a>
+        </div>
+    </div>
+
+    <a href="dash.html">Dashboard</a>
+</div>
+
+<!-- Conteúdo principal -->
+<div class="main">
+    {% block content %}{% endblock %}
+</div>
+
+{% block scripts %}{% endblock %}
+
+</body>
+</html>

@@ -298,8 +298,8 @@ def inserir_Sem_Espaço(driver, elemento_id, texto, tempo_espera=30):
 #Variáveis / Diretórios / Loads
 diretorio = r"C:\Users\Guilherme.Silva\Desktop\gimavecore\GIMAVE\Baixa Credenciados"
 dirbordero = r"C:\Users\Guilherme.Silva\Desktop\GIMAVE\Credenciados\Borderôs"
-data = "09/04/2025"
-arquivo = "BORDERO 09.xlsx"
+data = "08/04/2025"
+arquivo = "BORDERO 08.xlsx"
 caminho_arquivo = os.path.join(dirbordero, arquivo)
 wb = load_workbook(caminho_arquivo)
 ws = wb["Reembolso"]
@@ -366,18 +366,16 @@ time.sleep(3)
 
 #Funções CPG
 Clique_Ousado(navegador, imagem_funcoes_cpg)
-time.sleep(3)
-
-try:
-    elemento = WebDriverWait(navegador, 40).until(
-        EC.presence_of_element_located((By.ID, "COMP4522"))
-    )
-    elemento.click()
-    print("COMP4522 encontrado e clicado.")
-except TimeoutException:
-    print("COMP4522 não encontrado, seguindo com o código.")
-
 time.sleep(15)
+
+# try:
+#     elemento = WebDriverWait(navegador, 40).until(
+#         EC.presence_of_element_located((By.ID, "COMP4522"))
+#     )
+#     elemento.click()
+#     print("COMP4522 encontrado e clicado.")
+# except TimeoutException:
+#     print("COMP4522 não encontrado, seguindo com o código.")
 
 esperar_imagem_aparecer(navegador, imagem_antesbordero)
 time.sleep(2)

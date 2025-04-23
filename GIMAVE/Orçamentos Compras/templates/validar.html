@@ -2,16 +2,14 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Validação</title>
-     <style>
+    <title>Validar Orçamentos</title>
+    <style>
         body {
             margin: 0;
             font-family: Calibri Light;
             background-color: #F2F2F2;
-            padding:20px
         }
 
-        /* Menu Lateral */
         .sidenav {
             height: 100%;
             width: 150px;
@@ -64,11 +62,11 @@
         }
 
         .dropdown-container a {
-        font-size: 16px; /* Tamanho da fonte */
+            font-size: 16px;
         }
 
         .main {
-            margin-left: 60px;
+            margin-left: 160px;
             padding: 20px;
         }
 
@@ -76,46 +74,102 @@
             margin-left: 200px;
         }
 
-        /* Formulário */
-
-        h2 {
-        margin-bottom: 20px;
+        /* Estilos do container */
+        .container {
+            max-width: 90%;
+            margin: 0px auto;
+            background-color: #c9c9c9;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            overflow: hidden;
         }
 
         table {
-            border-collapse: collapse;
             width: 100%;
-            margin-bottom: 20px;
+            border-collapse: collapse;
+            font-size: 16px;
+            position: relative; /* Para o redimensionamento das colunas */
         }
 
-        table th, table td {
-            border: 1px solid #ccc;
-            padding: 8px 12px;
+        th, td {
+            padding: 10px;
+            border: 1px solid #ddd;
             text-align: left;
+            position: relative;
         }
 
-        table th {
-            background-color: #f4f4f4;
-        }
-
-        button {
-            padding: 10px 20px;
-            background-color: #4CAF50;
+        th {
+            background-color: #505050;
             color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
         }
 
-        button:hover {
-            background-color: #45a049;
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+
+        /* Estilo do divisor para redimensionamento */
+        .resize-handle {
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 2px;
+            height: 100%;
+            cursor: ew-resize;
+            background-color: #ddd;
+        }
+
+        /* Linha de redimensionamento (em caso de redimensionamento de linhas) */
+        .resize-v-handle {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 5px;
+            width: 100%;
+            cursor: ns-resize;
+            background-color: #ddd;
+        }
+
+        /* Para dar uma visualização melhor do redimensionamento */
+        th.resizable:hover .resize-handle {
+            background-color: #666;
+            width: 3px; /* Deixa mais fino */
+            transition: background-color 0.2s ease;
+        }
+
+        .filtro-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 20px;
+    justify-content: center;
+        }
+
+        .filtro-form select,
+        .filtro-form input,
+        .filtro-form button {
+            padding: 8px 12px;
+            font-size: 16px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+        }
+
+        .filtro-form button {
+            background-color: #333;
+            color: white;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .filtro-form button:hover {
+            background-color: #555;
         }
     </style>
 </head>
 <body>
-    <h2>Validação de Orçamentos</h2>
 
-<!-- Menu -->
+<!-- Menu Lateral -->
 <div class="sidenav">
     <a href="{{url_for('home')}}">Home</a>
 
@@ -132,7 +186,7 @@
     <div class="dropdown">
         <div class="dropdown-btn">Orçamentos (3)</div>
         <div class="dropdown-container">
-            <a href="validar.html">Validar</a>
+            <a href="{{ url_for('validar') }}">Validar</a>
             <a href="visualizar.html">Visualizar</a>
             <a href="relatorios.html">Relatórios</a>
         </div>
@@ -141,63 +195,200 @@
     <a href="dash.html">Dashboard</a>
 </div>
 
-<!--Principal-->
-<form id="form-validacao" method="POST" action="/validar_orcamentos">
-    <table>
-        <thead>
-            <tr>
-                <th>Selecionar</th>
-                <th>ID</th>
-                <th>Linha</th>
-                <th>Fornecedor</th>
-                <th>Categoria</th>
-                <th>Descrição</th>
-                <th>Valor</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for orc in orcamentos %}
-            <tr>
-                <td><input type="checkbox" name="selecionados" value="{{ orc.id }}"></td>
-                <td>{{ orc.id }}</td>
-                <td>{{ orc.linha }}</td>
-                <td>{{ orc.fornecedor }}</td>
-                <td>{{ orc.categoria }}</td>
-                <td>{{ orc.descricao }}</td>
-                <td>R$ {{ "%.2f"|format(orc.valor) }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    <button type="submit">Validar Selecionados</button>
-</form>
+<!-- Conteúdo Principal -->
+<div class="main">
+    <div class="container">
+        <h2 style="text-align:center;">Orçamentos para Validação</h2>
 
-<script src="{{ url_for('static', filename='js/validar.js') }}"></script>
+        <!-- Formulário de Filtro -->
+        <form method="GET" action="{{ url_for('validar') }}" class="filtro-form" onsubmit="return validarFiltro()">
+            <label for="filtro">Filtrar por:</label>
+            <select name="filtro" id="filtro">
+                <option value="">Selecione...</option>
+                <option value="produto" {% if filtro == 'produto' %}selected{% endif %}>Produto</option>
+                <option value="fornecedor" {% if filtro == 'fornecedor' %}selected{% endif %}>Fornecedor</option>
+                <option value="data" {% if filtro == 'data' %}selected{% endif %}>Data (DD/MM/YY)</option>
+                <option value="status" {% if filtro == 'status' %}selected{% endif %}>Status</option>
+            </select>
+        
+            <input type="text" name="valor" placeholder="Digite o valor..." value="{{ valor or '' }}">
+            <button type="submit">Buscar</button>
+        </form>
+
+        <!-- Formulário de Aprovação/Reprovação -->
+        <form method="POST" action="{{ url_for('validar') }}">
+            <table>
+                <thead>
+                    <tr>
+                        <th class="resizable">Selecionar
+                            <div class="resize-handle"></div>
+                        </th>
+                        <th class="resizable">ID
+                            <div class="resize-handle"></div>
+                        </th>
+                        <th class="resizable">Produto
+                            <div class="resize-handle"></div>
+                        </th>
+                        <th class="resizable">Fornecedor
+                            <div class="resize-handle"></div>
+                        </th>
+                        <th class="resizable">Preço
+                            <div class="resize-handle"></div>
+                        </th>
+                        <th class="resizable">Data
+                            <div class="resize-handle"></div>
+                        </th>
+                        <th class="resizable">Observação
+                            <div class="resize-handle"></div>
+                        </th>
+                        <th class="resizable">Status
+                            <div class="resize-handle"></div>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for orcamento in orcamentos %}
+                    <tr>
+                        <td><input type="checkbox" name="orcamento_ids" value="{{ orcamento.cod }}"></td>
+                        <td>{{ orcamento.cod }}</td>
+                        <td>{{ orcamento.produto }}</td>
+                        <td>{{ orcamento.fornecedor }}</td>
+                        <td>R$ {{ "%.2f"|format(orcamento.vlr_orcamento) }}</td>
+                        <td>{{ orcamento.dt.strftime('%d/%m/%y') }}</td>
+                        <td>{{ orcamento.observacao }}</td>
+                        <td>{{ orcamento.status or 'Pendente' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" style="text-align:center;">Nenhum orçamento cadastrado.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <div style="text-align: center; margin-top: 20px;">
+                <button type="submit" name="acao" value="aprovar" style="padding: 10px 20px; background-color: rgb(14, 104, 14); color: white; border: none; border-radius: 5px; margin-right: 10px;">Aprovar Selecionados</button>
+                <button type="submit" name="acao" value="reprovar" style="padding: 10px 20px; background-color: rgb(158, 3, 3); color: white; border: none; border-radius: 5px;">Reprovar Selecionados</button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <!--JS-->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.inputmask/5.0.7/jquery.inputmask.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.13.0/themes/base/jquery-ui.css">
+<script src="https://code.jquery.com/ui/1.13.0/jquery-ui.min.js"></script>
 <script>
-    // Menu Lateral
-    document.addEventListener("DOMContentLoaded", function () {
-        const dropdownButtons = document.querySelectorAll(".dropdown-btn");
 
-        dropdownButtons.forEach(function (btn) {
-            btn.addEventListener("click", function () {
-                const dropdown = btn.nextElementSibling;
-                if (dropdown && dropdown.classList.contains("dropdown-container")) {
-                    dropdown.style.display = dropdown.style.display === "block" ? "none" : "block";
-                }
-            });
+    // Função para permitir o redimensionamento das colunas
+    const resizableColumns = document.querySelectorAll('.resizable');
+
+    resizableColumns.forEach(th => {
+        const resizeHandle = th.querySelector('.resize-handle');
+        
+        let startX;
+        let startWidth;
+
+        resizeHandle.addEventListener('mousedown', (e) => {
+            startX = e.clientX;
+            startWidth = th.offsetWidth;
+
+            const mouseMoveHandler = (e) => {
+                const diff = e.clientX - startX;
+                th.style.width = `${startWidth + diff}px`;
+            };
+
+            const mouseUpHandler = () => {
+                window.removeEventListener('mousemove', mouseMoveHandler);
+                window.removeEventListener('mouseup', mouseUpHandler);
+            };
+
+            window.addEventListener('mousemove', mouseMoveHandler);
+            window.addEventListener('mouseup', mouseUpHandler);
         });
     });
 
-    //Formulário
-    document.getElementById('form-validacao').addEventListener('submit', function (e) {
-    const selecionados = document.querySelectorAll('input[name="selecionados"]:checked');
-    if (selecionados.length === 0) {
-        e.preventDefault();
-        alert('Selecione ao menos um orçamento para validar!');
+    // Para redimensionamento de linhas, se necessário
+    const rows = document.querySelectorAll('tr');
+
+    rows.forEach(row => {
+        row.addEventListener('mousedown', (e) => {
+            if (e.target.classList.contains('resize-v-handle')) {
+                let startY = e.clientY;
+                let startHeight = row.offsetHeight;
+
+                const mouseMoveHandler = (e) => {
+                    const diff = e.clientY - startY;
+                    row.style.height = `${startHeight + diff}px`;
+                };
+
+                const mouseUpHandler = () => {
+                    window.removeEventListener('mousemove', mouseMoveHandler);
+                    window.removeEventListener('mouseup', mouseUpHandler);
+                };
+
+                window.addEventListener('mousemove', mouseMoveHandler);
+                window.addEventListener('mouseup', mouseUpHandler);
+            }
+        });
+    });
+
+    // Filtro
+
+    $(document).ready(function(){
+        if ($("#filtro").val() === "data") {
+            $("input[name='valor']").inputmask("99/99/99");
+        }
+
+        $("#filtro").on("change", function() {
+            const input = $("input[name='valor']");
+            input.inputmask("remove"); // remove qualquer máscara antes
+            if (this.value === "data") {
+                input.inputmask("99/99/99");
+            }
+        });
+    });
+
+    // Validar Filtro
+    function validarFiltro() {
+    const filtro = document.getElementById("filtro").value;
+    const valor = document.querySelector("input[name='valor']").value;
+
+    if (filtro === "data" && valor && !/^\d{2}\/\d{2}\/\d{2}$/.test(valor)) {
+        alert("Insira a data no formato DD/MM/YY.");
+        return false;
     }
+    return true;
+
+    // Autocompletes
+
+    $(document).ready(function () {
+    const $input = $("input[name='valor']");
+    const $filtro = $("#filtro");
+
+    function ativarAutocomplete() {
+        const filtro = $filtro.val();
+        if (filtro === 'produto' || filtro === 'fornecedor') {
+            $input.autocomplete({
+                source: function (request, response) {
+                    $.getJSON("{{ url_for('produtos_sugestoes') }}", {
+                        term: request.term,
+                        filtro: filtro
+                    }, response);
+                },
+                minLength: 1
+            });
+        } else {
+            $input.autocomplete("destroy"); // desativa
+        }
+    }
+
+    $filtro.on("change", ativarAutocomplete);
+    ativarAutocomplete(); // ativa inicialmente se já estiver selecionado
 });
+}
 </script>
 
 </body>
