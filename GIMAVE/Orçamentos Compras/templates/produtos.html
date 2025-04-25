@@ -1,90 +1,16 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <!--Ícone lupa-->
-    <meta charset="UTF-8">
-    <title>Cadastro de Produtos</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <style>
-        /* Menu lateral */
-        body {
-            margin: 0;
-            font-family: Calibri Light;
-            background-color: #F2F2F2;
-        }
+{% extends "base.html" %}
 
-        .sidenav {
-            height: 100%;
-            width: 150px;
-            position: fixed;
-            top: 0;
-            left: 0;
-            background-color: #333;
-            padding-top: 20px;
-            overflow-x: hidden;
-            transition: 0.3s;
-        }
-
-        .sidenav:hover {
-            width: 200px;
-        }
-        
-        .sidenav a,
-        .dropdown-btn {
-            padding: 16px 16px 16px 24px;
-            font-size: 18px;
-            color: white;
-            display: block;
-            text-align: left;
-            text-decoration: none;
-            background: none;
-            border: none;
-            width: 100%;
-            font-family: Calibri;
-            cursor: pointer;
-            transition: 0.3s;
-        }
-
-        .sidenav a:hover,
-        .dropdown-btn:hover {
-            background-color: #575757;
-        }
-
-        .dropdown {
-            position: relative;
-        }
-
-        .dropdown-container {
-            display: none;
-            background-color: #444;
-            padding-left: 10px;
-        }
-
-        .dropdown:hover .dropdown-container {
-            display: block;
-        }
-
-        .dropdown-container a {
-        font-size: 16px; /* Tamanho da fonte */
-        }
-
-        .main {
-            margin-left: 60px;
-            padding: 20px;
-        }
-
-        .sidenav:hover + .main {
-            margin-left: 200px;
-        }
-
-        /* Tela de cadastro */
+{% block head_extra %}
+<style>
+        /* Formulário */
         .form-container {
             max-width: 450px;
-            margin: 20px auto 0 auto;
+            margin: 20px auto;
             background: white;
             padding: 30px;
             border-radius: 10px;
             box-shadow: 0 0 10px #ccc;
+            margin-top: 50px;
         }
 
         label {
@@ -92,7 +18,7 @@
             margin-top: 15px;
         }
 
-        input, textarea {
+        input {
             width: 100%;
             padding: 8px;
             margin-top: 5px;
@@ -118,7 +44,12 @@
 
         .form-container h2{
             color: #218f0b;
+            text-align: center;
+            font-family: Arial, sans-serif;
+            margin: 2px;
         }
+
+
 
         /* Alerta */
         .flash-messages {
@@ -147,7 +78,7 @@
         }
 
 
-        /* Ícone para pesquisa de fornecedores (feature futura) */
+        /* Ícone Lupa */
         .input-icon{
             position: relative;
         }
@@ -167,28 +98,7 @@
         }
         
 
-        /* CSS para autocomplete do campo de fornecedor */
-        .autocomplete-box {
-            position: absolute;
-            background-color: white;
-            border: none;
-            max-height: 150px;
-            overflow-y: auto;
-            z-index: 1000;
-            width: 100%;
-        }
-
-        .sugestao-item {
-            padding: 8px;
-            cursor: pointer;
-        }
-
-        .sugestao-item:hover {
-            background-color: #eee;
-        }
-
-        /* Lista de fornecedores */
-
+        /* Modal */
         .modal {
         display: none;
         position: fixed;
@@ -198,152 +108,240 @@
         width: 100%;
         height: 100%;
         overflow: auto;
-        background-color: rgba(0,0,0,0.4);
+        background-color: rgba(0, 0, 0, 0.6); /* Fundo mais suave */
         font-family: Arial, sans-serif;
+        transition: all 0.3s ease; /* Animação ao abrir e fechar */
         }
 
         .modal-content {
-        background-color: #fff;
-        margin: 8% auto;
-        padding: 20px 30px;
-        width: 50%;
-        max-height: 70vh;
+        position: relative;
+        background-color: #f2f2f2;
+        margin: 5% auto;
+        padding: 25px;
+        width: 60%;
+        max-height: 80vh;
         overflow-y: auto;
-        border-radius: 12px;
-        box-shadow: 0 0 20px rgba(0,0,0,0.2);
+        border-radius: 15px;
+        box-shadow: 0 6px 25px rgba(0, 0, 0, 0.2);
+        transition: transform 0.3s ease-in-out;
         }
 
         .close {
+        position: absolute;
+        top: 25px;
+        right: 15px;
         color: #aaa;
-        float: right;
-        font-size: 26px;
+        font-size: 30px;
         font-weight: bold;
         cursor: pointer;
+        transition: color 0.3s;
         }
 
         .close:hover {
-        color: #333;
+        color: #ff6347; /* Cor mais vibrante para o botão de fechar */
         }
 
-        .modal-content h3 {
+        .modal-content h2 {
         margin-top: 0;
-        font-size: 15px;
-        color: #333;
-        border-bottom: 1px solid #eee;
-        padding-bottom: 10px;
-        margin-bottom: 15px;
+        font-size: 24px;
+        color: #218f0b;
+        font-weight: 600;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 15px;
+        text-align: center;
         }
 
+
+        /* Tabela Produtos */
+        .tabela-produtos {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .tabela-produtos th, .tabela-produtos td {
+            padding: 8px 12px;
+            text-align: left;
+            font-size: 14px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .tabela-produtos th {
+            background-color: #cfcece;
+            color: #333;
+            text-align: center;
+        }
+
+        .tabela-produtos tr:hover {
+            background-color: #f5f5f5;
+            transform: scale(1.02);
+            transition: all 0.3s ease;
+        }
+
+        .tabela-produtos button {
+            padding: 6px 12px;
+            margin: 2px;
+            width: 180px;
+            font-weight: bold;
+            background-color: #646363;
+            border: 1px solid #696969;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .tabela-produtos button:hover {
+            background-color: #a5a5a5;
+        }
+
+        .tabela-produtos td {
+            text-align: center;
+            vertical-align: middle;
+        }
+
+
+        /* Tabela Fornecedores */
+        .tabela-fornecedores {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .tabela-fornecedores th, .tabela-fornecedores td {
+            padding: 8px 12px;
+            text-align: left;
+            font-size: 14px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .tabela-fornecedores th {
+            background-color: #cfcece;
+            color: #333;
+            text-align: center;
+        }
+
+        .tabela-fornecedores tr:hover {
+            background-color: #f5f5f5;
+            transform: scale(1.02);
+            transition: all 0.3s ease;
+        }
+
+        .tabela-fornecedores button {
+            padding: 6px 12px;
+            margin: 2px;
+            width: 180px;
+            font-weight: bold;
+            background-color: #646363;
+            border: 1px solid #696969;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .tabela-fornecedores button:hover {
+            background-color: #a5a5a5;
+        }
+
+        .tabela-fornecedores td {
+            text-align: center;
+            vertical-align: middle;
+        }
+
+
+        /* Tabela Categoria */
+        .tabela-categorias {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .tabela-categorias th, .tabela-categorias td {
+            padding: 8px 12px;
+            text-align: left;
+            font-size: 14px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .tabela-categorias th {
+            background-color: #cfcece;
+            color: #333;
+            text-align: center;
+        }
+
+        .tabela-categorias tr:hover {
+            background-color: #f5f5f5;
+            transform: scale(1.02);
+            transition: all 0.3s ease;
+        }
+
+        .tabela-categorias button {
+            padding: 6px 12px;
+            margin: 2px;
+            width: 180px;
+            font-weight: bold;
+            background-color: #646363;
+            border: 1px solid #696969;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .tabela-categorias button:hover {
+            background-color: #a5a5a5;
+        }
+
+        .tabela-categorias td {
+            text-align: center;
+            vertical-align: middle;
+        }
+
+
+        /* Lista de Produtos */
+        #lista-produtos {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        #lista-produtos li {
+            font-size: 12px;
+            padding: 6px 10px;
+            margin-bottom: 4px;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            transition: background-color 0.3s, transform 0.3s;
+            cursor: pointer;
+        }
+
+        #lista-produtos li:hover {
+            background-color: #eaeaea;
+            transform: scale(1.02);
+        }
+
+
+        /* Lista de Fornecedores */
         #lista-fornecedores {
-        list-style: none;
-        padding: 0;
-        margin: 0;
+            list-style: none;
+            padding: 0;
+            margin: 0;
         }
 
         #lista-fornecedores li {
-        font-size: 14px;
-        padding: 12px 15px;
-        margin-bottom: 8px;
-        background-color: #f9f9f9;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        transition: background-color 0.2s, transform 0.2s;
-        cursor: pointer;
+            font-size: 12px;
+            padding: 6px 10px;
+            margin-bottom: 4px;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            transition: background-color 0.3s, transform 0.3s;
+            cursor: pointer;
         }
 
         #lista-fornecedores li:hover {
-        background-color: #eaeaea;
-        transform: scale(1.02);
+            background-color: #eaeaea;
+            transform: scale(1.02);
         }
 
-        #sugestoes-fornecedor {
-        border: none;
-        border-radius: 5px;
-        box-shadow: none;
-        margin-top: 0;
-        margin-bottom: 4px;
-        background-color: #eeebeb;
-        }
-
-        #sugestoes-fornecedor div:hover {
-        background-color: #858383; /* cor desejada ao passar o mouse */
-        cursor: pointer; 
-        color: white;
-        }
-
-        .autocomplete-container {
-        position: relative;
-        }
-
-        .autocomplete-box {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background: white;
-            border: 1px solid #ccc;
-            max-height: 200px;
-            overflow-y: auto;
-            z-index: 999;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-
-        .sugestao-item {
-            padding: 8px;
-            cursor: pointer;
-        }
-
-        .sugestao-item:hover {
-            background-color: #f0f0f0;
-        }
 
         /* Lista de Categorias */
-
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1001;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            background-color: rgba(0,0,0,0.4);
-            font-family: Arial, sans-serif;
-        }
-
-        .modal-content {
-            background-color: #fff;
-            margin: 8% auto;
-            padding: 20px 30px;
-            width: 50%;
-            max-height: 70vh;
-            overflow-y: auto;
-            border-radius: 12px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.2);
-        }
-
-        .close {
-            color: #aaa;
-            float: right;
-            font-size: 26px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        .close:hover {
-            color: #333;
-        }
-
-        .modal-content h3 {
-            margin-top: 0;
-            font-size: 15px;
-            color: #333;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 10px;
-            margin-bottom: 15px;
-        }
-
         #lista-categorias {
             list-style: none;
             padding: 0;
@@ -351,13 +349,13 @@
         }
 
         #lista-categorias li {
-            font-size: 14px;
-            padding: 12px 15px;
-            margin-bottom: 8px;
+            font-size: 12px;
+            padding: 6px 10px;
+            margin-bottom: 4px;
             background-color: #f9f9f9;
             border: 1px solid #ddd;
             border-radius: 8px;
-            transition: background-color 0.2s, transform 0.2s;
+            transition: background-color 0.3s, transform 0.3s;
             cursor: pointer;
         }
 
@@ -366,150 +364,65 @@
             transform: scale(1.02);
         }
 
-        #sugestoes-categoria {
-            border: none;
-            border-radius: 5px;
-            box-shadow: none;
-            margin-top: 0;
-            margin-bottom: 4px;
-            background-color: #eeebeb;
-        }
 
-        #sugestoes-categoria div:hover {
-            background-color: #858383;
-            cursor: pointer; 
-            color: white;
-        }
-
-        .autocomplete-container {
-            position: relative;
-        }
-
-        .autocomplete-box {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background: white;
-            border: 1px solid #ccc;
-            max-height: 200px;
-            overflow-y: auto;
-            z-index: 999;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-
-        .sugestao-item {
-            padding: 8px;
-            cursor: pointer;
-        }
-
-        .sugestao-item:hover {
-            background-color: #f0f0f0;
-        }
-
-        /* Modal de Produtos */
-        #modal-produtos {
+        /* Pop-up */
+        .popup {
             display: none;
             position: fixed;
-            z-index: 1050;
-            left: 0;
+            z-index: 1001;
             top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
-            overflow: auto;
-            background-color: rgba(0, 0, 0, 0.5);
-            font-family: Calibri, sans-serif;
+            background-color: rgba(0, 0, 0, 0.6);
+            font-family: Arial, sans-serif;
+            transition: all 0.3s ease;
         }
 
-        #modal-produtos .modal-content {
-            background-color: #fff;
-            margin: 5% auto;
-            padding: 25px 35px;
-            width: 60%;
-            max-width: 700px;
-            border-radius: 12px;
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
-            animation: slideDown 0.3s ease-out;
-        }
-
-        @keyframes slideDown {
-            from {
-                opacity: 0;
-                transform: translateY(-30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        #modal-produtos h2 {
-            margin-top: 0;
-            font-size: 20px;
-            color: #333;
+        .popup-content {
+            position: relative;
+            background-color: #f2f2f2;
+            margin: 50px auto;
+            padding: 25px;
+            width: 40%;
+            max-height: 80vh;
+            border-radius: 8px;
+            box-shadow: 0 6px 25px rgba(0, 0, 0, 0.2);
             text-align: center;
-            margin-bottom: 20px;
         }
 
-        #modal-produtos .close {
-            float: right;
-            font-size: 26px;
-            font-weight: bold;
-            color: #aaa;
-            cursor: pointer;
-            transition: color 0.2s;
-        }
-
-        #modal-produtos .close:hover {
-            color: #333;
-        }
-
-        /* Tabela de Produtos */
-        .tabela-produtos {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .tabela-produtos thead th {
-            background-color: #f4f4f4;
-            color: #333;
-            font-weight: bold;
-            padding: 12px 10px;
-            text-align: left;
-            border-bottom: 2px solid #ccc;
-        }
-
-        .tabela-produtos tbody td {
-            padding: 10px;
-            border-bottom: 1px solid #e0e0e0;
-            font-size: 14px;
-            vertical-align: middle;
-        }
-
-        .tabela-produtos tbody tr:hover {
-            background-color: #f9f9f9;
-        }
-
-        .tabela-produtos button {
-            padding: 6px 10px;
-            border: none;
-            border-radius: 4px;
-            background-color: #555555;
+        .popup button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin-top: 15px;
+            background-color: #646363;
             color: white;
-            font-size: 13px;
+            border: none;
+            border-radius: 5px;
             cursor: pointer;
-            transition: background-color 0.2s ease;
         }
 
-        .tabela-produtos button:hover {
-            background-color: #363636;
+        .popup button:hover {
+            background-color: #555555;
         }
 
+
+        /* Modal de Edição */
+        #modal-editar .modal-content {
+            width: 400px;
+        }
+
+        #modal-editar input {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
     </style>
-</head>
+{% endblock %}
 
-<body>
-
+{% block content %}
 <!-- Alert Box-->
 {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
@@ -521,71 +434,7 @@
     {% endif %}
 {% endwith %}
 
-<!-- Menu -->
-<div class="sidenav">
-    <a href="{{url_for('home')}}">Home</a>
-
-    <div class="dropdown">
-        <div class="dropdown-btn">Cadastros (4)</div>
-        <div class="dropdown-container">
-            <a href="{{ url_for('cadastro_form') }}">Orçamentos</a>
-            <a href="{{ url_for('fornecedores_form') }}">Fornecedores</a>
-            <a href="{{ url_for('produtos_form') }}">Produtos</a>
-            <a href="{{ url_for('categorias_form')}}">Categorias</a>
-        </div>
-    </div>
-
-    <div class="dropdown">
-        <div class="dropdown-btn">Orçamentos (3)</div>
-        <div class="dropdown-container">
-            <a href="{{ url_for('validar') }}">Validar</a>
-            <a href="visualizar.html">Visualizar</a>
-            <a href="relatorios.html">Relatórios</a>
-        </div>
-    </div>
-
-    <a href="dash.html">Dashboard</a>
-</div>
-
-<!--Lista de fornecedores (atrelado a lupinha)-->
-<div id="modal-fornecedores" class="modal">
-    <div class="modal-content">
-        <span class="close" onclick="fecharModalFornecedores()">&times;</span>
-        <h3>Fornecedores Cadastrados</h3>
-        <ul id="lista-fornecedores"></ul>
-    </div>
-</div>
-
-<!--Lista de categorias (atrelado a lupinha)-->
-<div id="modal-categorias" class="modal">
-    <div class="modal-content">
-        <span class="close" onclick="fecharModalCategorias()">&times;</span>
-        <h3>Escolha uma Categoria</h3>
-        <ul id="lista-categorias"></ul>
-    </div>
-</div>
-
-<!--Lista de produtos (atrelado a lupinha)-->
-<div id="modal-produtos" class="modal">
-    <div class="modal-content">
-        <span class="close" onclick="fecharModalProdutos()">&times;</span>
-        <h2>Produtos Cadastrados</h2>
-
-        <table class="tabela-produtos">
-            <thead>
-                <tr>
-                    <th>Descrição</th>
-                    <th>Ações</th>
-                </tr>
-            </thead>
-            <tbody id="lista-produtos">
-                <!-- Vai ser preenchido via JavaScript -->
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<!--Cadastro de produtos-->
+<!--Formulário de Cadastro de Produtos-->
 <div class="form-container">
     <h2>Cadastro de Produtos</h2>
     <form action="{{ url_for('cadastrar_produto') }}" method="POST">
@@ -594,210 +443,306 @@
         <div class="input-icon">
             <input type="text" id="nome" name="nome" required placeholder="Digite o nome do produto">
             <i class="fa fa-search" onclick="abrirModalProdutos()"></i>
-            <div id="sugestoes-produtos" class="autocomplete-box"></div>
         </div>
 
         <label for="categoria">Categoria *</label>
         <div class="input-icon">
             <input type="text" id="categoria" name="categoria" required placeholder="Digite ou clique na lupa">
             <i class="fa fa-search" onclick="abrirModalCategorias()"></i>
-            <div id="sugestoes-categoria" class="autocomplete-box"></div>
         </div>
 
         <label for="fornecedor">Fornecedor *</label>
         <div class="input-icon">
             <input type="text" id="fornecedor" name="fornecedor" required placeholder="Digite ou clique na lupa">
             <i class="fa fa-search" onclick="abrirModalFornecedores()"></i>
-            <div id ="sugestoes-fornecedor" class="autocomplete-box"></div>
         </div>
 
         <label for="descricao">Descrição</label>
-        <textarea id="descricao" name="descricao" rows="4" placeholder="Detalhes adicionais..."></textarea>
+        <textarea id="descricao" name="descricao" style="height: 120px; width: 100%;" placeholder="Detalhes adicionais..."></textarea>
 
         <button type="submit"><b>CADASTRAR</b></button>
     </form>
 </div>
 
-<script src="https://unpkg.com/imask"></script>
-<script>
-    // Menu lateral
-    document.addEventListener("DOMContentLoaded", function () {
-        const dropdownButtons = document.querySelectorAll(".dropdown-btn");
+<!--Modal de produtos-->
+<div id="modal-produtos" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="fecharModalProdutos()">&times;</span>
+        <h2>Produtos Cadastrados</h2>
+        <table class="tabela-produtos">
+            <thead>
+                <tr>
+                    <th>Descrição</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="lista-produtos">
+                <!-- Preenchido via JavaScript -->
+            </tbody>
+        </table>
+    </div>
+</div>
 
-        dropdownButtons.forEach(function (btn) {
-            btn.addEventListener("click", function () {
-                const dropdown = btn.nextElementSibling;
-                if (dropdown && dropdown.classList.contains("dropdown-container")) {
-                    dropdown.style.display = dropdown.style.display === "block" ? "none" : "block";
+<!--Modal de Edição do Produto -->
+<div id="modal-editar" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="fecharModalEditar()">&times;</span>
+        <h2>Editar Produto</h2>
+        <form id="form-editar-produto">
+            <label for="novo-nome">Nova Descrição *</label>
+            <input type="text" id="novo-nome" name="novo-nome" required placeholder="Digite o novo produto">
+            <button type="submit"><b>OK</b></button>
+        </form>
+    </div>
+</div>
+
+<!--Pop-up de Sucesso para Alteração -->
+<div id="popup-alteracao" class="popup">
+    <div class="popup-content">
+        <p>Alteração realizada!</p>
+        <button onclick="fecharPopup('popup-alteracao')">Ok</button>
+    </div>
+</div>
+
+<!--Pop-up de Confirmação de Exclusão -->
+<div id="popup-exclusao" class="popup">
+    <div class="popup-content">
+        <p><b>Deseja mesmo excluir esta categoria?</b></p>
+        <button onclick="confirmarExclusao()">Sim</button>
+        <button onclick="fecharPopup('popup-exclusao')">Não</button>
+    </div>
+</div>
+
+
+
+<!--Modal de fornecedores-->
+<div id="modal-fornecedores" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="fecharModalFornecedores()">&times;</span>
+        <h2>Fornecedores Cadastrados</h2>
+        <table class="tabela-fornecedores">
+            <thead>
+                <tr>
+                    <th>Descrição</th>
+                    <th>Ação</th>
+                </tr>
+            </thead>
+            <tbody id="lista-fornecedores">
+                <!-- Preenchido via JavaScript -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!--Modal de categorias-->
+<div id="modal-categorias" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="fecharModalCategorias()">&times;</span>
+        <h2>Categorias Cadastradas</h2>
+        <table class="tabela-categorias">
+            <thead>
+                <tr>
+                    <th>Descrição</th>
+                    <th>Ação</th>
+                </tr>
+            </thead>
+            <tbody id="lista-categorias">
+                <!-- Preenchido via JavaScript -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+
+<script src="https://unpkg.com/imask"></script>
+
+<script>
+    // Abrir lista de Produtos
+    function abrirModalProdutos() {
+        fetch('/api/produtos')
+            .then(response => response.json())
+            .then(data => {
+                const lista = document.getElementById('lista-produtos');
+                lista.innerHTML = '';
+                data.forEach(cat => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${cat.nome}</td>
+                        <td>
+                            <button onclick="abrirModalEditar(${cat.id_produto}, '${cat.nome}')">Editar</button>
+                            <button onclick="excluirProduto(${cat.id_produto})">Excluir</button>
+                        </td>
+                    `;
+                    lista.appendChild(row);
+                });
+                document.getElementById('modal-produtos').style.display = 'block';
+            })
+            .catch(err => console.error("Erro ao carregar produtos:", err));
+    }
+
+    // Fechar lista de Produtos
+    function fecharModalProdutos() {
+        document.getElementById('modal-produtos').style.display = 'none';
+    }
+
+   // Exibir modal de edição de produtos
+   function abrirModalEditar(id, nomeAtual) {
+        document.getElementById('modal-editar').style.display = 'block';
+        document.getElementById('novo-nome').value = nomeAtual; 
+        document.getElementById('form-editar-produto').onsubmit = function(event) {
+            event.preventDefault();
+            editarProduto(id); // Chama a função de editar ao submeter o formulário
+        };
+    }
+
+    // Fechar modal de edição
+    function fecharModalEditar() {
+        document.getElementById('modal-editar').style.display = 'none';
+    }
+
+    // Editar produto
+    function editarProduto(id) {
+        const novoNome = document.getElementById('novo-nome').value.trim();
+        if (novoNome === "") return;
+
+        fetch(`/api/produtos/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nome: novoNome })
+        })
+        .then(response => {
+            if (response.ok) {
+                fecharModalEditar(); 
+                abrirModalProdutos(); 
+                mostrarPopupAlteracao(); 
+            } else {
+                alert("Erro ao editar produto.");
+            }
+        });
+    }
+
+    // Exibir pop-up de alteração realizada
+    function mostrarPopupAlteracao() {
+        document.getElementById('popup-alteracao').style.display = 'block';
+    }
+
+    // Excluir produto
+    function excluirProduto(id) {
+        mostrarPopupExclusao(id); // Exibe o pop-up de confirmação
+    }
+
+    // Exibir pop-up de exclusão
+    function mostrarPopupExclusao(id) {
+        document.getElementById('popup-exclusao').style.display = 'block';
+        document.getElementById('popup-exclusao').dataset.idProduto = id;
+    }
+
+    // Confirmar exclusão
+    function confirmarExclusao() {
+        const idProduto = document.getElementById('popup-exclusao').dataset.idProduto;
+
+        fetch(`/api/produtos/${idProduto}`, { method: 'DELETE' })
+            .then(response => {
+                if (response.ok) {
+                    abrirModalProdutos(); 
+                    mostrarPopupExclusaoSucesso();
+                    fecharPopup('popup-exclusao');
+                } else {
+                    alert("Erro ao excluir produto.");
                 }
             });
-        });
-    });
-
-
-    
-    // Pesquisa de fornecedores
-    document.getElementById('fornecedor').addEventListener('input', function () {
-    let query = this.value;
-
-    if (query.length < 2) {
-        document.getElementById('sugestoes-fornecedor').innerHTML = '';
-        return;
     }
 
-    fetch(`/fornecedores_sugestoes?q=${query}`)
-        .then(response => response.json())
-        .then(data => {
-            let box = document.getElementById('sugestoes-fornecedor');
-            box.innerHTML = '';
-            data.forEach(nome => {
-                let div = document.createElement('div');
-                div.classList.add('sugestao-item');
-                div.textContent = nome;
-                div.onclick = () => {
-                    document.getElementById('fornecedor').value = nome;
-                    box.innerHTML = '';
-                };
-                box.appendChild(div);
-            });
-        });
-});
+    // Fechar qualquer pop-up
+    function fecharPopup(popupId) {
+        document.getElementById(popupId).style.display = 'none';
+    }
 
-    // Abrir e fechar lista de fornecedores
+    // Exibir pop-up de exclusão com sucesso
+    function mostrarPopupExclusaoSucesso() {
+        alert("Produto excluída com sucesso!");
+    }
+
+    // Fechar pop-up de exclusão
+    function fecharModalExcluir() {
+        document.getElementById('popup-exclusao').style.display = 'none';
+    }
+
+
+
+    // Abrir lista de Fornecedores
     function abrirModalFornecedores() {
-        fetch('/fornecedores_sugestoes?q=')  // busca todos
-        .then(res => res.json())
-        .then(data => {
-            let lista = document.getElementById('lista-fornecedores');
-            lista.innerHTML = '';
-            data.forEach(nome => {
-                let li = document.createElement('li');
-                li.textContent = nome;
-                li.onclick = () => {
-                    document.getElementById('fornecedor').value = nome;
-                    fecharModalFornecedores();
-                };
-                lista.appendChild(li);
-            });
-            document.getElementById('modal-fornecedores').style.display = 'block';
-        });
+        fetch('/api/fornecedores')
+            .then(response => response.json())
+            .then(data => {
+                const lista = document.getElementById('lista-fornecedores');
+                lista.innerHTML = '';
+                data.forEach(cat => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${cat.razao_social}</td>
+                        <td>
+                        <button onclick="selecionarFornecedores('${cat.razao_social}')">Selecionar</button>
+                        </td>
+                    `;
+                    lista.appendChild(row);
+                });
+                document.getElementById('modal-fornecedores').style.display = 'block';
+            })
+            .catch(err => console.error("Erro ao carregar fornecedores:", err));
     }
 
+    // Fechar lista de Fornecedores
     function fecharModalFornecedores() {
         document.getElementById('modal-fornecedores').style.display = 'none';
     }
 
-
-
-    // Pesquisa de Categorias
-    document.getElementById('categoria').addEventListener('input', function () {
-        let query = this.value;
-
-        if (query.length < 2) {
-            document.getElementById('sugestoes-categoria').innerHTML = '';
-            return;
-        }
-
-        fetch(`/categorias_sugestoes?q=${query}`)
-            .then(response => response.json())
-            .then(data => {
-                let box = document.getElementById('sugestoes-categoria');
-                box.innerHTML = '';
-                data.forEach(nome => {
-                    let div = document.createElement('div');
-                    div.classList.add('sugestao-item');
-                    div.textContent = nome;
-                    div.onclick = () => {
-                        document.getElementById('categoria').value = nome;
-                        box.innerHTML = '';
-                    };
-                    box.appendChild(div);
-                });
-            });
-    });
-
-    // Abrir e fechar lista de Categorias
-    function abrirModalCategorias() {
-        fetch('/categorias_sugestoes?q=')  // busca todas
-        .then(res => res.json())
-        .then(data => {
-            let lista = document.getElementById('lista-categorias');
-            lista.innerHTML = '';
-            data.forEach(nome => {
-                let li = document.createElement('li');
-                li.textContent = nome;
-                li.onclick = () => {
-                    document.getElementById('categoria').value = nome;
-                    fecharModalCategorias();
-                };
-                lista.appendChild(li);
-            });
-            document.getElementById('modal-categorias').style.display = 'block';
-        });
+    // Selecionar Fornecedor
+    function selecionarFornecedores(razao_social) {
+    const input = document.getElementById('fornecedor'); // ID do input que você quer preencher
+    input.value = razao_social;
+    document.getElementById('modal-fornecedores').style.display = 'none'; // Fecha o modal
     }
 
+
+
+    // Abrir lista de categorias
+    function abrirModalCategorias() {
+        fetch('/api/categorias')
+            .then(response => response.json())
+            .then(data => {
+                const lista = document.getElementById('lista-categorias');
+                lista.innerHTML = '';
+                data.forEach(cat => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${cat.descricao}</td>
+                        <td>
+                        <button onclick="selecionarCategoria('${cat.descricao}')">Selecionar</button>
+                        </td>
+                        `;
+                    lista.appendChild(row);
+                });
+                document.getElementById('modal-categorias').style.display = 'block';
+            })
+            .catch(err => console.error("Erro ao carregar categorias:", err));
+    }
+
+    // Fechar lista de categorias
     function fecharModalCategorias() {
         document.getElementById('modal-categorias').style.display = 'none';
     }
 
+    // Selecionar categoria
+    function selecionarCategoria(descricao) {
+    const input = document.getElementById('categoria'); // ID do input que você quer preencher
+    input.value = descricao;
+    document.getElementById('modal-categorias').style.display = 'none'; // Fecha o modal
+    }
 
-
-    // Abrir e fechar lista de Produtos
-    function abrirModalProdutos() {
-    fetch('/api/produtos')
-        .then(response => response.json())
-        .then(data => {
-            const lista = document.getElementById('lista-produtos');
-            lista.innerHTML = '';
-
-            data.forEach(prod => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td contenteditable="true" onblur="editarProduto(${prod.id}, this.innerText)">${prod.nome}</td>
-                    <td><button onclick="excluirProduto(${prod.id})">Excluir</button></td>
-                `;
-                lista.appendChild(row);
-            });
-
-            document.getElementById('modal-produtos').style.display = 'block';
-        })
-        .catch(err => {
-            console.error("Erro ao carregar produtos:", err);
-        });
-}
-
-    function fecharModalProdutos() {
-    document.getElementById('modal-produtos').style.display = 'none';
-}
-
-    // Editar lista de produtos
-    function editarProduto(id, novoNome) {
-    fetch(`/api/produtos/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nome: novoNome.trim() })
-    })
-    .then(response => {
-        if (!response.ok) {
-            alert("Erro ao editar categoria.");
-        }
-    });
-}
-
-    // Excluir lista de produtos
-    function excluirProduto(id) {
-    if (!confirm("Tem certeza que deseja excluir este produto?")) return;
-
-    fetch(`/api/produtos/${id}`, { method: 'DELETE' })
-        .then(response => {
-            if (response.ok) {
-                abrirModalProdutos();
-            } else {
-                alert("Erro ao excluir produto.");
-            }
-        });
-}
 </script>
+{% endblock %}
 
-</body>
-</html>

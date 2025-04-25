@@ -18,77 +18,28 @@ db_config = {
     "database": os.getenv("DB")
 }
 
+
+
 @app.route('/home')
 def home():
     return render_template('index.html')
 
-
-#Rotas de cadastro de orçamentos
-@app.route('/cadastro')
-def cadastro_form():
-    return render_template('cadastro.html')
-
-@app.route('/cadastrar', methods=['POST'])
-def cadastrar():
-    try:
-        # Coletar dados do formulário
-        data = request.form['data']
-        produto = request.form['produto'].strip()
-        fornecedor = request.form['fornecedor'].strip()
-        valor = request.form['valor'].strip()
-        observacao = request.form['observacao'].strip()
-
-        # Validação simples
-        if not data or not produto or not fornecedor or not valor:
-            flash('Preencha todos os campos obrigatórios!', 'erro')
-            return redirect('/cadastro')
-
-        # Formatando data e valor para padrão MySQL
-        data_formatada = datetime.strptime(data, "%Y-%m-%d").date()
-        vlr_formatado = float(valor.replace('.', '').replace(',', '.')) 
-
-        # Abrindo conexão com o banco
-        conn = mysql.connector.connect(**db_config)
-        cursor = conn.cursor()
-
-        # Verifica se o produto existe
-        cursor.execute("SELECT COUNT(*) FROM produtos_orc WHERE nome = %s", (produto,))
-        produto_existe = cursor.fetchone()[0]
-  
-        if not produto_existe:
-            flash("Produto não encontrado. Por favor, selecione um produto válido.", "erro")
-            cursor.close()
-            conn.close()
-            return redirect('/cadastro')  
-
-        # Verifica se o fornecedor existe
-        cursor.execute("SELECT COUNT(*) FROM fornecedores_orc WHERE razao_social = %s", (fornecedor,))
-        fornecedor_existe = cursor.fetchone()[0] 
-
-        if not fornecedor_existe:
-            flash("Fornecedor não encontrado. Por favor, selecione uma válido.", "erro")
-            cursor.close()
-            conn.close()
-            return redirect('/cadastro')   
-
-        query = "INSERT INTO cadastro_orc_teste (dt, produto, fornecedor, vlr_orcamento, observacao) VALUES (%s, %s, %s, %s, %s)"
-        cursor.execute(query, (data_formatada, produto, fornecedor, vlr_formatado, observacao))
-        conn.commit()
-        cursor.close()
-        conn.close()
-
-        flash('Cadastro realizado com sucesso!', 'sucesso')
-        return redirect('/cadastro')
-
-    except mysql.connector.Error as err:
-        flash(f'Erro ao inserir os dados: {err}', 'erro')
-        return redirect('/cadastro')
 
 
 #Rotas de cadastro de fornecedores
 @app.route('/fornecedores')
 def fornecedores_form():
     return render_template('fornecedores.html')
+
+@app.route('/api/fornecedores')
+def listar_fornecedores():
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT cnpj, razao_social FROM fornecedores_orc ORDER BY razao_social")
+    fornecedores = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return jsonify(fornecedores)
 
 @app.route('/cadastrar_fornecedor', methods=['POST'])
 def cadastrar_fornecedor():
@@ -127,9 +78,31 @@ def cadastrar_fornecedor():
         flash(f'Erro ao inserir os dados: {err}', 'erro')
         return redirect('/fornecedores')
 
+@app.route('/api/fornecedores/<int:id>', methods=['PUT'])
+def editar_fornecedores(id):
+    novo_nome = request.json.get('nome', '').strip()
 
+    if not novo_nome:
+        return jsonify({'erro': 'Nome não pode estar vazio'}), 400
 
-#Rota para pesquisa de fornecedores 
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor()
+    cursor.execute("UPDATE fornecedores_orc SET razao_social = %s WHERE cnpj = %s", (novo_nome, id))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return jsonify({'sucesso': True})
+
+@app.route('/api/fornecedores/<int:id>', methods=['DELETE'])
+def excluir_fornecedores(id):
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM fornecedores_orc WHERE cnpj = %s", (id,))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return jsonify({'sucesso': True})
+
 @app.route('/fornecedores_sugestoes')
 def fornecedores_sugestoes():
     termo = request.args.get('q', '').strip()
@@ -143,40 +116,10 @@ def fornecedores_sugestoes():
     conn.close()
 
     return jsonify(resultados)
-  
-# Rota para pesquisa de categorias
-@app.route('/categorias_sugestoes')
-def categorias_sugestoes():
-    termo = request.args.get('q', '').strip()
-
-    conn = mysql.connector.connect(**db_config)
-    cursor = conn.cursor()
-    query = "SELECT descricao FROM categoria_orc WHERE descricao LIKE %s LIMIT 10"
-    cursor.execute(query, (f'%{termo}%',))
-    resultados = [row[0] for row in cursor.fetchall()]
-    cursor.close()
-    conn.close()
-
-    return jsonify(resultados)
-
-# Rota para pesquisa de produtos
-@app.route('/produtos_sugestoes')
-def produtos_sugestoes():
-    termo = request.args.get('q', '').strip()
-
-    conn = mysql.connector.connect(**db_config)
-    cursor = conn.cursor()
-    query = "SELECT nome FROM produtos_orc WHERE nome LIKE %s LIMIT 10"
-    cursor.execute(query, (f'%{termo}%',))
-    resultados = [row[0] for row in cursor.fetchall()]
-    cursor.close()
-    conn.close()
-
-    return jsonify(resultados)
 
 
 
-#Rotas de cadastro de produtos
+#Rotas Produtos
 @app.route('/produtos')
 def produtos_form():
     return render_template('produtos.html')
@@ -238,7 +181,7 @@ def cadastrar_produto():
 def listar_produtos():
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT id, nome FROM produtos_orc ORDER BY nome")
+    cursor.execute("SELECT id_produto, nome FROM produtos_orc ORDER BY nome")
     produtos = cursor.fetchall()
     cursor.close()
     conn.close()
@@ -253,7 +196,7 @@ def editar_produtos(id):
 
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor()
-    cursor.execute("UPDATE produtos_orc SET nome = %s WHERE id = %s", (novo_nome, id))
+    cursor.execute("UPDATE produtos_orc SET nome = %s WHERE id_produto = %s", (novo_nome, id))
     conn.commit()
     cursor.close()
     conn.close()
@@ -263,16 +206,29 @@ def editar_produtos(id):
 def excluir_produtos(id):
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM produtos_orc WHERE id = %s", (id,))
+    cursor.execute("DELETE FROM produtos_orc WHERE id_produto = %s", (id,))
     conn.commit()
     cursor.close()
     conn.close()
     return jsonify({'sucesso': True})
 
+@app.route('/produtos_sugestoes')
+def produtos_sugestoes():
+    termo = request.args.get('q', '').strip()
+
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor()
+    query = "SELECT nome FROM produtos_orc WHERE nome LIKE %s LIMIT 10"
+    cursor.execute(query, (f'%{termo}%',))
+    resultados = [row[0] for row in cursor.fetchall()]
+    cursor.close()
+    conn.close()
+
+    return jsonify(resultados)
 
 
 
-#Rotas para cadastro de categorias
+#Rotas Categorias
 @app.route('/categorias')
 def categorias_form():
     return render_template('categoria.html')
@@ -352,8 +308,67 @@ def excluir_categoria(id):
     return jsonify({'sucesso': True})
 
 
+#Rotas Orçamentos
+@app.route('/cadastro')
+def cadastro_form():
+    return render_template('cadastro.html')
 
-#Rota para validar orçamentos
+@app.route('/cadastrar', methods=['POST'])
+def cadastrar():
+    try:
+        # Coletar dados do formulário
+        data = request.form['data']
+        produto = request.form['produto'].strip()
+        fornecedor = request.form['fornecedor'].strip()
+        valor = request.form['valor'].strip()
+        observacao = request.form['observacao'].strip()
+
+        # Validação simples
+        if not data or not produto or not fornecedor or not valor:
+            flash('Preencha todos os campos obrigatórios!', 'erro')
+            return redirect('/cadastro')
+
+        # Formatando data e valor para padrão MySQL
+        data_formatada = datetime.strptime(data, "%Y-%m-%d").date()
+        vlr_formatado = float(valor.replace('.', '').replace(',', '.')) 
+
+        # Abrindo conexão com o banco
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
+
+        # Verifica se o produto existe
+        cursor.execute("SELECT COUNT(*) FROM produtos_orc WHERE nome = %s", (produto,))
+        produto_existe = cursor.fetchone()[0]
+  
+        if not produto_existe:
+            flash("Produto não encontrado. Por favor, selecione um produto válido.", "erro")
+            cursor.close()
+            conn.close()
+            return redirect('/cadastro')  
+
+        # Verifica se o fornecedor existe
+        cursor.execute("SELECT COUNT(*) FROM fornecedores_orc WHERE razao_social = %s", (fornecedor,))
+        fornecedor_existe = cursor.fetchone()[0] 
+
+        if not fornecedor_existe:
+            flash("Fornecedor não encontrado. Por favor, selecione uma válido.", "erro")
+            cursor.close()
+            conn.close()
+            return redirect('/cadastro')   
+
+        query = "INSERT INTO cadastro_orc_teste (dt, produto, fornecedor, vlr_orcamento, observacao) VALUES (%s, %s, %s, %s, %s)"
+        cursor.execute(query, (data_formatada, produto, fornecedor, vlr_formatado, observacao))
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        flash('Cadastro realizado com sucesso!', 'sucesso')
+        return redirect('/cadastro')
+
+    except mysql.connector.Error as err:
+        flash(f'Erro ao inserir os dados: {err}', 'erro')
+        return redirect('/cadastro')
+
 @app.route('/validar', methods=['GET', 'POST'])
 def validar():
     conn = mysql.connector.connect(**db_config)
@@ -436,8 +451,6 @@ def autocomplete():
 
     return jsonify(resultados)
 
-
-#Rota para visualizar, editar e excluir orçamentos
 @app.route('/visualizar', methods=['GET'])
 def visualizar():
     conn = mysql.connector.connect(**db_config)

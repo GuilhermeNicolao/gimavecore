@@ -1,90 +1,16 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <!--Ícone lupa-->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <meta charset="UTF-8">
-    <title>Cadastro de Fornecedores</title>
-    <style>
-        /* Menu lateral */
-        body {
-            margin: 0;
-            font-family: Calibri Light;
-            background-color: #F2F2F2;
-        }
+{% extends "base.html" %}
 
-        .sidenav {
-            height: 100%;
-            width: 150px;
-            position: fixed;
-            top: 0;
-            left: 0;
-            background-color: #333;
-            padding-top: 20px;
-            overflow-x: hidden;
-            transition: 0.3s;
-        }
-
-        .sidenav:hover {
-            width: 200px;
-        }
-        
-        .sidenav a,
-        .dropdown-btn {
-            padding: 16px 16px 16px 24px;
-            font-size: 18px;
-            color: white;
-            display: block;
-            text-align: left;
-            text-decoration: none;
-            background: none;
-            border: none;
-            width: 100%;
-            font-family: Calibri;
-            cursor: pointer;
-            transition: 0.3s;
-        }
-
-        .sidenav a:hover,
-        .dropdown-btn:hover {
-            background-color: #575757;
-        }
-
-        .dropdown {
-            position: relative;
-        }
-
-        .dropdown-container {
-            display: none;
-            background-color: #444;
-            padding-left: 10px;
-        }
-
-        .dropdown:hover .dropdown-container {
-            display: block;
-        }
-
-        .dropdown-container a {
-        font-size: 16px; /* Tamanho da fonte */
-        }
-
-        .main {
-            margin-left: 60px;
-            padding: 20px;
-        }
-
-        .sidenav:hover + .main {
-            margin-left: 200px;
-        }
-
-        /* Tela de cadastro */
+{% block head_extra %}
+<style>
+        /* Formulário */
         .form-container {
             max-width: 450px;
-            margin: 20px auto 0 auto;
+            margin: 20px auto;
             background: white;
             padding: 30px;
             border-radius: 10px;
             box-shadow: 0 0 10px #ccc;
+            margin-top: 50px;
         }
 
         label {
@@ -92,7 +18,7 @@
             margin-top: 15px;
         }
 
-        input, textarea {
+        input {
             width: 100%;
             padding: 8px;
             margin-top: 5px;
@@ -117,8 +43,13 @@
         }
 
         .form-container h2{
-            color: #0b4b8f;
+            color: #0b5f8f;
+            text-align: center;
+            font-family: Arial, sans-serif;
+            margin: 2px;
         }
+
+
 
         /* Alerta */
 
@@ -148,29 +79,214 @@
         }
 
 
-        /* Ícone para pesquisa de fornecedores (feature futura) */
+
+        /* Ícone Lupa */
         .input-icon{
             position: relative;
         }
 
         .input-icon input{
-            padding-right: 30px;
+            padding-right: 20px;
             width: 100%;
         }
 
         .input-icon i{
             position:absolute;
             right: 10px;
-            top: 69%;
+            top: 55%;
             transform: translateY(-50%);
             color: #666;
             cursor: pointer;
         }
         
-    </style>
-</head>
-<body>
 
+
+        /* Modal */
+        .modal {
+        display: none;
+        position: fixed;
+        z-index: 1001;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0, 0, 0, 0.6); /* Fundo mais suave */
+        font-family: Arial, sans-serif;
+        transition: all 0.3s ease; /* Animação ao abrir e fechar */
+        }
+
+        .modal-content {
+        position: relative;
+        background-color: #f2f2f2;
+        margin: 5% auto;
+        padding: 25px;
+        width: 60%;
+        max-height: 80vh;
+        overflow-y: auto;
+        border-radius: 15px;
+        box-shadow: 0 6px 25px rgba(0, 0, 0, 0.2);
+        transition: transform 0.3s ease-in-out;
+        }
+
+        .close {
+        position: absolute;
+        top: 25px;
+        right: 15px;
+        color: #aaa;
+        font-size: 30px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: color 0.3s;
+        }
+
+        .close:hover {
+        color: #ff6347; /* Cor mais vibrante para o botão de fechar */
+        }
+
+        .modal-content h2 {
+        margin-top: 0;
+        font-size: 24px;
+        color: #0b448f;
+        font-weight: 600;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 15px;
+        text-align: center;
+        }
+
+
+
+        /* Tabela Fornecedores */
+        .tabela-fornecedores {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .tabela-fornecedores th, .tabela-fornecedores td {
+            padding: 8px 12px;
+            text-align: left;
+            font-size: 14px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .tabela-fornecedores th {
+            background-color: #cfcece;
+            color: #333;
+            text-align: center;
+        }
+
+        .tabela-fornecedores tr:hover {
+            background-color: #f5f5f5;
+            transform: scale(1.02);
+            transition: all 0.3s ease;
+        }
+
+        .tabela-fornecedores button {
+            padding: 6px 12px;
+            margin: 2px;
+            width: 180px;
+            font-weight: bold;
+            background-color: #646363;
+            border: 1px solid #696969;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .tabela-fornecedores button:hover {
+            background-color: #a5a5a5;
+        }
+
+        .tabela-fornecedores td {
+            text-align: center;
+            vertical-align: middle;
+        }
+
+
+
+        /* Lista de Fornecedores */
+        #lista-fornecedores {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        #lista-fornecedores li {
+            font-size: 12px;
+            padding: 6px 10px;
+            margin-bottom: 4px;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            transition: background-color 0.3s, transform 0.3s;
+            cursor: pointer;
+        }
+
+        #lista-fornecedores li:hover {
+            background-color: #eaeaea;
+            transform: scale(1.02);
+        }
+
+
+
+        /* Pop-up */
+        .popup {
+            display: none;
+            position: fixed;
+            z-index: 1001;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            font-family: Arial, sans-serif;
+            transition: all 0.3s ease;
+        }
+
+        .popup-content {
+            position: relative;
+            background-color: #f2f2f2;
+            margin: 50px auto;
+            padding: 25px;
+            width: 40%;
+            max-height: 80vh;
+            border-radius: 8px;
+            box-shadow: 0 6px 25px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+
+        .popup button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin-top: 15px;
+            background-color: #646363;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .popup button:hover {
+            background-color: #555555;
+        }
+
+
+        /* Modal de Edição */
+        #modal-editar .modal-content {
+            width: 400px;
+        }
+
+        #modal-editar input {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
 <!-- Alert Box-->
 {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
@@ -182,39 +298,19 @@
     {% endif %}
 {% endwith %}
 
-<!-- Menu -->
-<div class="sidenav">
-    <a href="{{url_for('home')}}">Home</a>
 
-    <div class="dropdown">
-        <div class="dropdown-btn">Cadastros (4)</div>
-        <div class="dropdown-container">
-            <a href="{{ url_for('cadastro_form') }}">Orçamentos</a>
-            <a href="{{ url_for('fornecedores_form') }}">Fornecedores</a>
-            <a href="{{ url_for('produtos_form') }}">Produtos</a>
-            <a href="{{ url_for('categorias_form')}}">Categorias</a>
-        </div>
-    </div>
-
-    <div class="dropdown">
-        <div class="dropdown-btn">Orçamentos (3)</div>
-        <div class="dropdown-container">
-            <a href="{{ url_for('validar') }}">Validar</a>
-            <a href="visualizar.html">Visualizar</a>
-            <a href="relatorios.html">Relatórios</a>
-        </div>
-    </div>
-
-    <a href="dash.html">Dashboard</a>
-</div>
-
-<!--Formulário-->
+<!--Formulário de Cadastro de Fornecedores-->
 <div class="form-container">
     <h2>Cadastro de Fornecedores</h2>
     <form action="{{ url_for('cadastrar_fornecedor') }}" method="POST">
-        <label for="cnpj">CNPJ *</label>
-        <input type="text" id="cnpj" name="cnpj" placeholder="Apenas números"  required>
 
+
+        <label for="cnpj">CNPJ *</label>
+        <div class="input-icon">
+            <input type="text" id="cnpj" name="cnpj" placeholder="Apenas números"  required>
+            <i class="fa fa-search" onclick="abrirModalFornecedores()"></i>
+        </div>
+        
         <label for="razao_social">Razão Social *</label>
         <input type="text" id="razao_social" name="razao_social" placeholder="Digite o nome" required>
 
@@ -231,37 +327,172 @@
     </form>
 </div>
 
-<!--JS-->
-<script src="https://unpkg.com/imask"></script>
-<script>
-    // Menu lateral
-    document.addEventListener("DOMContentLoaded", function () {
-        const dropdownButtons = document.querySelectorAll(".dropdown-btn");
+<!--Modal de fornecedores-->
+<div id="modal-fornecedores" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="fecharModalFornecedores()">&times;</span>
+        <h2>Fornecedores Cadastrados</h2>
+        <table class="tabela-fornecedores">
+            <thead>
+                <tr>
+                    <th>Descrição</th>
+                    <th>Ação</th>
+                </tr>
+            </thead>
+            <tbody id="lista-fornecedores">
+                <!-- Preenchido via JavaScript -->
+            </tbody>
+        </table>
+    </div>
+</div>
 
-        dropdownButtons.forEach(function (btn) {
-            btn.addEventListener("click", function () {
-                const dropdown = btn.nextElementSibling;
-                if (dropdown && dropdown.classList.contains("dropdown-container")) {
-                    dropdown.style.display = dropdown.style.display === "block" ? "none" : "block";
+<!--Modal de Edição do Fornecedor -->
+<div id="modal-editar" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="fecharModalEditar()">&times;</span>
+        <h2>Editar Fornecedor</h2>
+        <form id="form-editar-fornecedor">
+            <label for="novo-nome">Nova Descrição *</label>
+            <input type="text" id="novo-nome" name="novo-nome" required placeholder="Digite o novo fornecedor">
+            <button type="submit"><b>OK</b></button>
+        </form>
+    </div>
+</div>
+
+<!--Pop-up de Sucesso para Alteração -->
+<div id="popup-alteracao" class="popup">
+    <div class="popup-content">
+        <p>Alteração realizada!</p>
+        <button onclick="fecharPopup('popup-alteracao')">Ok</button>
+    </div>
+</div>
+
+<!--Pop-up de Confirmação de Exclusão -->
+<div id="popup-exclusao" class="popup">
+    <div class="popup-content">
+        <p><b>Deseja mesmo excluir esta categoria?</b></p>
+        <button onclick="confirmarExclusao()">Sim</button>
+        <button onclick="fecharPopup('popup-exclusao')">Não</button>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+
+<script src="https://unpkg.com/imask"></script>
+
+<script>
+    // Abrir lista de Fornecedores
+    function abrirModalFornecedores() {
+        fetch('/api/fornecedores')
+            .then(response => response.json())
+            .then(data => {
+                const lista = document.getElementById('lista-fornecedores');
+                lista.innerHTML = '';
+                data.forEach(cat => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${cat.razao_social}</td>
+                        <td>
+                            <button onclick="abrirModalEditar(${cat.cnpj}, '${cat.razao_social}')">Editar</button>
+                            <button onclick="excluirFornecedor(${cat.cnpj})">Excluir</button>
+                        </td>
+                    `;
+                    lista.appendChild(row);
+                });
+                document.getElementById('modal-fornecedores').style.display = 'block';
+            })
+            .catch(err => console.error("Erro ao carregar fornecedores:", err));
+    }
+
+    // Fechar lista de Fornecedores
+    function fecharModalFornecedores() {
+        document.getElementById('modal-fornecedores').style.display = 'none';
+    }
+
+    // Exibir modal de edição de fornecedor
+    function abrirModalEditar(id, nomeAtual) {
+        document.getElementById('modal-editar').style.display = 'block';
+        document.getElementById('novo-nome').value = nomeAtual; 
+        document.getElementById('form-editar-fornecedor').onsubmit = function(event) {
+            event.preventDefault();
+            editarFornecedor(id); // Chama a função de editar ao submeter o formulário
+        };
+    }
+
+    // Fechar modal de edição
+    function fecharModalEditar() {
+        document.getElementById('modal-editar').style.display = 'none';
+    }
+
+    // Editar fornecedor
+    function editarFornecedor(id) {
+        const novoNome = document.getElementById('novo-nome').value.trim();
+        if (novoNome === "") return;
+
+        fetch(`/api/fornecedores/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nome: novoNome })
+        })
+        .then(response => {
+            if (response.ok) {
+                fecharModalEditar(); 
+                abrirModalFornecedores(); 
+                mostrarPopupAlteracao(); 
+            } else {
+                alert("Erro ao editar fornecedor.");
+            }
+        });
+    }
+
+    // Exibir pop-up de alteração realizada
+    function mostrarPopupAlteracao() {
+        document.getElementById('popup-alteracao').style.display = 'block';
+    }
+
+    // Excluir fornecedor
+    function excluirFornecedor(id) {
+        mostrarPopupExclusao(id); // Exibe o pop-up de confirmação
+    }
+
+    // Exibir pop-up de exclusão
+    function mostrarPopupExclusao(id) {
+        document.getElementById('popup-exclusao').style.display = 'block';
+        document.getElementById('popup-exclusao').dataset.idFornecedor = id;
+    }
+
+    // Confirmar exclusão
+    function confirmarExclusao() {
+        const idFornecedor = document.getElementById('popup-exclusao').dataset.idProduto;
+
+        fetch(`/api/fornecedores/${idFornecedor}`, { method: 'DELETE' })
+            .then(response => {
+                if (response.ok) {
+                    abrirModalProdutos(); 
+                    mostrarPopupExclusaoSucesso();
+                    fecharPopup('popup-exclusao');
+                } else {
+                    alert("Erro ao excluir produto.");
                 }
             });
-        });
-    });
-
-    // Mask CNPJ
-    var cnpjElement = document.getElementById('cnpj');
-    var maskOptions = {
-        mask: '00.000.000/0000-00'
-    };
-    var mask = IMask(cnpjElement, maskOptions);
-
-    // Mask CEP
-    var cepElement = document.getElementById('cep');
-    var maskOptions = {
-        mask: '00.000-000'
     }
-    var mask = IMask(cepElement, maskOptions);
-</script>
 
-</body>
-</html>
+    // Fechar qualquer pop-up
+    function fecharPopup(popupId) {
+        document.getElementById(popupId).style.display = 'none';
+    }
+
+    // Exibir pop-up de exclusão com sucesso
+    function mostrarPopupExclusaoSucesso() {
+        alert("Produto excluída com sucesso!");
+    }
+
+    // Fechar pop-up de exclusão
+    function fecharModalExcluir() {
+        document.getElementById('popup-exclusao').style.display = 'none';
+    }
+
+</script>
+{% endblock %}

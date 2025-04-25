@@ -2,7 +2,6 @@
 
 {% block head_extra %}
 <style>
-    
     /* Formulário */
     .form-container {
         max-width: 450px;
@@ -294,7 +293,7 @@
     {% endif %}
 {% endwith %}
 
-<!-- Formulário de Cadastro de Categoria -->
+<!--Formulário de Cadastro de Categorias-->
 <div class="form-container">
     <h2>Cadastro de Categorias</h2>
     <form action="{{ url_for('cadastrar_categoria') }}" method="POST">
@@ -309,7 +308,7 @@
     </form>
 </div>
 
-<!-- Modal de categorias -->
+<!--Modal de categorias-->
 <div id="modal-categorias" class="modal">
     <div class="modal-content">
         <span class="close" onclick="fecharModalCategorias()">&times;</span>
@@ -328,7 +327,7 @@
     </div>
 </div>
 
-<!-- Modal de Edição da Categoria -->
+<!--Modal de Edição da Categoria -->
 <div id="modal-editar" class="modal">
     <div class="modal-content">
         <span class="close" onclick="fecharModalEditar()">&times;</span>
@@ -341,7 +340,7 @@
     </div>
 </div>
 
-<!-- Pop-up de Sucesso para Alteração -->
+<!--Pop-up de Sucesso para Alteração -->
 <div id="popup-alteracao" class="popup">
     <div class="popup-content">
         <p>Alteração realizada!</p>
@@ -349,7 +348,7 @@
     </div>
 </div>
 
-<!-- Pop-up de Confirmação de Exclusão -->
+<!--Pop-up de Confirmação de Exclusão -->
 <div id="popup-exclusao" class="popup">
     <div class="popup-content">
         <p><b>Deseja mesmo excluir esta categoria?</b></p>
@@ -393,8 +392,6 @@
         document.getElementById('modal-categorias').style.display = 'none';
     }
 
-
-
     // Exibir modal de edição de categoria
     function abrirModalEditar(id, descricaoAtual) {
         document.getElementById('modal-editar').style.display = 'block';
@@ -435,8 +432,6 @@
     function mostrarPopupAlteracao() {
         document.getElementById('popup-alteracao').style.display = 'block';
     }
-
-
 
     // Excluir categoria
     function excluirCategoria(id) {
