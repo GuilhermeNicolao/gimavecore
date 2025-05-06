@@ -298,8 +298,8 @@ def inserir_Sem_Espaço(driver, elemento_id, texto, tempo_espera=30):
 #Variáveis / Diretórios / Loads
 diretorio = r"C:\Users\Guilherme.Silva\Desktop\gimavecore\GIMAVE\Baixa Credenciados"
 dirbordero = r"C:\Users\Guilherme.Silva\Desktop\GIMAVE\Credenciados\Borderôs"
-data = "08/04/2025"
-arquivo = "BORDERO 08.xlsx"
+data = "28/04/2025"
+arquivo = "BORDERO 28.xlsx"
 caminho_arquivo = os.path.join(dirbordero, arquivo)
 wb = load_workbook(caminho_arquivo)
 ws = wb["Reembolso"]
@@ -438,7 +438,7 @@ while True:
 
     #OK
     esperar_e_clicar_simples(navegador, "COMP6032")
-    time.sleep(3)
+    time.sleep(7)
 
     #Scroll down para localizar o filtro
     tcbrowse = navegador.find_element(By.ID, "COMP6003")
@@ -452,7 +452,7 @@ while True:
 
     #Clicar no Confirmar
     esperar_e_clicar(navegador,"COMP6008")
-    time.sleep(15)
+    time.sleep(20)
 
 
     #Desmarcar todos os campos selecionados
@@ -466,9 +466,9 @@ while True:
             console.error("Elemento <th id='0'> não encontrado.");
         }
     """, wa_element)
-    time.sleep(10)
 
     #Acessar o campo "Reembolso"
+    time.sleep(10)
     actions.send_keys(Keys.ARROW_RIGHT).perform()
     time.sleep(4)
     actions.send_keys(Keys.ARROW_RIGHT).perform()

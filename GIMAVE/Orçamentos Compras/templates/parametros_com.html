@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Parâmetros - Viabilidade</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Alinha ao topo inicialmente */
+            min-height: 100vh;
+        }
+
+        .form-container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 0 12px rgba(0, 0, 0, 0.1);
+            width: 360px;
+            margin-top: 60px; /* AQUI foi adicionado espaço do topo */
+            margin-bottom: 40px;
+        }
+
+        h2 {
+            margin-bottom: 15px;
+            color: #333;
+            text-align: center;
+        }
+
+        h3 {
+            margin-top: 25px;
+            margin-bottom: 10px;
+            color: #444;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            margin-top: 10px;
+            color: #555;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background-color: #333;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        button:hover {
+            background-color: #636363;
+        }
+    </style>
+</head>
+<body>
+
+<div style="display: flex; flex-direction: column; align-items: center;">
+
+    <div class="form-container">
+        <h2>Configurar Parâmetros</h2>
+        <form id="form-parametros">
+
+            <h3>Receitas Previstas</h3>
+            <label for="rede_nacional">Consumo na rede nacional (R$)</label>
+            <input type="text" id="rede_nacional" name="rede_nacional" required>
+
+            <label for="taxa_adm">Taxa adm crédito mensal (%)</label>
+            <input type="number" id="taxa_adm" name="taxa_adm" required step="0.01">
+
+            <label for="venda_cartoes">Venda de cartões (R$)</label>
+            <input type="text" id="venda_cartoes" name="venda_cartoes" required>
+
+            <h3>Despesas Previstas</h3>
+            <label for="confeccao">Confecção dos cartões (R$)</label>
+            <input type="text" id="confeccao" name="confeccao" required>
+
+            <label for="processamento">Custos operacionais - Processamento (R$)</label>
+            <input type="text" id="processamento" name="processamento" required>
+
+            <label for="tag">Custo operacional TAG (R$)</label>
+            <input type="text" id="tag" name="tag" required>
+
+            <label for="eus">Custo operacional Eu+ Saúde (R$)</label>
+            <input type="text" id="eus" name="eus" required>
+
+            <label for="investimento">Custo operacional de investimento (por cartão) (R$)</label>
+            <input type="text" id="investimento" name="investimento" required>
+
+            <button type="submit"><b>SALVAR PARÂMETROS</b></button>
+        </form>
+    </div>
+
+    <!-- Link "Home" abaixo do container -->
+    <div style="margin-top: -25px; text-align: center;">
+        <b><a href="/home_com" style="text-decoration: none; color: #333;">Home</a></b>
+    </div>
+
+</div>
+
+<script>
+    // Máscara simples para valores monetários
+    const camposMonetarios = ['rede_nacional', 'venda_cartoes', 'confeccao', 'processamento', 'tag', 'eus', 'investimento'];
+    camposMonetarios.forEach(id => {
+        document.getElementById(id).addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            value = (value / 100).toFixed(2) + '';
+            value = value.replace('.', ',');
+            value = value.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
+            e.target.value = 'R$ ' + value;
+        });
+    });
+
+    document.getElementById('form-parametros').addEventListener('submit', function(e) {
+        e.preventDefault();
+        alert("Parâmetros salvos (simulação). Lógica será implementada depois.");
+    });
+</script>
+
+</body>
+</html>

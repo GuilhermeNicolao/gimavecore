@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Viabilidade Comercial - Cartão Elo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .form-container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 0 12px rgba(0, 0, 0, 0.1);
+            width: 300px;
+        }
+
+        h2 {
+            margin-bottom: 25px;
+            color: #333;
+            text-align: center;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            margin-top: 15px;
+            color: #555;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background-color: #333;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        button:hover {
+            background-color: #636363;
+        }
+    </style>
+</head>
+<body>
+
+<div style="display: flex; flex-direction: column; align-items: center;">
+
+    <div class="form-container">
+        <h2>Simulação de Viabilidade Comercial | Produto Elo</h2>
+        <form id="form-simulacao">
+            <label for="cartoes">Quantidade de Cartões *</label>
+            <input type="number" id="cartoes" name="cartoes" required>
+
+            <label for="valor_credito">Valor de Crédito por Cartão (R$) *</label>
+            <input type="text" id="valor_credito" name="valor_credito" required>
+
+            <label for="tags">Número de Cartões TAG *</label>
+            <input type="number" id="tags" name="tags" required>
+
+            <label for="eus">Número de Cartões Eu+ Saúde *</label>
+            <input type="number" id="eus" name="eus" required>
+
+            <label for="meses">Quantidade de Meses *</label>
+            <input type="number" id="meses" name="meses" required>
+
+            <button type="submit"><b>CALCULAR</b></button>
+        </form>
+    </div>
+
+    <!-- Link "Parâmetros" abaixo do container -->
+    <div style="margin-top: 10px; text-align: center;">
+        <b><a href="/parametros" style="text-decoration: none; color: #333;">Parâmetros</a></b>
+    </div>
+
+</div>
+
+<script>
+    // Máscara de valor para o campo "valor de crédito"
+    document.getElementById('valor_credito').addEventListener('input', function(e) {
+        let value = e.target.value.replace(/\D/g, '');
+        value = (value / 100).toFixed(2) + '';
+        value = value.replace(".", ",");
+        value = value.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
+        e.target.value = "R$ " + value;
+    });
+
+    // Captura dos dados para futura lógica
+    document.getElementById('form-simulacao').addEventListener('submit', function(e) {
+        e.preventDefault();
+        alert("Dados capturados. Lógica de cálculo será implementada futuramente.");
+    });
+</script>
+
+</body>
+</html>

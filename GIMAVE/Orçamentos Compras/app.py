@@ -20,16 +20,34 @@ db_config = {
 
 
 
+#Menu principal
+@app.route('/system')
+def menu_principal():
+    return render_template('system.html')
+
+
+
+# Homepage | Orçamento Compras
 @app.route('/home')
 def home():
-    return render_template('index.html')
+    return render_template('home_fin.html')
+
+# Homepage | Viabilidade cartão Elo
+@app.route('/home_com')
+def homecomercial():
+    return render_template('home_com.html')
+
+# Parâmetros
+@app.route('/parametros')
+def parametros():
+    return render_template('parametros_com.html')
 
 
 
 #Rotas de cadastro de fornecedores
 @app.route('/fornecedores')
 def fornecedores_form():
-    return render_template('fornecedores.html')
+    return render_template('fornecedores_fin.html')
 
 @app.route('/api/fornecedores')
 def listar_fornecedores():
@@ -122,7 +140,7 @@ def fornecedores_sugestoes():
 #Rotas Produtos
 @app.route('/produtos')
 def produtos_form():
-    return render_template('produtos.html')
+    return render_template('produtos_fin.html')
 
 @app.route('/cadastrar_produto', methods=['POST'])
 def cadastrar_produto():
@@ -231,7 +249,7 @@ def produtos_sugestoes():
 #Rotas Categorias
 @app.route('/categorias')
 def categorias_form():
-    return render_template('categoria.html')
+    return render_template('categoria_fin.html')
 
 @app.route('/cadastrar_categoria', methods=['POST'])
 def cadastrar_categoria():
@@ -311,7 +329,7 @@ def excluir_categoria(id):
 #Rotas Orçamentos
 @app.route('/cadastro')
 def cadastro_form():
-    return render_template('cadastro.html')
+    return render_template('cadastro_fin.html')
 
 @app.route('/cadastrar', methods=['POST'])
 def cadastrar():
