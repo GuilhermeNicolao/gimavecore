@@ -8,11 +8,15 @@
             font-family: Arial, sans-serif;
             background-color: #f4f4f4;
             margin: 0;
-            padding: 0;
+            padding: 40px;
             display: flex;
             justify-content: center;
-            align-items: center;
-            height: 100vh;
+        }
+
+        .main-content {
+            display: flex;
+            gap: 40px;
+            align-items: flex-start;
         }
 
         .form-container {
@@ -21,12 +25,28 @@
             border-radius: 12px;
             box-shadow: 0 0 12px rgba(0, 0, 0, 0.1);
             width: 300px;
+            transition: all 0.3s ease;
+        }
+
+        .result-container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 0 12px rgba(0, 0, 0, 0.1);
+            width: 300px;
+            display: none;
         }
 
         h2 {
             margin-bottom: 25px;
             color: #333;
             text-align: center;
+        }
+
+        h3 {
+            margin-top: 25px;
+            margin-bottom: 10px;
+            color: #444;
         }
 
         label {
@@ -61,14 +81,37 @@
         button:hover {
             background-color: #636363;
         }
+
+        .param-link {
+            text-align: center;
+            margin-top: 20px;
+            clear: both; /* caso algo esteja flutuando */
+            font-size: 15px;
+        }
+
+        .param-link a {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #333;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+
+        .param-link a:hover {
+            background-color: #006d3a;
+        }
+
+        .result-container {
+            background-color: #b8ab8c; /* verde bem claro */
+        }
     </style>
 </head>
 <body>
 
-<div style="display: flex; flex-direction: column; align-items: center;">
-
-    <div class="form-container">
-        <h2>Simulação de Viabilidade Comercial | Produto Elo</h2>
+<div class="main-content">
+    <div class="form-container" id="form-box">
+        <h2>Simulação de Viabilidade</h2>
         <form id="form-simulacao">
             <label for="cartoes">Quantidade de Cartões *</label>
             <input type="number" id="cartoes" name="cartoes" required>
@@ -76,28 +119,43 @@
             <label for="valor_credito">Valor de Crédito por Cartão (R$) *</label>
             <input type="text" id="valor_credito" name="valor_credito" required>
 
+            <label for="meses">Quantidade de Meses *</label>
+            <input type="number" id="meses" name="meses" required>
+
+            <h3>Outros Produtos</h3>
             <label for="tags">Número de Cartões TAG *</label>
             <input type="number" id="tags" name="tags" required>
+
+            <label for="rec_tags">Receita de Cartões TAG (R$) *</label>
+            <input type="text" id="rec_tags" name="rec_tags" required>
 
             <label for="eus">Número de Cartões Eu+ Saúde *</label>
             <input type="number" id="eus" name="eus" required>
 
-            <label for="meses">Quantidade de Meses *</label>
-            <input type="number" id="meses" name="meses" required>
+            <label for="rec_saude">Receita de Cartões Eu+ Saúde (R$) *</label>
+            <input type="text" id="rec_saude" name="rec_saude" required>
 
             <button type="submit"><b>CALCULAR</b></button>
         </form>
+
+        <div class="param-link">
+            <a href="/parametros">Parâmetros</a>
+        </div>
+
     </div>
 
-    <!-- Link "Parâmetros" abaixo do container -->
-    <div style="margin-top: 10px; text-align: center;">
-        <b><a href="/parametros" style="text-decoration: none; color: #333;">Parâmetros</a></b>
+    <div class="result-container" id="result-box">
+        <h2>Resultado da Simulação</h2>
+        <div id="resultado">
+            <!-- Exibe os dados aqui -->
+        </div>
     </div>
+
 
 </div>
 
 <script>
-    // Máscara de valor para o campo "valor de crédito"
+    // Máscara para valor de crédito
     document.getElementById('valor_credito').addEventListener('input', function(e) {
         let value = e.target.value.replace(/\D/g, '');
         value = (value / 100).toFixed(2) + '';
@@ -106,10 +164,28 @@
         e.target.value = "R$ " + value;
     });
 
-    // Captura dos dados para futura lógica
+    // Submissão do formulário
     document.getElementById('form-simulacao').addEventListener('submit', function(e) {
         e.preventDefault();
-        alert("Dados capturados. Lógica de cálculo será implementada futuramente.");
+
+        // Captura os dados do formulário
+        const cartoes = document.getElementById('cartoes').value;
+        const valor_credito = document.getElementById('valor_credito').value;
+        const tags = document.getElementById('tags').value;
+        const eus = document.getElementById('eus').value;
+        const meses = document.getElementById('meses').value;
+
+        // Preenche a área de resultados
+        document.getElementById('resultado').innerHTML = `
+            <p><strong>Cartões:</strong> ${cartoes}</p>
+            <p><strong>Valor de crédito:</strong> ${valor_credito}</p>
+            <p><strong>TAGs:</strong> ${tags}</p>
+            <p><strong>Eu+ Saúde:</strong> ${eus}</p>
+            <p><strong>Meses:</strong> ${meses}</p>
+        `;
+
+        // Exibe o resultado
+        document.getElementById('result-box').style.display = 'block';
     });
 </script>
 

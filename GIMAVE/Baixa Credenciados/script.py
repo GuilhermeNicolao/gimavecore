@@ -298,8 +298,8 @@ def inserir_Sem_Espaço(driver, elemento_id, texto, tempo_espera=30):
 #Variáveis / Diretórios / Loads
 diretorio = r"C:\Users\Guilherme.Silva\Desktop\gimavecore\GIMAVE\Baixa Credenciados"
 dirbordero = r"C:\Users\Guilherme.Silva\Desktop\GIMAVE\Credenciados\Borderôs"
-data = "28/04/2025"
-arquivo = "BORDERO 28.xlsx"
+data = "30/04/2025"
+arquivo = "BORDERO 30.xlsx"
 caminho_arquivo = os.path.join(dirbordero, arquivo)
 wb = load_workbook(caminho_arquivo)
 ws = wb["Reembolso"]
@@ -452,7 +452,7 @@ while True:
 
     #Clicar no Confirmar
     esperar_e_clicar(navegador,"COMP6008")
-    time.sleep(20)
+    time.sleep(40)
 
 
     #Desmarcar todos os campos selecionados
