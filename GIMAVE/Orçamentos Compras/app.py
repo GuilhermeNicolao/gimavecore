@@ -19,13 +19,12 @@ db_config = {
 }
 
 
+# -------ROTAS DO SISTEMA: VIABILIDADE COMERCIAL---------- #
 
 #Menu principal
 @app.route('/system')
 def menu_principal():
     return render_template('system.html')
-
-
 
 # Homepage | Orçamento Compras
 @app.route('/home')
@@ -41,6 +40,12 @@ def homecomercial():
 @app.route('/parametros')
 def parametros():
     return render_template('parametros_com.html')
+
+
+
+
+
+# -------ROTAS DO SISTEMA: ORÇAMENTO COMPRAS---------- #
 
 
 

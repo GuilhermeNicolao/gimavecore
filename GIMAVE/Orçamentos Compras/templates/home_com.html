@@ -156,6 +156,14 @@
             <label for="meses">Quantidade de Meses *</label>
             <input type="number" id="meses" name="meses" required>
 
+            <label for="taxa_adm">Taxa adm crédito mensal (%)</label>
+            <input type="number" id="taxa_adm" name="taxa_adm" required step="0.01">
+
+            <label for="venda_cartoes">Venda de cartões (R$)</label>
+            <input type="text" id="venda_cartoes" name="venda_cartoes" required>
+
+
+
             <h3>Outros Produtos</h3>
             <label for="qtde_cartoes_tag">Número de Cartões TAG *</label>
             <input type="number" id="qtde_cartoes_tag" name="qtde_cartoes_tag" required>
@@ -187,14 +195,21 @@
 </div>
 
 <script>
-    // Máscara para valor de crédito
-    document.getElementById('valor_credito').addEventListener('input', function(e) {
-        let value = e.target.value.replace(/\D/g, '');
-        value = (value / 100).toFixed(2) + '';
-        value = value.replace(".", ",");
-        value = value.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
-        e.target.value = "R$ " + value;
-    });
+    // Máscara R$
+    const camposFormatar = ['valor_credito','rec_tags','rec_saude','venda_cartoes']
+
+    camposFormatar.forEach(id => {
+    const campo = document.getElementById(id);
+    if (campo) {
+        campo.addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            value = (value / 100).toFixed(2) + '';
+            value = value.replace(".", ",");
+            value = value.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
+            e.target.value = "R$ " + value;
+        });
+    }
+});
 
     // Submissão do formulário
     document.getElementById('form-simulacao').addEventListener('submit', function(e) {
@@ -207,9 +222,7 @@
         maximumFractionDigits: 0
     });
 
-    const receitaTagValue = parseInt(document.getElementById("rec_tags").value);
     const receitaTagQtdeValue = parseInt(document.getElementById("qtde_cartoes_tag").value);
-    const receitaEusValue = parseInt(document.getElementById("rec_saude").value);
     const receitaEusQtdeValue = parseInt(document.getElementById("qtde_cartoes_eus").value);
     const meses = parseInt(document.getElementById("meses").value);
     const qtdeCartoes = parseInt(document.getElementById("qtde_cartoes").value);
@@ -219,6 +232,19 @@
             .replace(/\./g, "")
             .replace(",", ".")
     );
+    const receitaTagValue = parseFloat(
+        document.getElementById("rec_tags").value
+            .replace("R$ ", "")
+            .replace(/\./g, "")
+            .replace(",", ".")
+    );
+    const receitaEusValue = parseFloat(
+        document.getElementById("rec_saude").value
+            .replace("R$ ", "")
+            .replace(/\./g, "")
+            .replace(",", ".")
+    );
+    
 
 
     if (!isNaN(qtdeCartoes) && !isNaN(valorCredito) && !isNaN(meses) && !isNaN(receitaEusQtdeValue)
@@ -248,13 +274,18 @@
     const consumoRedeCredenciadaContrato = volumeContrato * (redeCredenciadaPercent / 100); // Contrato
 
     // Taxa Adm Crédito Mensal
-    const taxaAdmPercent = parametros?.taxa_adm || 0;
+    const taxaAdmPercent = parseFloat(document.getElementById("taxa_adm").value);
     const taxaAdmCreditoMensal = volumeMensal * (taxaAdmPercent / 100); // Mensal
     const taxaAdmCreditoAnual = volumeAnual * (taxaAdmPercent / 100); // Anual
     const taxaAdmCreditoContrato = volumeContrato * (taxaAdmPercent / 100); // Contrato
     
     // Venda Cartões
-    const vendaCartoesValue = parametros?.venda_cartoes || 0;
+    const vendaCartoesValue = parseFloat(
+        document.getElementById("venda_cartoes").value
+            .replace("R$ ", "")
+            .replace(/\./g, "")
+            .replace(",", ".")
+    );
     const vendaCartoesContrato = qtdeCartoes * vendaCartoesValue; // Contrato
     const vendaCartoesAnual = vendaCartoesContrato / (meses / 12); // Anual
     const vendaCartoesMensal = vendaCartoesAnual / 12; // Mensal
