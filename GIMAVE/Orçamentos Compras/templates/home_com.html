@@ -103,7 +103,41 @@
         }
 
         .result-container {
-            background-color: #b8ab8c; /* verde bem claro */
+            background-color: #8a8069; 
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 0 12px rgba(0, 0, 0, 0.1);
+            width: 100%; 
+            max-width: 960px;
+            display: none;
+            transition: all 0.3s ease;
+        }
+
+        .result-container h2{
+            color: white;
+        }
+
+        .result-grid {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .result-item {
+            background: #b8ab8c;
+            padding: 15px;
+            border-radius: 8px;
+            flex: 1;
+            min-width: 200px;
+            box-shadow: 0 0 8px rgba(0,0,0,0.05);
+            font-family: Calibri;
+        }
+        
+        .result-text {
+            margin-top: 20px;
+            color: #333;
+            font-size: 15px;
         }
     </style>
 </head>
@@ -113,8 +147,8 @@
     <div class="form-container" id="form-box">
         <h2>Simulação de Viabilidade</h2>
         <form id="form-simulacao">
-            <label for="cartoes">Quantidade de Cartões *</label>
-            <input type="number" id="cartoes" name="cartoes" required>
+            <label for="qtde_cartoes">Quantidade de Cartões *</label>
+            <input type="number" id="qtde_cartoes" name="qtde_cartoes" required>
 
             <label for="valor_credito">Valor de Crédito por Cartão (R$) *</label>
             <input type="text" id="valor_credito" name="valor_credito" required>
@@ -123,14 +157,14 @@
             <input type="number" id="meses" name="meses" required>
 
             <h3>Outros Produtos</h3>
-            <label for="tags">Número de Cartões TAG *</label>
-            <input type="number" id="tags" name="tags" required>
+            <label for="qtde_cartoes_tag">Número de Cartões TAG *</label>
+            <input type="number" id="qtde_cartoes_tag" name="qtde_cartoes_tag" required>
 
             <label for="rec_tags">Receita de Cartões TAG (R$) *</label>
             <input type="text" id="rec_tags" name="rec_tags" required>
 
-            <label for="eus">Número de Cartões Eu+ Saúde *</label>
-            <input type="number" id="eus" name="eus" required>
+            <label for="qtde_cartoes_eus">Número de Cartões Eu+ Saúde *</label>
+            <input type="number" id="qtde_cartoes_eus" name="qtde_cartoes_eus" required>
 
             <label for="rec_saude">Receita de Cartões Eu+ Saúde (R$) *</label>
             <input type="text" id="rec_saude" name="rec_saude" required>
@@ -150,8 +184,6 @@
             <!-- Exibe os dados aqui -->
         </div>
     </div>
-
-
 </div>
 
 <script>
@@ -166,27 +198,216 @@
 
     // Submissão do formulário
     document.getElementById('form-simulacao').addEventListener('submit', function(e) {
-        e.preventDefault();
+    e.preventDefault();
 
-        // Captura os dados do formulário
-        const cartoes = document.getElementById('cartoes').value;
-        const valor_credito = document.getElementById('valor_credito').value;
-        const tags = document.getElementById('tags').value;
-        const eus = document.getElementById('eus').value;
-        const meses = document.getElementById('meses').value;
-
-        // Preenche a área de resultados
-        document.getElementById('resultado').innerHTML = `
-            <p><strong>Cartões:</strong> ${cartoes}</p>
-            <p><strong>Valor de crédito:</strong> ${valor_credito}</p>
-            <p><strong>TAGs:</strong> ${tags}</p>
-            <p><strong>Eu+ Saúde:</strong> ${eus}</p>
-            <p><strong>Meses:</strong> ${meses}</p>
-        `;
-
-        // Exibe o resultado
-        document.getElementById('result-box').style.display = 'block';
+    const formatadorBR = new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
     });
+
+    const receitaTagValue = parseInt(document.getElementById("rec_tags").value);
+    const receitaTagQtdeValue = parseInt(document.getElementById("qtde_cartoes_tag").value);
+    const receitaEusValue = parseInt(document.getElementById("rec_saude").value);
+    const receitaEusQtdeValue = parseInt(document.getElementById("qtde_cartoes_eus").value);
+    const meses = parseInt(document.getElementById("meses").value);
+    const qtdeCartoes = parseInt(document.getElementById("qtde_cartoes").value);
+    const valorCredito = parseFloat(
+        document.getElementById("valor_credito").value
+            .replace("R$ ", "")
+            .replace(/\./g, "")
+            .replace(",", ".")
+    );
+
+
+    if (!isNaN(qtdeCartoes) && !isNaN(valorCredito) && !isNaN(meses) && !isNaN(receitaEusQtdeValue)
+    && !isNaN(receitaEusValue) && !isNaN(receitaTagQtdeValue) && !isNaN(receitaTagValue)) {
+
+    // Volume Mensal
+    const volumeMensal = qtdeCartoes * valorCredito;
+
+    // Volume Anual
+    const volumeAnual = volumeMensal * 12;
+
+    // Volume Contrato
+    const volumeContrato = volumeMensal * meses;
+    
+
+    // Acessar o Storage Local
+    const parametros = JSON.parse(localStorage.getItem("parametrosForm") || "{}");
+
+
+    // -------------------------------------------------------------------------------------------------------------------------------//
+    // RECEITAS PREVISTAS - CARTÃO ELO //
+
+    // Consumo Rede Credenciada
+    const redeCredenciadaPercent = parametros?.rede_credenciada || 0;
+    const consumoRedeCredenciadaMensal = volumeMensal * (redeCredenciadaPercent / 100); // Mensal
+    const consumoRedeCredenciadaAnual = volumeAnual * (redeCredenciadaPercent / 100); // Anual
+    const consumoRedeCredenciadaContrato = volumeContrato * (redeCredenciadaPercent / 100); // Contrato
+
+    // Taxa Adm Crédito Mensal
+    const taxaAdmPercent = parametros?.taxa_adm || 0;
+    const taxaAdmCreditoMensal = volumeMensal * (taxaAdmPercent / 100); // Mensal
+    const taxaAdmCreditoAnual = volumeAnual * (taxaAdmPercent / 100); // Anual
+    const taxaAdmCreditoContrato = volumeContrato * (taxaAdmPercent / 100); // Contrato
+    
+    // Venda Cartões
+    const vendaCartoesValue = parametros?.venda_cartoes || 0;
+    const vendaCartoesContrato = qtdeCartoes * vendaCartoesValue; // Contrato
+    const vendaCartoesAnual = vendaCartoesContrato / (meses / 12); // Anual
+    const vendaCartoesMensal = vendaCartoesAnual / 12; // Mensal
+
+    // Total
+    const totalReceitasPrevistasMensal = vendaCartoesMensal + taxaAdmCreditoMensal + consumoRedeCredenciadaMensal; // Mensal
+    const totalReceitasPrevistasAnual = vendaCartoesAnual + taxaAdmCreditoAnual + consumoRedeCredenciadaAnual; // Anual
+    const totalReceitasPrevistasContrato = vendaCartoesContrato + taxaAdmCreditoContrato + consumoRedeCredenciadaContrato; // Contrato
+    // -------------------------------------------------------------------------------------------------------------------------------//
+
+
+    // -------------------------------------------------------------------------------------------------------------------------------//    
+    // OUTROS PRODUTOS
+
+    // Receita Tag - Mensalidade PJ
+    const receitaTagContrato = receitaTagValue * receitaTagQtdeValue * meses;
+
+    // Despesa TAG - Envio (Custo único por cliente)
+    const despesaTagEnvioValue = parametros?.envio_tag || 0;
+    const despesaTagEnvioContrato = despesaTagEnvioValue * receitaTagQtdeValue;
+
+    // Despesa TAG - Operação + TAG Fìsica (Custo único por unidade de TAG)
+    const despesaTagFisicaValue = parametros?.tag_fisica || 0;
+    const despesaTagFisicaContrato = despesaTagFisicaValue * receitaTagQtdeValue;
+
+    // Despesa TAG - Mensalidade Greenpass (Custo Mensal por tag ativa)
+    const despesaTagGreenpassValue = parametros?.greenpass || 0;
+    const despesaTagGreenpassContrato = despesaTagGreenpassValue * receitaTagQtdeValue * meses;
+
+    // Total despesas
+    const totalDespesasTagContrato = despesaTagGreenpassContrato + despesaTagFisicaContrato + despesaTagEnvioContrato; 
+
+    
+    // Receita Eu+ Saúde - Mnesalidade PJ
+    const receitaEusContrato = receitaEusValue * receitaEusQtdeValue * meses;
+    
+    // Custo por Vida - Epharma - Mensalidade PJ
+    const despesaEpharmaValue = parametros?.epharma || 0;
+    const despesaEpharmaContrato = despesaEpharmaValue * receitaEusQtdeValue * meses;
+
+    // Custo por Vida - Telemedicina
+    const despesaTelemedicinaValue = parametros?.telemedicina || 0;
+    const despesaTelemedicinaContrato = despesaTelemedicinaValue * receitaEusQtdeValue;
+
+    // Custo Cartão - Envio único
+    const despesaEnvioValue = parametros?.custo_enviounico || 0;
+    const despesaEnvioContrato = despesaEnvioValue * receitaEusQtdeValue;
+
+    // Total despesas
+    const totalDespesasEusContrato = despesaEnvioContrato + despesaTelemedicinaContrato + despesaEpharmaContrato;
+    // -------------------------------------------------------------------------------------------------------------------------------//
+
+    // -------------------------------------------------------------------------------------------------------------------------------//
+    // RESULTADO DE RECEITA CARTÃO + PRODUTOS
+
+    const resultReceitas = totalReceitasPrevistasContrato + receitaTagContrato + receitaEusContrato;
+    // -------------------------------------------------------------------------------------------------------------------------------//
+    // DESPESAS PREVISTAS - CARTÃO ELO //
+
+    // Confecção dos Cartões 1ª Via
+    const confeccaoCartoesValue = parametros?.confeccao || 0;
+    const confeccaoCartoesContrato = qtdeCartoes * confeccaoCartoesValue;
+
+    // Custos Operacionais - Processamento
+    const custosProcessamentoValue = parametros?.processamento || 0;
+    const custosProcessamentoQtdeValue = parametros?.qtde_processamento || 0;
+    const custosProcessamentoContrato = (custosProcessamentoValue * custosProcessamentoQtdeValue * qtdeCartoes) * meses;
+
+    // Custo Operacional TAG
+    const custoTagValue = parametros?.custo_tag || 0;
+    const custoTagQtdeValue = parametros?.qtde_custo_tag || 0;
+    const custoTagContrato = (custoTagValue * custoTagQtdeValue * qtdeCartoes) * meses;
+
+    // Custo Operacional Eu+ Saúde
+    const custoEusValue = parametros?.custo_eus || 0;
+    const custoEusQtdeValue = parametros?.qtde_custo_eus || 0;
+    const custoEusContrato = (custoEusValue * custoEusQtdeValue * qtdeCartoes) * meses;
+
+    // Custo Operacional de Investimento (Por Cartão)
+    const custoInvestimentoValue = parametros?.investimento || 0;
+    const custoInvestimentoContrato = (custoInvestimentoValue * qtdeCartoes);
+
+    // Total
+    const totalDespesasPrevistasContrato = custoInvestimentoContrato + custoEusContrato + custoTagContrato + custosProcessamentoContrato + confeccaoCartoesContrato;
+    // -------------------------------------------------------------------------------------------------------------------------------//
+    
+    // -------------------------------------------------------------------------------------------------------------------------------//
+    // RESULTADO DE DESPESA CARTÃO + PRODUTOS
+
+    const resultDespesas = custoInvestimentoContrato + totalDespesasTagContrato + totalDespesasEusContrato;
+    // -------------------------------------------------------------------------------------------------------------------------------//
+
+    const rentabilidadeIdeal = parametros.rentabilidade_ideal || 0;
+    const statusAprovado = parametros.aprovada || 0; 
+    const statusIntermediario = parametros.intermediario || 0; 
+    const lucroOperacao = resultReceitas - resultDespesas;
+    const lucroOperacaoMensal = lucroOperacao / meses;
+    const rentabilidadeAtual = (lucroOperacao / volumeContrato) * 100;
+
+    let mensagemNegociacao = '';
+
+    if (rentabilidadeAtual < statusIntermediario) {
+    mensagemNegociacao = `
+        <div style="background-color: #f8d7da; color: #721c24; padding: 10px; border-radius: 5px; font-weight: bold; text-align: center; height: 20% ;width: 50%; margin: 0 auto;">
+            Negociação Negada
+        </div>
+    `;
+    } else if ((rentabilidadeAtual >= statusIntermediario) && (rentabilidadeAtual < statusAprovado)) {
+        mensagemNegociacao = `
+            <div style="background-color: #fff3cd; color: #856404; padding: 10px; border-radius: 5px; font-weight: bold; text-align: center; height: 20% ; width: 50%; margin: 0 auto;">
+                Necessita aprovação superior
+            </div>
+        `;
+    } else if (rentabilidadeAtual >= statusAprovado) {
+        mensagemNegociacao = `
+            <div style="background-color: #d4edda; color: #155724; padding: 10px; border-radius: 5px; font-weight: bold; text-align: center; height: 20% ; width: 50%; margin: 0 auto;">
+                Negociação Aprovada
+            </div>
+        `;
+    }
+
+
+    document.getElementById("resultado").innerHTML = `
+    <div class="result-grid">
+        <div class="result-item">
+            <p><h3><strong>Volume Mensal</strong><br>${formatadorBR.format(volumeMensal)}</p>
+        </div>
+        <div class="result-item">
+            <p><h3><strong>Volume Anual</strong><br>${formatadorBR.format(volumeAnual)}</p>
+        </div>
+        <div class="result-item">
+            <p><h3><strong>Volume do Contrato</strong><br>${formatadorBR.format(volumeContrato)}</p>
+        </div>
+        <div style="margin-top: 30px; font-size: 16px; color: #333;">
+            <p><h4><strong>Rentabilidade Ideal:</strong><br>${rentabilidadeIdeal}%</p><br>
+            <p><h4><strong>Rentabilidade Atual:</strong><br>${rentabilidadeAtual.toFixed(2)}%</p>
+        </div>
+        ${mensagemNegociacao}<br>
+        <button style="font-size: 16px; background-color: #333; color: white; border: none; border-radius: 5px; cursor: pointer;">
+            Gravar Proposta
+        </button>
+        </div>
+    </div>
+`;
+
+
+    document.getElementById("result-box").style.display = "block";
+} else {
+    document.getElementById("resultado").innerHTML =
+        "Preencha os campos corretamente.";
+    document.getElementById("result-box").style.display = "block";
+}
+});
 </script>
 
 </body>

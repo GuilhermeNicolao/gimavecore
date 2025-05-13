@@ -298,8 +298,8 @@ def inserir_Sem_Espaço(driver, elemento_id, texto, tempo_espera=30):
 #Variáveis / Diretórios / Loads
 diretorio = r"C:\Users\Guilherme.Silva\Desktop\gimavecore\GIMAVE\Baixa Credenciados"
 dirbordero = r"C:\Users\Guilherme.Silva\Desktop\GIMAVE\Credenciados\Borderôs"
-data = "30/04/2025"
-arquivo = "BORDERO 30.xlsx"
+data = "02/05/2025"
+arquivo = "BORDERO 02.xlsx"
 caminho_arquivo = os.path.join(dirbordero, arquivo)
 wb = load_workbook(caminho_arquivo)
 ws = wb["Reembolso"]
