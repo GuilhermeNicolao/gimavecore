@@ -43,31 +43,38 @@ def listar_fornecedores():
 def cadastrar_fornecedor():
     try:
         # Coleta de dados do formulário
-        cnpj = request.form['cnpj'].strip()
+        cnpj = re.sub(r'\D', '', request.form['cnpj'].strip())
         razao_social = request.form['razao_social'].strip()
         rua = request.form['rua'].strip()
         numero = request.form['numero'].strip()
-        cep = request.form['cep'].strip()
+        cep = re.sub(r'\D', '', request.form['cep'].strip())
 
         # Validação simples
         if not cnpj or not razao_social or not rua or not numero or not cep:
             flash('Preencha todos os campos obrigatórios!', 'erro')
             return redirect('/fornecedores')
 
-        cnpj = re.sub(r'\D', '', request.form['cnpj'].strip())  # Remove tudo que não é dígito
-        cep = re.sub(r'\D', '', request.form['cep'].strip())  # Remove tudo que não é número
+        with mysql.connector.connect(**db_config) as conn:
+            with conn.cursor() as cursor:
+                # Verifica duplicidade de CNPJ
+                cursor.execute("SELECT COUNT(*) FROM fornecedores_orc WHERE cnpj = %s", (cnpj,))
+                if cursor.fetchone()[0] > 0:
+                    flash("Já existe um fornecedor com esse CNPJ.", "erro")
+                    return redirect('/fornecedores')
 
-        # Inserção no banco
-        conn = mysql.connector.connect(**db_config)
-        cursor = conn.cursor()
-        query = """
-            INSERT INTO fornecedores_orc (cnpj, razao_social, rua, numero, cep)
-            VALUES (%s, %s, %s, %s, %s)
-        """
-        cursor.execute(query, (cnpj, razao_social, rua, numero, cep))
-        conn.commit()
-        cursor.close()
-        conn.close()
+                # Verifica duplicidade de razão social
+                cursor.execute("SELECT COUNT(*) FROM fornecedores_orc WHERE LOWER(TRIM(razao_social)) = LOWER(%s)", (razao_social,))
+                if cursor.fetchone()[0] > 0:
+                    flash("Já existe um fornecedor com essa razão social.", "erro")
+                    return redirect('/fornecedores')
+
+                # Inserção
+                query = """
+                    INSERT INTO fornecedores_orc (cnpj, razao_social, rua, numero, cep)
+                    VALUES (%s, %s, %s, %s, %s)
+                """
+                cursor.execute(query, (cnpj, razao_social, rua, numero, cep))
+                conn.commit()
 
         flash('Fornecedor cadastrado com sucesso!', 'sucesso')
         return redirect('/fornecedores')
@@ -83,13 +90,25 @@ def editar_fornecedores(id):
     if not novo_nome:
         return jsonify({'erro': 'Nome não pode estar vazio'}), 400
 
-    conn = mysql.connector.connect(**db_config)
-    cursor = conn.cursor()
-    cursor.execute("UPDATE fornecedores_orc SET razao_social = %s WHERE cnpj = %s", (novo_nome, id))
-    conn.commit()
-    cursor.close()
-    conn.close()
-    return jsonify({'sucesso': True})
+    try:
+        with mysql.connector.connect(**db_config) as conn:
+            with conn.cursor() as cursor:
+                # Verifica se razão social já está sendo usada por outro fornecedor
+                cursor.execute("""
+                    SELECT COUNT(*) FROM fornecedores_orc 
+                    WHERE LOWER(TRIM(razao_social)) = LOWER(%s) AND cnpj != %s
+                """, (novo_nome, id))
+                if cursor.fetchone()[0] > 0:
+                    return jsonify({'erro': 'Já existe outro fornecedor com essa razão social.'}), 400
+
+                # Atualiza a razão social
+                cursor.execute("UPDATE fornecedores_orc SET razao_social = %s WHERE cnpj = %s", (novo_nome, id))
+                conn.commit()
+
+        return jsonify({'sucesso': True})
+
+    except mysql.connector.Error as err:
+        return jsonify({'erro': str(err)}), 500
 
 @app.route('/api/fornecedores/<int:id>', methods=['DELETE'])
 def excluir_fornecedores(id):
@@ -107,9 +126,8 @@ def fornecedores_sugestoes():
 
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor()
-    query = "SELECT razao_social FROM fornecedores_orc WHERE razao_social LIKE %s LIMIT 10"
-    cursor.execute(query, (f'%{termo}%',))
-    resultados = [row[0] for row in cursor.fetchall()]
+    cursor.execute("SELECT cnpj, razao_social FROM fornecedores_orc WHERE razao_social LIKE %s LIMIT 10", (f'%{termo}%',))
+    resultados = [{'cnpj': row[0], 'razao_social': row[1]} for row in cursor.fetchall()]
     cursor.close()
     conn.close()
 
@@ -126,47 +144,49 @@ def produtos_form():
 def cadastrar_produto():
     try:
         nome = request.form['nome'].strip()
-        categoria = request.form['categoria'].strip()
-        fornecedor = request.form['fornecedor'].strip()
+        categoria_id = request.form['categoria_id'].strip()
+        fornecedor_cnpj = request.form['fornecedor_cnpj'].strip()
         descricao = request.form['descricao'].strip()
 
-        if not nome or not categoria or not fornecedor:
+        if not nome or not categoria_id or not fornecedor_cnpj:
             flash('Preencha todos os campos obrigatórios!', 'erro')
             return redirect('/produtos')
-        
-        conn = mysql.connector.connect(**db_config)
-        cursor = conn.cursor()
 
-        # Verifica se a categoria existe
-        cursor.execute("SELECT COUNT(*) FROM categoria_orc WHERE descricao = %s", (categoria,))
-        categoria_existe = cursor.fetchone()[0]
-  
-        if not categoria_existe:
-            flash("Categoria não encontrada. Por favor, selecione uma válida.", "erro")
-            cursor.close()
-            conn.close()
-            return redirect('/produtos')        
+        with mysql.connector.connect(**db_config) as conn:
+            with conn.cursor() as cursor:
+                # Verifica se a categoria existe
+                cursor.execute("SELECT COUNT(*) FROM categoria_orc WHERE id_categoria = %s", (categoria_id,))
+                if cursor.fetchone()[0] == 0:
+                    flash("Categoria não encontrada. Por favor, selecione uma válida.", "erro")
+                    return redirect('/produtos')
 
+                # Verifica se o fornecedor existe
+                cursor.execute("SELECT COUNT(*) FROM fornecedores_orc WHERE cnpj = %s", (fornecedor_cnpj,))
+                if cursor.fetchone()[0] == 0:
+                    flash("Fornecedor não encontrado. Por favor, selecione um válido.", "erro")
+                    return redirect('/produtos')
 
-        # Verifica se o fornecedor existe
-        cursor.execute("SELECT COUNT(*) FROM fornecedores_orc WHERE razao_social = %s", (fornecedor,))
-        fornecedor_existe = cursor.fetchone()[0] 
+                # Verifica se já existe produto com o mesmo nome, categoria e fornecedor
+                query_verifica = """
+                    SELECT COUNT(*) FROM produtos_orc 
+                    WHERE LOWER(TRIM(nome)) = LOWER(%s)
+                    AND categoria_id = %s
+                    AND fornecedor_cnpj = %s
+                """
+                cursor.execute(query_verifica, (nome, categoria_id, fornecedor_cnpj))
+                (existe,) = cursor.fetchone()
 
-        if not fornecedor_existe:
-            flash("Fornecedor não encontrado. Por favor, selecione uma válido.", "erro")
-            cursor.close()
-            conn.close()
-            return redirect('/produtos')   
+                if existe > 0:
+                    flash("Produto já cadastrado com esses dados!", "erro")
+                    return redirect('/produtos')
 
-        # Se existem...
-        query = """
-            INSERT INTO produtos_orc (nome, categoria, fornecedor, descricao)
-            VALUES (%s, %s, %s, %s)
-        """
-        cursor.execute(query, (nome, categoria, fornecedor, descricao))
-        conn.commit()
-        cursor.close()
-        conn.close()
+                # Inserção
+                query = """
+                    INSERT INTO produtos_orc (nome, categoria_id, fornecedor_cnpj, descricao)
+                    VALUES (%s, %s, %s, %s)
+                """
+                cursor.execute(query, (nome, categoria_id, fornecedor_cnpj, descricao))
+                conn.commit()
 
         flash('Produto cadastrado com sucesso!', 'sucesso')
         return redirect('/produtos')
@@ -192,13 +212,40 @@ def editar_produtos(id):
     if not novo_nome:
         return jsonify({'erro': 'Nome não pode estar vazio'}), 400
 
-    conn = mysql.connector.connect(**db_config)
-    cursor = conn.cursor()
-    cursor.execute("UPDATE produtos_orc SET nome = %s WHERE id_produto = %s", (novo_nome, id))
-    conn.commit()
-    cursor.close()
-    conn.close()
-    return jsonify({'sucesso': True})
+    try:
+        with mysql.connector.connect(**db_config) as conn:
+            with conn.cursor(dictionary=True) as cursor:
+                # Obtém os dados atuais do produto
+                cursor.execute("SELECT categoria_id, fornecedor_cnpj FROM produtos_orc WHERE id_produto = %s", (id,))
+                produto = cursor.fetchone()
+
+                if not produto:
+                    return jsonify({'erro': 'Produto não encontrado'}), 404
+
+                categoria_id = produto['categoria_id']
+                fornecedor_cnpj = produto['fornecedor_cnpj']
+
+                # Verifica se já existe outro produto com o mesmo nome/categoria/fornecedor
+                query_verifica = """
+                    SELECT COUNT(*) FROM produtos_orc
+                    WHERE LOWER(TRIM(nome)) = LOWER(%s)
+                    AND categoria_id = %s
+                    AND fornecedor_cnpj = %s
+                    AND id_produto != %s
+                """
+                cursor.execute(query_verifica, (novo_nome, categoria_id, fornecedor_cnpj, id))
+                (existe,) = cursor.fetchone().values()
+
+                if existe > 0:
+                    return jsonify({'erro': 'Já existe outro produto com esse nome, categoria e fornecedor.'}), 400
+
+                cursor.execute("UPDATE produtos_orc SET nome = %s WHERE id_produto = %s", (novo_nome, id))
+                conn.commit()
+
+        return jsonify({'sucesso': True})
+
+    except mysql.connector.Error as err:
+        return jsonify({'erro': str(err)}), 500
 
 @app.route('/api/produtos/<int:id>', methods=['DELETE'])
 def excluir_produtos(id):
@@ -213,16 +260,19 @@ def excluir_produtos(id):
 @app.route('/produtos_sugestoes')
 def produtos_sugestoes():
     termo = request.args.get('q', '').strip()
-
     conn = mysql.connector.connect(**db_config)
-    cursor = conn.cursor()
-    query = "SELECT nome FROM produtos_orc WHERE nome LIKE %s LIMIT 10"
-    cursor.execute(query, (f'%{termo}%',))
-    resultados = [row[0] for row in cursor.fetchall()]
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("""
+        SELECT id_produto, nome FROM produtos_orc
+        WHERE nome LIKE %s
+        ORDER BY nome
+        LIMIT 10
+    """, (f"%{termo}%",))
+    resultados = cursor.fetchall()
     cursor.close()
     conn.close()
-
     return jsonify(resultados)
+
 
 
 
@@ -305,6 +355,20 @@ def excluir_categoria(id):
     conn.close()
     return jsonify({'sucesso': True})
 
+@app.route('/categorias_sugestoes')
+def categorias_sugestoes():
+    termo = request.args.get('q', '').strip()
+
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id_categoria, descricao FROM categoria_orc WHERE descricao LIKE %s LIMIT 10", (f'%{termo}%',))
+    resultados = [{'id_categoria': row[0], 'descricao': row[1]} for row in cursor.fetchall()]
+    cursor.close()
+    conn.close()
+
+    return jsonify(resultados)
+
+
 
 #Rotas Orçamentos
 @app.route('/cadastro')
@@ -316,26 +380,27 @@ def cadastrar():
     try:
         # Coletar dados do formulário
         data = request.form['data']
-        produto = request.form['produto'].strip()
-        fornecedor = request.form['fornecedor'].strip()
+        produto_id = request.form['produto_id']
+        fornecedor_cnpj = request.form['fornecedor_cnpj']
         valor = request.form['valor'].strip()
         observacao = request.form['observacao'].strip()
 
         # Validação simples
-        if not data or not produto or not fornecedor or not valor:
+        if not data or not produto_id or not fornecedor_cnpj or not valor:
             flash('Preencha todos os campos obrigatórios!', 'erro')
             return redirect('/cadastro')
 
         # Formatando data e valor para padrão MySQL
         data_formatada = datetime.strptime(data, "%Y-%m-%d").date()
-        vlr_formatado = float(valor.replace('.', '').replace(',', '.')) 
+        vlr_formatado = float(valor.replace('R$', '').replace('.', '').replace(',', '.').strip())
+
 
         # Abrindo conexão com o banco
         conn = mysql.connector.connect(**db_config)
         cursor = conn.cursor()
 
         # Verifica se o produto existe
-        cursor.execute("SELECT COUNT(*) FROM produtos_orc WHERE nome = %s", (produto,))
+        cursor.execute("SELECT COUNT(*) FROM produtos_orc WHERE id_produto = %s", (produto_id,))
         produto_existe = cursor.fetchone()[0]
   
         if not produto_existe:
@@ -345,7 +410,7 @@ def cadastrar():
             return redirect('/cadastro')  
 
         # Verifica se o fornecedor existe
-        cursor.execute("SELECT COUNT(*) FROM fornecedores_orc WHERE razao_social = %s", (fornecedor,))
+        cursor.execute("SELECT COUNT(*) FROM fornecedores_orc WHERE cnpj = %s", (fornecedor_cnpj,))
         fornecedor_existe = cursor.fetchone()[0] 
 
         if not fornecedor_existe:
@@ -354,11 +419,14 @@ def cadastrar():
             conn.close()
             return redirect('/cadastro')   
 
-        query = "INSERT INTO cadastro_orc_teste (dt, produto, fornecedor, vlr_orcamento, observacao) VALUES (%s, %s, %s, %s, %s)"
-        cursor.execute(query, (data_formatada, produto, fornecedor, vlr_formatado, observacao))
+        # Inserção
+        query = """
+            INSERT INTO cadastro_orc_teste 
+            (dt, vlr_orcamento, observacao, status, produto_id, fornecedor_cnpj)
+            VALUES (%s, %s, %s, 'Pendente', %s, %s)
+        """
+        cursor.execute(query, (data_formatada, vlr_formatado, observacao, produto_id, fornecedor_cnpj))
         conn.commit()
-        cursor.close()
-        conn.close()
 
         flash('Cadastro realizado com sucesso!', 'sucesso')
         return redirect('/cadastro')
@@ -369,60 +437,59 @@ def cadastrar():
 
 @app.route('/validar', methods=['GET', 'POST'])
 def validar():
-    conn = mysql.connector.connect(**db_config)
-    cursor = conn.cursor(dictionary=True)
-
-    filtro = request.args.get('filtro')
-    valor = request.args.get('valor')
-
-    query_base = """
-        SELECT cod, dt, produto, fornecedor, vlr_orcamento, observacao, status 
-        FROM cadastro_orc_teste 
-        WHERE 1=1
-    """
-    params = []
-
-    filtros_sql = {
-        "produto": " AND produto LIKE %s",
-        "fornecedor": " AND fornecedor LIKE %s",
-        "data": " AND DATE(dt) = %s",
-        "status": " AND status LIKE %s"
-    }
-
-    if filtro in filtros_sql and valor:
-        query_base += filtros_sql[filtro]
-        
-        if filtro in ['produto', 'fornecedor', 'status']:
-            params.append(f"%{valor}%")
-        
-        elif filtro == 'data':
-            try:
-                # Converte de "DD/MM/YY" para "YYYY-MM-DD"
-                data_formatada = datetime.strptime(valor, '%d/%m/%y').strftime('%Y-%m-%d')
-                params.append(data_formatada)
-            except ValueError:
-                # Data inválida: força a query a não retornar nada
-                query_base += " AND 1=0"
-
-    query_base += " ORDER BY dt DESC"
-
-    cursor.execute(query_base, params)
-    orcamentos = cursor.fetchall()
-
     if request.method == 'POST':
-        ids_selecionados = request.form.getlist('orcamento_ids')
-        acao = request.form.get('acao')
-        if ids_selecionados:
-            status = 'Aprovado' if acao == 'aprovar' else 'Reprovado'
-            format_strings = ','.join(['%s'] * len(ids_selecionados))
-            update_query = f"UPDATE cadastro_orc_teste SET status = %s WHERE cod IN ({format_strings})"
-            cursor.execute(update_query, [status] + ids_selecionados)
-            conn.commit()
+        id_orcamento = request.form.get('id_orcamento')
+        produto_id = request.form.get('produto_id')
+        data_inicio = request.form.get('data_inicio')
+        data_fim = request.form.get('data_fim')
 
-    cursor.close()
-    conn.close()
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
 
-    return render_template('validar.html', orcamentos=orcamentos, filtro=filtro, valor=valor)
+        # Aprova o orçamento selecionado
+        cursor.execute("UPDATE cadastro_orc_teste SET status = 'Aprovado' WHERE id_orcamento = %s", (id_orcamento,))
+
+        # Reprova os demais do mesmo produto
+        cursor.execute("""
+            UPDATE cadastro_orc_teste
+            SET status = 'Reprovado'
+            WHERE produto_id = %s AND id_orcamento != %s
+        """, (produto_id, id_orcamento))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        flash('Orçamento aprovado com sucesso', 'success')
+
+        # Redireciona para a rota com os parâmetros preservados
+        return redirect(url_for('validar', data_inicio=data_inicio, data_fim=data_fim))
+
+    # GET – parte do filtro por data
+    data_inicio = request.args.get('data_inicio')
+    data_fim = request.args.get('data_fim')
+    
+    orcamentos = []
+    if data_inicio and data_fim:
+        conn = mysql.connector.connect(**db_config)
+        cur = conn.cursor(dictionary=True)
+
+        query = """
+            SELECT c.id_orcamento, c.produto_id, c.vlr_orcamento, c.status, c.dt,
+                   p.nome AS nome_produto, f.razao_social AS nome_fornecedor
+            FROM cadastro_orc_teste c
+            JOIN produtos_orc p ON c.produto_id = p.id_produto
+            JOIN fornecedores_orc f ON c.fornecedor_cnpj = f.cnpj
+            WHERE c.dt BETWEEN %s AND %s
+            ORDER BY c.produto_id, c.dt
+        """
+        cur.execute(query, (data_inicio, data_fim))
+        orcamentos = cur.fetchall()
+
+        cur.close()
+        conn.close()
+
+    return render_template('validar.html', orcamentos=orcamentos)
 
 @app.route('/autocomplete')
 def autocomplete():
@@ -457,14 +524,21 @@ def visualizar():
     filtro = request.args.get('filtro')
     valor = request.args.get('valor')
 
-    query_base = "SELECT cod, dt, produto, fornecedor, vlr_orcamento, observacao, status FROM cadastro_orc_teste WHERE 1=1"
+    query_base = """
+        SELECT o.id_orcamento, o.dt, o.vlr_orcamento, o.observacao, o.status,
+               p.nome AS produto, f.razao_social AS fornecedor
+        FROM cadastro_orc_teste o
+        JOIN produtos_orc p ON o.produto_id = p.id_produto
+        JOIN fornecedores_orc f ON o.fornecedor_cnpj = f.cnpj
+        WHERE 1=1
+    """
     params = []
 
     filtros_sql = {
-        "produto": " AND produto LIKE %s",
-        "fornecedor": " AND fornecedor LIKE %s",
-        "data": " AND DATE_FORMAT(dt, '%%d/%%m/%%y') = %s",
-        "status": " AND status LIKE %s"
+        "produto": " AND p.nome LIKE %s",
+        "fornecedor": " AND f.razao_social LIKE %s",
+        "data": " AND o.dt = %s",
+        "status": " AND o.status LIKE %s"
     }
 
     if filtro in filtros_sql and valor:
@@ -476,9 +550,9 @@ def visualizar():
                 data_formatada = datetime.strptime(valor, '%d/%m/%y').strftime('%Y-%m-%d')
                 params.append(data_formatada)
             except ValueError:
-                params.append('0000-00-00')
+                params.append('0000-00-00')  # Valor inválido, não retorna nada
 
-    query_base += " ORDER BY dt DESC"
+    query_base += " ORDER BY o.dt DESC"
 
     cursor.execute(query_base, params)
     orcamentos = cursor.fetchall()
