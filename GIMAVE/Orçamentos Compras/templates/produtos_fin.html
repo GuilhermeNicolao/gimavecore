@@ -419,6 +419,29 @@
             border: 1px solid #ccc;
             border-radius: 5px;
         }
+
+
+
+        /* Autocomplete */
+        .autocomplete-box {
+            position: absolute;
+            background-color: white;
+            border: 1px solid #ccc;
+            z-index: 1000;
+            max-height: 150px;
+            overflow-y: auto;
+            width: 100%;
+            display: none;
+        }
+
+        .sugestao-item {
+            padding: 8px;
+            cursor: pointer;
+        }
+
+        .sugestao-item:hover {
+            background-color: #f0f0f0;
+        }
     </style>
 {% endblock %}
 
@@ -445,15 +468,19 @@
             <i class="fa fa-search" onclick="abrirModalProdutos()"></i>
         </div>
 
-        <label for="categoria">Categoria *</label>
+        <label for="categoria_nome">Categoria *</label>
         <div class="input-icon">
-            <input type="text" id="categoria" name="categoria" required placeholder="Digite ou clique na lupa">
+            <input type="text" id="categoria_nome" required placeholder="Digite ou clique na lupa" oninput="limparCategoriaID()">
+            <input type="hidden" name="categoria_id" id="categoria_id" required>
+            <div id="sugestoes-categoria" class="autocomplete-box"></div>
             <i class="fa fa-search" onclick="abrirModalCategorias()"></i>
         </div>
 
-        <label for="fornecedor">Fornecedor *</label>
+        <label for="fornecedor_nome">Fornecedor *</label>
         <div class="input-icon">
-            <input type="text" id="fornecedor" name="fornecedor" required placeholder="Digite ou clique na lupa">
+            <input type="text" id="fornecedor_nome" required placeholder="Digite ou clique na lupa" oninput="limparFornecedorCNPJ()">
+            <input type="hidden" name="fornecedor_cnpj" id="fornecedor_cnpj" required>
+            <div id="sugestoes-fornecedor" class="autocomplete-box"></div>
             <i class="fa fa-search" onclick="abrirModalFornecedores()"></i>
         </div>
 
@@ -680,12 +707,12 @@
             .then(data => {
                 const lista = document.getElementById('lista-fornecedores');
                 lista.innerHTML = '';
-                data.forEach(cat => {
+                data.forEach(f => {
                     const row = document.createElement('tr');
                     row.innerHTML = `
-                        <td>${cat.razao_social}</td>
+                        <td>${f.razao_social}</td>
                         <td>
-                        <button onclick="selecionarFornecedores('${cat.razao_social}')">Selecionar</button>
+                            <button onclick="selecionarFornecedor('${f.cnpj}', '${f.razao_social}')">Selecionar</button>
                         </td>
                     `;
                     lista.appendChild(row);
@@ -701,11 +728,65 @@
     }
 
     // Selecionar Fornecedor
-    function selecionarFornecedores(razao_social) {
-    const input = document.getElementById('fornecedor'); // ID do input que você quer preencher
-    input.value = razao_social;
-    document.getElementById('modal-fornecedores').style.display = 'none'; // Fecha o modal
+    function selecionarFornecedor(cnpj, razao_social) {
+        document.getElementById('fornecedor_nome').value = razao_social; // campo visível
+        document.getElementById('fornecedor_cnpj').value = cnpj; // campo oculto
+        fecharModalFornecedores();
     }
+
+    // Limpar CNPJ ao digitar manualmente
+    function limparFornecedorCNPJ() {
+        document.getElementById('fornecedor_cnpj').value = '';
+    }
+
+    // Autocomplete
+    document.addEventListener('DOMContentLoaded', function () {
+    const input = document.getElementById('fornecedor_nome');
+    const sugestoesBox = document.getElementById('sugestoes-fornecedor');
+    const hiddenInput = document.getElementById('fornecedor_cnpj');
+
+    input.addEventListener('input', function () {
+        const termo = this.value.trim();
+        hiddenInput.value = ''; // Limpa o CNPJ ao digitar
+
+        if (termo.length < 1) {
+            sugestoesBox.innerHTML = '';
+            sugestoesBox.style.display = 'none';
+            return;
+        }
+
+        fetch(`/fornecedores_sugestoes?q=${encodeURIComponent(termo)}`)
+            .then(response => response.json())
+            .then(dados => {
+                sugestoesBox.innerHTML = '';
+                if (dados.length > 0) {
+                    dados.forEach(item => {
+                        const div = document.createElement('div');
+                        div.textContent = item.razao_social;
+                        div.classList.add('sugestao-item');
+                        div.addEventListener('click', () => {
+                            input.value = item.razao_social;
+                            hiddenInput.value = item.cnpj;
+                            sugestoesBox.innerHTML = '';
+                            sugestoesBox.style.display = 'none';
+                        });
+                        sugestoesBox.appendChild(div);
+                    });
+                    sugestoesBox.style.display = 'block';
+                } else {
+                    sugestoesBox.style.display = 'none';
+                }
+            });
+    });
+
+    document.addEventListener('click', function (e) {
+        if (!input.contains(e.target) && !sugestoesBox.contains(e.target)) {
+            sugestoesBox.innerHTML = '';
+            sugestoesBox.style.display = 'none';
+        }
+    });
+});
+
 
 
 
@@ -721,9 +802,9 @@
                     row.innerHTML = `
                         <td>${cat.descricao}</td>
                         <td>
-                        <button onclick="selecionarCategoria('${cat.descricao}')">Selecionar</button>
+                            <button onclick="selecionarCategoria('${cat.id_categoria}', '${cat.descricao}')">Selecionar</button>
                         </td>
-                        `;
+                    `;
                     lista.appendChild(row);
                 });
                 document.getElementById('modal-categorias').style.display = 'block';
@@ -737,11 +818,66 @@
     }
 
     // Selecionar categoria
-    function selecionarCategoria(descricao) {
-    const input = document.getElementById('categoria'); // ID do input que você quer preencher
-    input.value = descricao;
-    document.getElementById('modal-categorias').style.display = 'none'; // Fecha o modal
+    function selecionarCategoria(id, descricao) {
+        document.getElementById('categoria_nome').value = descricao; // campo visível
+        document.getElementById('categoria_id').value = id; // campo oculto
+        fecharModalCategorias();
     }
+
+    // Limpar ID ao digitar manualmente
+    function limparCategoriaID() {
+        document.getElementById('categoria_id').value = '';
+    }
+
+    // Autocomplete
+    document.addEventListener('DOMContentLoaded', function () {
+    const input = document.getElementById('categoria_nome');
+    const sugestoesBox = document.getElementById('sugestoes-categoria');
+    const hiddenInput = document.getElementById('categoria_id');
+
+    input.addEventListener('input', function () {
+        const termo = this.value.trim();
+        hiddenInput.value = ''; // limpa o id ao alterar o nome
+
+        if (termo.length < 1) {
+            sugestoesBox.innerHTML = '';
+            sugestoesBox.style.display = 'none';
+            return;
+        }
+
+        fetch(`/categorias_sugestoes?q=${encodeURIComponent(termo)}`)
+            .then(response => response.json())
+            .then(dados => {
+                sugestoesBox.innerHTML = '';
+                if (dados.length > 0) {
+                    dados.forEach(item => {
+                        const div = document.createElement('div');
+                        div.textContent = item.descricao;
+                        div.classList.add('sugestao-item');
+                        div.addEventListener('click', () => {
+                            input.value = item.descricao;
+                            hiddenInput.value = item.id_categoria;
+                            sugestoesBox.innerHTML = '';
+                            sugestoesBox.style.display = 'none';
+                        });
+                        sugestoesBox.appendChild(div);
+                    });
+                    sugestoesBox.style.display = 'block';
+                } else {
+                    sugestoesBox.style.display = 'none';
+                }
+            });
+    });
+
+    // Fecha sugestões se clicar fora
+    document.addEventListener('click', function (e) {
+        if (!input.contains(e.target) && !sugestoesBox.contains(e.target)) {
+            sugestoesBox.innerHTML = '';
+            sugestoesBox.style.display = 'none';
+        }
+    });
+});
+
 
 </script>
 {% endblock %}
