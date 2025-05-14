@@ -297,6 +297,27 @@
             transform: scale(1.02);
         }
 
+
+        /* Autocomplete */
+        .autocomplete-box {
+            position: absolute;
+            background-color: white;
+            border: 1px solid #ccc;
+            max-height: 150px;
+            overflow-y: auto;
+            z-index: 10;
+            width: 100%;
+        }
+
+        .sugestao-item {
+            padding: 8px;
+            cursor: pointer;
+        }
+
+        .sugestao-item:hover {
+            background-color: #f0f0f0;
+        }
+
     </style>
 {% endblock %}
 
@@ -319,18 +340,20 @@
         <label for="data">Data *</label>
         <input type="date" id="data" name="data" required>
 
-        <div class="input-icon">
-            <label for="produto">Produto *</label>
-            <input type="text" id="produto" name="produto" required>
+        <div class="input-icon" style="position: relative;">
+            <label for="produto_nome">Produto *</label>
+            <input type="text" id="produto_nome" required placeholder="Digite ou clique na lupa" oninput="limparProdutoID()">
+            <div id="sugestoes-produto" class="sugestoes-box"></div>
+            <input type="hidden" name="produto_id" id="produto_id" required>
             <i class="fa fa-search" onclick="abrirModalProdutos()"></i>
-            <div id="sugestoes-produtos" class="autocomplete-box"></div>
         </div>
 
         <div class="input-icon">
-            <label for="fornecedor">Fornecedor *</label>
-            <input type="text" id="fornecedor" name="fornecedor" required>
+            <label for="fornecedor_nome">Fornecedor *</label>
+            <input type="text" id="fornecedor_nome" required placeholder="Digite ou clique na lupa" oninput="limparFornecedorCNPJ()">
+            <div id="sugestoes-fornecedor" class="sugestoes-box"></div>
+            <input type="hidden" name="fornecedor_cnpj" id="fornecedor_cnpj" required>
             <i class="fa fa-search" onclick="abrirModalFornecedores()"></i>
-            <div id="sugestoes-fornecedor" class="autocomplete-box"></div>
         </div>
         
         <label for="valor">Valor *</label>
@@ -389,6 +412,21 @@
 <script src="https://unpkg.com/imask"></script>
 
 <script>
+    // Máscara R$
+    const camposFormatar = ['valor']
+    camposFormatar.forEach(id => {
+    const campo = document.getElementById(id);
+    if (campo) {
+        campo.addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            value = (value / 100).toFixed(2) + '';
+            value = value.replace(".", ",");
+            value = value.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
+            e.target.value = "R$ " + value;
+        });
+    }
+});
+
     // Abrir lista de Produtos
     function abrirModalProdutos() {
         fetch('/api/produtos')
@@ -396,12 +434,12 @@
             .then(data => {
                 const lista = document.getElementById('lista-produtos');
                 lista.innerHTML = '';
-                data.forEach(cat => {
+                data.forEach(p => {
                     const row = document.createElement('tr');
                     row.innerHTML = `
-                        <td>${cat.nome}</td>
+                        <td>${p.nome}</td>
                         <td>
-                        <button onclick="selecionarProduto('${cat.nome}')">Selecionar</button>
+                            <button onclick="selecionarProduto('${p.id_produto}', '${p.nome}')">Selecionar</button>
                         </td>
                     `;
                     lista.appendChild(row);
@@ -417,14 +455,19 @@
     }
 
     // Selecionar Produtos
-    function selecionarProduto(nome) {
-    const input = document.getElementById('produto'); // ID do input que você quer preencher
-    input.value = nome;
-    document.getElementById('modal-produtos').style.display = 'none'; // Fecha o modal
+    function selecionarProduto(id, nome) {
+        document.getElementById('produto_id').value = id;
+        document.getElementById('produto_nome').value = nome;
+        document.getElementById('modal-produtos').style.display = 'none';
+    }
+
+    // Limpar ID ao digitar manualmente
+    function limparProdutoID() {
+        document.getElementById('produto_id').value = '';
     }
 
 
-
+    
     // Abrir lista de Fornecedores
     function abrirModalFornecedores() {
         fetch('/api/fornecedores')
@@ -432,12 +475,12 @@
             .then(data => {
                 const lista = document.getElementById('lista-fornecedores');
                 lista.innerHTML = '';
-                data.forEach(cat => {
+                data.forEach(f => {
                     const row = document.createElement('tr');
                     row.innerHTML = `
-                        <td>${cat.razao_social}</td>
+                        <td>${f.razao_social}</td>
                         <td>
-                        <button onclick="selecionarFornecedores('${cat.razao_social}')">Selecionar</button>
+                            <button onclick="selecionarFornecedor('${f.cnpj}', '${f.razao_social}')">Selecionar</button>
                         </td>
                     `;
                     lista.appendChild(row);
@@ -453,11 +496,17 @@
     }
 
     // Selecionar Fornecedor
-    function selecionarFornecedores(razao_social) {
-    const input = document.getElementById('fornecedor'); // ID do input que você quer preencher
-    input.value = razao_social;
-    document.getElementById('modal-fornecedores').style.display = 'none'; // Fecha o modal
+    function selecionarFornecedor(cnpj, razao_social) {
+        document.getElementById('fornecedor_nome').value = razao_social; // campo visível
+        document.getElementById('fornecedor_cnpj').value = cnpj; // campo oculto
+        fecharModalFornecedores();
     }
+
+    // Limpar CNPJ ao digitar manualmente
+    function limparFornecedorCNPJ() {
+        document.getElementById('fornecedor_cnpj').value = '';
+    }
+
 
 </script>
 {% endblock %}
