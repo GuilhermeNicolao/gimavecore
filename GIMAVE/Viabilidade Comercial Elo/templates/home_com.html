@@ -139,9 +139,78 @@
             color: #333;
             font-size: 15px;
         }
+
+        .logout-container {
+            position: absolute;
+            top: -19px;
+            left: 10px;
+        }
+
+        .logout-container form {
+            margin: 0;
+        }
+
+        .logout-container button {
+            padding: 10px 20px;
+            background-color: #333;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .logout-container button:hover {
+            background-color: #636363;
+        }   
+
+        .alert-container {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .alert {
+            background-color: #f44336; /* Cor de fundo vermelha para o alert */
+            color: white;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+            text-align: center;
+            opacity: 1;
+            transition: opacity 1s ease-out; /* Transição suave para o fade out */
+        }
+
+        .alert.danger {
+            background-color: #f44336;
+        }
+
+        .alert.warning {
+            background-color: #ff9800;
+        }
+
+        .alert.success {
+            background-color: #4CAF50;
+        }
+
+        .alert.info {
+            background-color: #2196F3;
+        }
+
+        .alert.fade-out {
+            opacity: 0;
+        }
     </style>
 </head>
 <body>
+
+
+<div class="logout-container">
+    <form action="{{ url_for('logout') }}" method="POST">
+        <button type="submit">Sair</button>
+    </form>
+</div>
+
 
 <div class="main-content">
     <div class="form-container" id="form-box">
@@ -180,11 +249,25 @@
             <button type="submit"><b>CALCULAR</b></button>
         </form>
 
+        <!-- Alert de Acesso Restrito -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="alert-container">
+                    {% for category, message in messages %}
+                        <div class="alert {{ category }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+
         <div class="param-link">
             <a href="/parametros">Parâmetros</a>
         </div>
-
     </div>
+
 
     <div class="result-container" id="result-box">
         <h2>Resultado da Simulação</h2>
@@ -195,6 +278,15 @@
 </div>
 
 <script>
+    // Função para esconder o alert após 3 segundos
+    setTimeout(function() {
+        var alertMessage = document.querySelector('.alert'); // Seleciona o primeiro alert
+        if (alertMessage) {
+            alertMessage.classList.add('fade-out'); // Adiciona a classe para fazer o fade out
+        }
+    }, 3000); // O tempo está configurado para 3000ms (3 segundos)
+
+
     // Máscara R$
     const camposFormatar = ['valor_credito','rec_tags','rec_saude','venda_cartoes']
 

@@ -51,15 +51,10 @@
 
 <div class="menu-container">
     <h1>BEM-VINDO!</h1>
-    <button class="menu-button" onclick="acessarTela1()">Orçamento Compras</button>
     <button class="menu-button" onclick="acessarTela2()">Viabilidade Cartão Elo</button>
 </div>
 
 <script>
-    function acessarTela1() {
-        window.location.href = "{{ url_for('home') }}";
-    }
-
     function acessarTela2() {
         window.location.href = "{{ url_for('homecomercial') }}";
     }

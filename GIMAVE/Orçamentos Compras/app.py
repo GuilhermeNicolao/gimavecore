@@ -19,35 +19,10 @@ db_config = {
 }
 
 
-# -------ROTAS DO SISTEMA: VIABILIDADE COMERCIAL---------- #
-
-#Menu principal
-@app.route('/system')
-def menu_principal():
-    return render_template('system.html')
-
-# Homepage | Orçamento Compras
+# Homepage 
 @app.route('/home')
 def home():
     return render_template('home_fin.html')
-
-# Homepage | Viabilidade cartão Elo
-@app.route('/home_com')
-def homecomercial():
-    return render_template('home_com.html')
-
-# Parâmetros
-@app.route('/parametros')
-def parametros():
-    return render_template('parametros_com.html')
-
-
-
-
-
-# -------ROTAS DO SISTEMA: ORÇAMENTO COMPRAS---------- #
-
-
 
 #Rotas de cadastro de fornecedores
 @app.route('/fornecedores')
