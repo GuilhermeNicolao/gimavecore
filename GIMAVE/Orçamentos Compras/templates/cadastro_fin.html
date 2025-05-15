@@ -92,7 +92,7 @@
         .input-icon i{
             position:absolute;
             right: 10px;
-            top: 69%;
+            top: 55%;
             transform: translateY(-50%);
             color: #666;
             cursor: pointer;
@@ -303,10 +303,11 @@
             position: absolute;
             background-color: white;
             border: 1px solid #ccc;
+            z-index: 1000;
             max-height: 150px;
             overflow-y: auto;
-            z-index: 10;
             width: 100%;
+            display: none;
         }
 
         .sugestao-item {
@@ -317,7 +318,6 @@
         .sugestao-item:hover {
             background-color: #f0f0f0;
         }
-
     </style>
 {% endblock %}
 
@@ -340,19 +340,19 @@
         <label for="data">Data *</label>
         <input type="date" id="data" name="data" required>
 
-        <div class="input-icon" style="position: relative;">
-            <label for="produto_nome">Produto *</label>
-            <input type="text" id="produto_nome" required placeholder="Digite ou clique na lupa" oninput="limparProdutoID()">
-            <div id="sugestoes-produto" class="sugestoes-box"></div>
+        <label for="nome">Produto *</label>
+        <div class="input-icon">
+            <input type="text" id="nome" required placeholder="Digite ou clique na lupa" oninput="limparProdutoID()">
             <input type="hidden" name="produto_id" id="produto_id" required>
             <i class="fa fa-search" onclick="abrirModalProdutos()"></i>
+            <div id="sugestoes-produto" class="autocomplete-box"></div>
         </div>
 
+        <label for="fornecedor_nome">Fornecedor *</label>
         <div class="input-icon">
-            <label for="fornecedor_nome">Fornecedor *</label>
             <input type="text" id="fornecedor_nome" required placeholder="Digite ou clique na lupa" oninput="limparFornecedorCNPJ()">
-            <div id="sugestoes-fornecedor" class="sugestoes-box"></div>
             <input type="hidden" name="fornecedor_cnpj" id="fornecedor_cnpj" required>
+            <div id="sugestoes-fornecedor" class="autocomplete-box"></div>
             <i class="fa fa-search" onclick="abrirModalFornecedores()"></i>
         </div>
         
@@ -457,7 +457,7 @@
     // Selecionar Produtos
     function selecionarProduto(id, nome) {
         document.getElementById('produto_id').value = id;
-        document.getElementById('produto_nome').value = nome;
+        document.getElementById('nome').value = nome;
         document.getElementById('modal-produtos').style.display = 'none';
     }
 
@@ -465,6 +465,55 @@
     function limparProdutoID() {
         document.getElementById('produto_id').value = '';
     }
+
+    // Autocomplete
+    document.addEventListener('DOMContentLoaded', function () {
+        const input = document.getElementById('nome');
+        const sugestoesBox = document.getElementById('sugestoes-produto');
+        const hiddenInput = document.getElementById('produto_id');
+
+        input.addEventListener('input', function () {
+            const termo = this.value.trim();
+            hiddenInput.value = ''; // Limpa o ID ao digitar
+
+            if (termo.length < 1) {
+                sugestoesBox.innerHTML = '';
+                sugestoesBox.style.display = 'none';
+                return;
+            }
+
+            fetch(`/produtos_sugestoes?q=${encodeURIComponent(termo)}`)
+                .then(response => response.json())
+                .then(dados => {
+                    sugestoesBox.innerHTML = '';
+                    if (dados.length > 0) {
+                        dados.forEach(item => {
+                            const div = document.createElement('div');
+                            div.textContent = item.nome;
+                            div.classList.add('sugestao-item');
+                            div.addEventListener('click', () => {
+                                input.value = item.nome;
+                                hiddenInput.value = item.id_produto;
+                                sugestoesBox.innerHTML = '';
+                                sugestoesBox.style.display = 'none';
+                            });
+                            sugestoesBox.appendChild(div);
+                        });
+                        sugestoesBox.style.display = 'block';
+                    } else {
+                        sugestoesBox.style.display = 'none';
+                    }
+                });
+        });
+
+        document.addEventListener('click', function (e) {
+            if (!input.contains(e.target) && !sugestoesBox.contains(e.target)) {
+                sugestoesBox.innerHTML = '';
+                sugestoesBox.style.display = 'none';
+            }
+        });
+    });
+
 
 
     
@@ -506,6 +555,55 @@
     function limparFornecedorCNPJ() {
         document.getElementById('fornecedor_cnpj').value = '';
     }
+
+    // Autocomplete
+    document.addEventListener('DOMContentLoaded', function () {
+        const input = document.getElementById('fornecedor_nome');
+        const sugestoesBox = document.getElementById('sugestoes-fornecedor');
+        const hiddenInput = document.getElementById('fornecedor_cnpj');
+
+        input.addEventListener('input', function () {
+            const termo = this.value.trim();
+            hiddenInput.value = ''; // Limpa o CNPJ ao digitar
+
+            if (termo.length < 1) {
+                sugestoesBox.innerHTML = '';
+                sugestoesBox.style.display = 'none';
+                return;
+            }
+
+            fetch(`/fornecedores_sugestoes?q=${encodeURIComponent(termo)}`)
+                .then(response => response.json())
+                .then(dados => {
+                    sugestoesBox.innerHTML = '';
+                    if (dados.length > 0) {
+                        dados.forEach(item => {
+                            const div = document.createElement('div');
+                            div.textContent = item.razao_social;
+                            div.classList.add('sugestao-item');
+                            div.addEventListener('click', () => {
+                                input.value = item.razao_social;
+                                hiddenInput.value = item.cnpj;
+                                sugestoesBox.innerHTML = '';
+                                sugestoesBox.style.display = 'none';
+                            });
+                            sugestoesBox.appendChild(div);
+                        });
+                        sugestoesBox.style.display = 'block';
+                    } else {
+                        sugestoesBox.style.display = 'none';
+                    }
+                });
+        });
+
+        document.addEventListener('click', function (e) {
+            if (!input.contains(e.target) && !sugestoesBox.contains(e.target)) {
+                sugestoesBox.innerHTML = '';
+                sugestoesBox.style.display = 'none';
+            }
+        });
+    });
+
 
 
 </script>
