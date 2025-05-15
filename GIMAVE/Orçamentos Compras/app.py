@@ -4,6 +4,8 @@ import re
 import mysql.connector
 from dotenv import load_dotenv
 from datetime import datetime
+from collections import defaultdict
+from decimal import Decimal
 
 load_dotenv()
 
@@ -260,6 +262,7 @@ def excluir_produtos(id):
 @app.route('/produtos_sugestoes')
 def produtos_sugestoes():
     termo = request.args.get('q', '').strip()
+    
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor(dictionary=True)
     cursor.execute("""
@@ -442,27 +445,33 @@ def validar():
         produto_id = request.form.get('produto_id')
         data_inicio = request.form.get('data_inicio')
         data_fim = request.form.get('data_fim')
+        acao = request.form.get('acao')
 
         conn = mysql.connector.connect(**db_config)
         cursor = conn.cursor()
 
-        # Aprova o orçamento selecionado
-        cursor.execute("UPDATE cadastro_orc_teste SET status = 'Aprovado' WHERE id_orcamento = %s", (id_orcamento,))
+        if acao == 'validar':
+            # Aprova o orçamento selecionado
+            cursor.execute("UPDATE cadastro_orc_teste SET status = 'Aprovado' WHERE id_orcamento = %s", (id_orcamento,))
 
-        # Reprova os demais do mesmo produto
-        cursor.execute("""
-            UPDATE cadastro_orc_teste
-            SET status = 'Reprovado'
-            WHERE produto_id = %s AND id_orcamento != %s
-        """, (produto_id, id_orcamento))
+            # Reprova os demais do mesmo produto
+            cursor.execute("""
+                UPDATE cadastro_orc_teste
+                SET status = 'Reprovado'
+                WHERE produto_id = %s AND id_orcamento != %s
+            """, (produto_id, id_orcamento))
+
+            flash('Orçamento aprovado com sucesso', 'success')
+
+
+        elif acao == 'excluir':
+            cursor.execute("DELETE FROM cadastro_orc_teste WHERE id_orcamento = %s", (id_orcamento,))
+            flash('Orçamento excluído com sucesso', 'success')
 
         conn.commit()
         cursor.close()
         conn.close()
 
-        flash('Orçamento aprovado com sucesso', 'success')
-
-        # Redireciona para a rota com os parâmetros preservados
         return redirect(url_for('validar', data_inicio=data_inicio, data_fim=data_fim))
 
     # GET – parte do filtro por data
@@ -475,7 +484,7 @@ def validar():
         cur = conn.cursor(dictionary=True)
 
         query = """
-            SELECT c.id_orcamento, c.produto_id, c.vlr_orcamento, c.status, c.dt,
+            SELECT c.id_orcamento, c.produto_id, c.vlr_orcamento, c.status, c.dt, c.observacao,
                    p.nome AS nome_produto, f.razao_social AS nome_fornecedor
             FROM cadastro_orc_teste c
             JOIN produtos_orc p ON c.produto_id = p.id_produto
@@ -486,10 +495,16 @@ def validar():
         cur.execute(query, (data_inicio, data_fim))
         orcamentos = cur.fetchall()
 
+        for o in orcamentos:
+            if isinstance(o['dt'], str):
+                o['dt'] = datetime.strptime(o['dt'], '%Y-%m-%d').date()
+
+
+
         cur.close()
         conn.close()
 
-    return render_template('validar.html', orcamentos=orcamentos)
+    return render_template('validar.html', orcamentos=orcamentos, datetime=datetime)
 
 @app.route('/autocomplete')
 def autocomplete():
@@ -608,6 +623,106 @@ def remover_orcamento(cod):
 
     flash('Orçamento removido com sucesso!', 'success')
     return redirect(url_for('visualizar'))
+
+
+# Rota Dashboard
+@app.route('/dashboard')
+def dashboard():
+    data_inicio = request.args.get('data_inicio')
+    data_fim = request.args.get('data_fim')
+    produto_id = request.args.get('produto_id')
+
+    relatorio = []
+    produtos = []
+
+    conn = mysql.connector.connect(**db_config)
+    cur = conn.cursor(dictionary=True)
+
+    # Buscar produtos para o select
+    cur.execute("SELECT id_produto, nome FROM produtos_orc ORDER BY nome")
+    produtos = cur.fetchall()
+
+    total_economia = Decimal('0.00')  # Inicializa totalizador
+
+    if data_inicio and data_fim:
+        if produto_id:
+            query = """
+                SELECT 
+                    c.produto_id, p.nome AS nome_produto, c.dt,
+                    c.vlr_orcamento, c.status, f.razao_social AS fornecedor
+                FROM cadastro_orc_teste c
+                JOIN produtos_orc p ON c.produto_id = p.id_produto
+                JOIN fornecedores_orc f ON c.fornecedor_cnpj = f.cnpj
+                WHERE c.dt BETWEEN %s AND %s
+                  AND c.produto_id = %s
+                ORDER BY c.produto_id, c.dt
+            """
+            cur.execute(query, (data_inicio, data_fim, produto_id))
+        else:
+            query = """
+                SELECT 
+                    c.produto_id, p.nome AS nome_produto, c.dt,
+                    c.vlr_orcamento, c.status, f.razao_social AS fornecedor
+                FROM cadastro_orc_teste c
+                JOIN produtos_orc p ON c.produto_id = p.id_produto
+                JOIN fornecedores_orc f ON c.fornecedor_cnpj = f.cnpj
+                WHERE c.dt BETWEEN %s AND %s
+                ORDER BY c.produto_id, c.dt
+            """
+            cur.execute(query, (data_inicio, data_fim))
+
+        orcamentos = cur.fetchall()
+
+        # Agrupar por produto e data para calcular os dados
+        agrupado = defaultdict(lambda: {
+            'nome_produto': '',
+            'dt': None,
+            'aprovado': None,
+            'fornecedor_aprovado': None,
+            'maior_reprovado': Decimal('0.00'),
+            'fornecedor_reprovado': None
+        })
+
+        for o in orcamentos:
+            chave = (o['produto_id'], o['dt'])
+            valor = Decimal(str(o['vlr_orcamento']))
+            agr = agrupado[chave]
+
+            agr['nome_produto'] = o['nome_produto']
+            agr['dt'] = o['dt']
+
+            if o['status'] == 'Aprovado':
+                agr['aprovado'] = valor
+                agr['fornecedor_aprovado'] = o['fornecedor']
+            elif o['status'] == 'Reprovado':
+                if valor > agr['maior_reprovado']:
+                    agr['maior_reprovado'] = valor
+                    agr['fornecedor_reprovado'] = o['fornecedor']
+
+        # Montar a lista para o template, incluindo a economia e somando o total
+        for dados in agrupado.values():
+            if dados['aprovado'] is not None:
+                economia = dados['maior_reprovado'] - dados['aprovado']
+                if economia > 0:
+                    total_economia += economia
+                relatorio.append({
+                    'data': dados['dt'],
+                    'nome_produto': dados['nome_produto'],
+                    'fornecedor_aprovado': dados['fornecedor_aprovado'],
+                    'valor_aprovado': float(dados['aprovado']),
+                    'fornecedor_reprovado': dados['fornecedor_reprovado'],
+                    'maior_reprovado': float(dados['maior_reprovado']),
+                    'economia': float(economia) if economia > 0 else 0,
+                })
+
+    cur.close()
+    conn.close()
+
+    return render_template('dashboard_fin.html', 
+                           relatorio=relatorio, 
+                           produtos=produtos, 
+                           total_economia=float(total_economia))
+
 
 
 if __name__ == '__main__':
