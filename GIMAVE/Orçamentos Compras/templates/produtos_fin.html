@@ -465,7 +465,9 @@
         <label for="nome">Nome do Produto *</label>
         <div class="input-icon">
             <input type="text" id="nome" name="nome" required placeholder="Digite o nome do produto">
+            <input type="hidden" id="produto_id" name="produto_id">
             <i class="fa fa-search" onclick="abrirModalProdutos()"></i>
+            <div id="sugestoes-produto" class="autocomplete-box" style="display: none;"></div>
         </div>
 
         <label for="categoria_nome">Categoria *</label>
@@ -690,13 +692,61 @@
 
     // Exibir pop-up de exclusão com sucesso
     function mostrarPopupExclusaoSucesso() {
-        alert("Produto excluída com sucesso!");
+        alert("Produto excluído com sucesso!");
     }
 
     // Fechar pop-up de exclusão
     function fecharModalExcluir() {
         document.getElementById('popup-exclusao').style.display = 'none';
     }
+
+    // Autocomplete
+    document.addEventListener('DOMContentLoaded', function () {
+        const input = document.getElementById('nome');
+        const sugestoesBox = document.getElementById('sugestoes-produto');
+        const hiddenInput = document.getElementById('produto_id');
+
+        input.addEventListener('input', function () {
+            const termo = this.value.trim();
+            hiddenInput.value = ''; // Limpa o ID ao digitar
+
+            if (termo.length < 1) {
+                sugestoesBox.innerHTML = '';
+                sugestoesBox.style.display = 'none';
+                return;
+            }
+
+            fetch(`/produtos_sugestoes?q=${encodeURIComponent(termo)}`)
+                .then(response => response.json())
+                .then(dados => {
+                    sugestoesBox.innerHTML = '';
+                    if (dados.length > 0) {
+                        dados.forEach(item => {
+                            const div = document.createElement('div');
+                            div.textContent = item.nome;
+                            div.classList.add('sugestao-item');
+                            div.addEventListener('click', () => {
+                                input.value = item.nome;
+                                hiddenInput.value = item.id_produto;
+                                sugestoesBox.innerHTML = '';
+                                sugestoesBox.style.display = 'none';
+                            });
+                            sugestoesBox.appendChild(div);
+                        });
+                        sugestoesBox.style.display = 'block';
+                    } else {
+                        sugestoesBox.style.display = 'none';
+                    }
+                });
+        });
+
+        document.addEventListener('click', function (e) {
+            if (!input.contains(e.target) && !sugestoesBox.contains(e.target)) {
+                sugestoesBox.innerHTML = '';
+                sugestoesBox.style.display = 'none';
+            }
+        });
+    });
 
 
 
@@ -741,51 +791,51 @@
 
     // Autocomplete
     document.addEventListener('DOMContentLoaded', function () {
-    const input = document.getElementById('fornecedor_nome');
-    const sugestoesBox = document.getElementById('sugestoes-fornecedor');
-    const hiddenInput = document.getElementById('fornecedor_cnpj');
+        const input = document.getElementById('fornecedor_nome');
+        const sugestoesBox = document.getElementById('sugestoes-fornecedor');
+        const hiddenInput = document.getElementById('fornecedor_cnpj');
 
-    input.addEventListener('input', function () {
-        const termo = this.value.trim();
-        hiddenInput.value = ''; // Limpa o CNPJ ao digitar
+        input.addEventListener('input', function () {
+            const termo = this.value.trim();
+            hiddenInput.value = ''; // Limpa o CNPJ ao digitar
 
-        if (termo.length < 1) {
-            sugestoesBox.innerHTML = '';
-            sugestoesBox.style.display = 'none';
-            return;
-        }
-
-        fetch(`/fornecedores_sugestoes?q=${encodeURIComponent(termo)}`)
-            .then(response => response.json())
-            .then(dados => {
+            if (termo.length < 1) {
                 sugestoesBox.innerHTML = '';
-                if (dados.length > 0) {
-                    dados.forEach(item => {
-                        const div = document.createElement('div');
-                        div.textContent = item.razao_social;
-                        div.classList.add('sugestao-item');
-                        div.addEventListener('click', () => {
-                            input.value = item.razao_social;
-                            hiddenInput.value = item.cnpj;
-                            sugestoesBox.innerHTML = '';
-                            sugestoesBox.style.display = 'none';
-                        });
-                        sugestoesBox.appendChild(div);
-                    });
-                    sugestoesBox.style.display = 'block';
-                } else {
-                    sugestoesBox.style.display = 'none';
-                }
-            });
-    });
+                sugestoesBox.style.display = 'none';
+                return;
+            }
 
-    document.addEventListener('click', function (e) {
-        if (!input.contains(e.target) && !sugestoesBox.contains(e.target)) {
-            sugestoesBox.innerHTML = '';
-            sugestoesBox.style.display = 'none';
-        }
+            fetch(`/fornecedores_sugestoes?q=${encodeURIComponent(termo)}`)
+                .then(response => response.json())
+                .then(dados => {
+                    sugestoesBox.innerHTML = '';
+                    if (dados.length > 0) {
+                        dados.forEach(item => {
+                            const div = document.createElement('div');
+                            div.textContent = item.razao_social;
+                            div.classList.add('sugestao-item');
+                            div.addEventListener('click', () => {
+                                input.value = item.razao_social;
+                                hiddenInput.value = item.cnpj;
+                                sugestoesBox.innerHTML = '';
+                                sugestoesBox.style.display = 'none';
+                            });
+                            sugestoesBox.appendChild(div);
+                        });
+                        sugestoesBox.style.display = 'block';
+                    } else {
+                        sugestoesBox.style.display = 'none';
+                    }
+                });
+        });
+
+        document.addEventListener('click', function (e) {
+            if (!input.contains(e.target) && !sugestoesBox.contains(e.target)) {
+                sugestoesBox.innerHTML = '';
+                sugestoesBox.style.display = 'none';
+            }
+        });
     });
-});
 
 
 
