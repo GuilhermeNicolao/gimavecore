@@ -465,16 +465,16 @@
 
     // Confirmar exclusão
     function confirmarExclusao() {
-        const idFornecedor = document.getElementById('popup-exclusao').dataset.idProduto;
+        const idFornecedor = document.getElementById('popup-exclusao').dataset.idFornecedor;
 
         fetch(`/api/fornecedores/${idFornecedor}`, { method: 'DELETE' })
             .then(response => {
                 if (response.ok) {
-                    abrirModalProdutos(); 
+                    abrirModalFornecedores(); 
                     mostrarPopupExclusaoSucesso();
                     fecharPopup('popup-exclusao');
                 } else {
-                    alert("Erro ao excluir produto.");
+                    alert("Erro ao excluir fornecedor.");
                 }
             });
     }
@@ -486,7 +486,7 @@
 
     // Exibir pop-up de exclusão com sucesso
     function mostrarPopupExclusaoSucesso() {
-        alert("Produto excluída com sucesso!");
+        alert("Fornecedor excluído com sucesso!");
     }
 
     // Fechar pop-up de exclusão
