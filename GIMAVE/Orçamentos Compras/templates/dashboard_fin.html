@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+
+{% block head_extra %}
+    <style>
+    table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    font-family: sans-serif;
+    background-color: #f9f9f9;
+    }
+
+    th, td {
+        padding: 10px;
+        border: 1px solid #ccc;
+        text-align: center;
+    }
+
+    th {
+        background-color: #dadada;
+        color: #333;
+    }
+
+    form {
+        margin-bottom: 20px;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    input[type="date"],
+    input[type="text"],
+    button {
+        padding: 6px 10px;
+        border-radius: 4px;
+        border: 1px solid #aaa;
+    }
+
+    button {
+        background-color: #4CAF50;
+        color: white;
+        cursor: pointer;
+        border: none;
+    }
+
+    button:hover {
+        background-color: #45a049;
+    }
+    </style>
+{% endblock %}
+
+{% block content %}
+<h2>Relatório de Economia</h2>
+
+<form method="get" action="{{ url_for('dashboard') }}">
+    <label for="data_inicio">Data Início:</label>
+    <input type="date" name="data_inicio" value="{{ request.args.get('data_inicio', '') }}" required>
+
+    <label for="data_fim">Data Fim:</label>
+    <input type="date" name="data_fim" value="{{ request.args.get('data_fim', '') }}" required>
+
+    <label for="produto_id">Produto:</label>
+    <select name="produto_id">
+        <option value="">Todos</option>
+        {% for produto in produtos %}
+            <option value="{{ produto.id_produto }}" {% if request.args.get('produto_id') == produto.id_produto|string %}selected{% endif %}>
+                {{ produto.nome }}
+            </option>
+        {% endfor %}
+    </select>
+
+    <button type="submit">Gerar Relatório</button>
+</form>
+
+{% if relatorio %}
+    <table>
+        <thead>
+        <tr>
+            <th>Data</th>
+            <th>Produto</th>
+            <th>Fornecedor Aprovado</th>
+            <th>Valor Aprovado</th>
+            <th>Fornecedor Mais Caro</th>
+            <th>Maior Valor Reprovado</th>
+            <th>Economia</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for item in relatorio %}
+        <tr>
+            <td>{{ item.data.strftime('%d/%m/%Y') }}</td>
+            <td>{{ item.nome_produto }}</td>
+            <td>{{ item.fornecedor_aprovado }}</td>
+            <td>R$ {{ '%.2f'|format(item.valor_aprovado) }}</td>
+            <td>{{ item.fornecedor_reprovado }}</td>
+            <td>R$ {{ '%.2f'|format(item.maior_reprovado) }}</td>
+            <td><strong style="color: green">R$ {{ '%.2f'|format(item.economia) }}</strong></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <h3>Total Economia: R$ {{ '%.2f'|format(total_economia) }}</h3>
+{% endif %}
+
+{% endblock %}
