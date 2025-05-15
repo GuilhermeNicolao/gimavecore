@@ -517,7 +517,7 @@
                     if (dados.length > 0) {
                         dados.forEach(item => {
                             const div = document.createElement('div');
-                            div.textContent = item;
+                            div.textContent = item.descricao;
                             div.classList.add('sugestao-item');
                             div.addEventListener('click', () => {
                                 input.value = item;
