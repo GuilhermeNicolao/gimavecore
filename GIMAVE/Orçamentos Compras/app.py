@@ -504,7 +504,7 @@ def validar():
         cur.close()
         conn.close()
 
-    return render_template('validar.html', orcamentos=orcamentos, datetime=datetime)
+    return render_template('validar_fin.html', orcamentos=orcamentos, datetime=datetime)
 
 @app.route('/autocomplete')
 def autocomplete():
