@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+
+{% block head_extra %}
+    <style>
+    body {
+        margin: 0;
+        font-family: Calibri Light, sans-serif;
+        background-color: #F2F2F2;
+    }
+
+    .container {
+        max-width: 1000px;
+        margin: 30px auto;
+        background-color: #e0e0e0;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    h2 {
+        text-align: center;
+        margin-bottom: 20px;
+        color: #333;
+    }
+
+    form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    label {
+        font-weight: bold;
+    }
+
+    input[type="date"] {
+        padding: 5px;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+    }
+
+    button {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 5px;
+        background-color: #4CAF50;
+        color: white;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+    button:hover {
+        background-color: #45a049;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+    }
+
+    th, td {
+        text-align: left;
+        padding: 12px;
+        border-bottom: 1px solid #ddd;
+    }
+
+    th {
+        background-color: #f0f0f0;
+    }
+
+    .alert {
+        padding: 10px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+        font-weight: bold;
+    }
+
+    .alert.success {
+        background-color: #d4edda;
+        color: #155724;
+    }
+
+    .alert.error {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+
+    .flash-messages {
+        margin-bottom: 20px;
+    }
+
+    @media (max-width: 600px) {
+        form {
+            flex-direction: column;
+        }
+
+        th, td {
+            font-size: 14px;
+        }
+    }
+
+    button[disabled] {
+    background-color: #ccc;
+    color: #666;
+    cursor: not-allowed;
+    border: 1px solid #999;
+    }
+
+    button[disabled][title="Orçamento já validado"] {
+        background-color: #d4edda;
+        color: #155724;
+        border-color: #c3e6cb;
+        font-weight: bold;
+    }
+    
+    .modal-fundo {
+        display: none;
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background-color: rgba(0,0,0,0.6);
+        z-index: 9999;
+    }
+
+    .modal-observacao {
+        display: none;
+        position: fixed;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        border-radius: 8px;
+        max-width: 400px;
+        width: 90%;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        z-index: 10000;
+    }
+
+    .modal-conteudo {
+        padding: 20px 30px;
+        position: relative;
+    }
+
+    .modal-fechar {
+        position: absolute;
+        top: 10px; right: 15px;
+        background: transparent;
+        border: none;
+        font-size: 28px;
+        cursor: pointer;
+        color: #666;
+        transition: color 0.2s ease;
+    }
+
+    .modal-fechar:hover {
+        color: #000;
+    }
+
+    .modal-observacao h2 {
+        margin-top: 0;
+        font-weight: 600;
+        font-size: 22px;
+    }
+
+    .modal-observacao p {
+        font-size: 16px;
+        line-height: 1.4;
+        white-space: pre-wrap; /* preserva quebras de linha */
+    }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2>Orçamentos</h2>
+
+    <!-- Alert Box -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-messages">
+                {% for category, message in messages %}
+                    <div class="alert {{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Filtro por data -->
+    <form method="get" action="{{ url_for('validar') }}">
+        <label for="data_inicio">De:</label>
+        <input type="date" id="data_inicio" name="data_inicio" required>
+
+        <label for="data_fim">Até:</label>
+        <input type="date" id="data_fim" name="data_fim" required>
+
+        <button type="submit">Buscar</button>
+    </form>
+
+    {% if orcamentos %}
+    <table>
+        <thead>
+        <tr>
+            <th>Data</th>
+            <th>Produto</th>
+            <th>Fornecedor</th>
+            <th>Valor</th>
+            <th>Status</th>
+            <th>Ação</th>
+            <th></th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for o in orcamentos %}
+        <tr>
+             <td>{{ o.dt.strftime('%d/%m/%Y') }}</td> 
+            <td>{{ o.nome_produto }}</td>
+            <td>{{ o.nome_fornecedor }}</td>
+            <td>R$ {{ "%.2f"|format(o.vlr_orcamento) }}</td>
+            <td>{{ o.status }}</td>
+            <td>
+                {% if o.observacao %}
+                    <i class="fa fa-search lupa-observacao"
+                        style="cursor:pointer; color: #333;"
+                        data-observacao="{{ o.observacao | e}}"
+                        title="Ver observação"></i>    
+                {% endif %}
+            </td>
+
+            <td>
+            <form method="post" action="{{ url_for('validar') }}">
+                <input type="hidden" name="id_orcamento" value="{{ o.id_orcamento }}">
+                <input type="hidden" name="produto_id" value="{{ o.produto_id }}">
+                <input type="hidden" name="data_inicio" value="{{ request.args.get('data_inicio') }}">
+                <input type="hidden" name="data_fim" value="{{ request.args.get('data_fim') }}">
+                {% set dias_passados = (datetime.utcnow().date() - o.dt).days %}
+
+                {% if dias_passados > 7 %}
+                    {% if o.status == 'Pendente' %}
+                        <button type="submit" disabled title="Expirado">Validar</button>
+                    {% else %}
+                        <button type="button" disabled title="Validado">Validado</button>
+                    {% endif %}
+                {% else %}
+                    {% if o.status in ['Pendente', 'Aprovado', 'Reprovado'] %}
+                        <button type="submit" name="acao" value="validar">Validar</button>
+                    {% endif %}   
+                {% endif %}
+
+                <button type="submit" name="acao" value="excluir" style="background-color:#333; color:white; border:none; padding:5px 10px; border-radius:4px; margin-left:5px;" title="Excluir orçamento">
+                    <i class="fa fa-trash"></i>
+                </button>
+            </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</div>
+
+<!-- Fundo escuro -->
+<div id="modalFundo" class="modal-fundo" onclick="fecharObservacao()"></div>
+
+<!-- Modal centralizado -->
+<div id="modalObservacao" class="modal-observacao">
+  <div class="modal-conteudo">
+    <button class="modal-fechar" onclick="fecharObservacao()" aria-label="Fechar modal">&times;</button>
+    <h2>Observação</h2>
+    <p id="textoObservacao"></p>
+  </div>
+</div>
+
+
+{% endblock %}
+
+{% block scripts %}
+
+<!--JS-->
+<script>
+    // Observação
+    document.querySelectorAll('.lupa-observacao').forEach(el => {
+        el.addEventListener('click', () => {
+            const texto = el.getAttribute('data-observacao');
+            document.getElementById('textoObservacao').textContent = texto;
+            document.getElementById('modalObservacao').style.display = 'block';
+            document.getElementById('modalFundo').style.display = 'block';
+        });
+    });
+
+    function fecharObservacao() {
+        document.getElementById('modalObservacao').style.display = 'none';
+        document.getElementById('modalFundo').style.display = 'none';
+    }
+</script>
+
+
+{% endblock %}
