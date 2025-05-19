@@ -3,22 +3,33 @@
 {% block head_extra %}
     <style>
     table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 20px;
-    font-family: sans-serif;
-    background-color: #f9f9f9;
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        font-family: "Calibri Light", Calibri, sans-serif;
+        background-color: #f9f9f9;
+        table-layout: auto;
     }
 
     th, td {
         padding: 10px;
         border: 1px solid #ccc;
         text-align: center;
+        font-family: "Calibri Light", Calibri, sans-serif;
+        white-space: nowrap;
     }
 
     th {
         background-color: #dadada;
         color: #333;
+    }
+
+    tbody tr:nth-child(odd) {
+        background-color: #f9f9f9;
+    }
+
+    tbody tr:nth-child(even) {
+        background-color: #f0f0f0;
     }
 
     form {
@@ -31,10 +42,12 @@
 
     input[type="date"],
     input[type="text"],
+    select,
     button {
         padding: 6px 10px;
         border-radius: 4px;
         border: 1px solid #aaa;
+        font-family: "Calibri Light", Calibri, sans-serif;
     }
 
     button {
@@ -47,11 +60,17 @@
     button:hover {
         background-color: #45a049;
     }
+
+    h2 {
+        text-align: center;
+        margin-bottom: 20px;
+        color: #333;
+    }
     </style>
 {% endblock %}
 
 {% block content %}
-<h2>Relatório de Economia</h2>
+<h2>RELATÓRIO DE ECONOMIA</h2>
 
 <form method="get" action="{{ url_for('dashboard') }}">
     <label for="data_inicio">Data Início:</label>
@@ -70,7 +89,7 @@
         {% endfor %}
     </select>
 
-    <button type="submit">Gerar Relatório</button>
+    <button type="submit">GERAR RELATÓRIO</button>
 </form>
 
 {% if relatorio %}
@@ -92,16 +111,16 @@
             <td>{{ item.data.strftime('%d/%m/%Y') }}</td>
             <td>{{ item.nome_produto }}</td>
             <td>{{ item.fornecedor_aprovado }}</td>
-            <td>R$ {{ '%.2f'|format(item.valor_aprovado) }}</td>
+            <td>R$ {{ "{:,.2f}".format(item.valor_aprovado).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
             <td>{{ item.fornecedor_reprovado }}</td>
-            <td>R$ {{ '%.2f'|format(item.maior_reprovado) }}</td>
-            <td><strong style="color: green">R$ {{ '%.2f'|format(item.economia) }}</strong></td>
+            <td>R$ {{ "{:,.2f}".format(item.maior_reprovado).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
+            <td><strong style="color: green">R$ {{ "{:,.2f}".format(item.economia).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong></td>
         </tr>
         {% endfor %}
         </tbody>
     </table>
 
-    <h3>Total Economia: R$ {{ '%.2f'|format(total_economia) }}</h3>
+    <h3>Total Economia: R$ {{ "{:,.2f}".format(total_economia).replace(",", "X").replace(".", ",").replace("X", ".") }}</h3>
 {% endif %}
 
 {% endblock %}
