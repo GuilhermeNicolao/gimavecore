@@ -147,10 +147,9 @@ def cadastrar_produto():
     try:
         nome = request.form['nome'].strip()
         categoria_id = request.form['categoria_id'].strip()
-        fornecedor_cnpj = request.form['fornecedor_cnpj'].strip()
         descricao = request.form['descricao'].strip()
 
-        if not nome or not categoria_id or not fornecedor_cnpj:
+        if not nome or not categoria_id:
             flash('Preencha todos os campos obrigatórios!', 'erro')
             return redirect('/produtos')
 
@@ -162,20 +161,13 @@ def cadastrar_produto():
                     flash("Categoria não encontrada. Por favor, selecione uma válida.", "erro")
                     return redirect('/produtos')
 
-                # Verifica se o fornecedor existe
-                cursor.execute("SELECT COUNT(*) FROM fornecedores_orc WHERE cnpj = %s", (fornecedor_cnpj,))
-                if cursor.fetchone()[0] == 0:
-                    flash("Fornecedor não encontrado. Por favor, selecione um válido.", "erro")
-                    return redirect('/produtos')
-
                 # Verifica se já existe produto com o mesmo nome, categoria e fornecedor
                 query_verifica = """
                     SELECT COUNT(*) FROM produtos_orc 
                     WHERE LOWER(TRIM(nome)) = LOWER(%s)
                     AND categoria_id = %s
-                    AND fornecedor_cnpj = %s
                 """
-                cursor.execute(query_verifica, (nome, categoria_id, fornecedor_cnpj))
+                cursor.execute(query_verifica, (nome, categoria_id))
                 (existe,) = cursor.fetchone()
 
                 if existe > 0:
@@ -184,10 +176,10 @@ def cadastrar_produto():
 
                 # Inserção
                 query = """
-                    INSERT INTO produtos_orc (nome, categoria_id, fornecedor_cnpj, descricao)
-                    VALUES (%s, %s, %s, %s)
+                    INSERT INTO produtos_orc (nome, categoria_id, descricao)
+                    VALUES (%s, %s, %s)
                 """
-                cursor.execute(query, (nome, categoria_id, fornecedor_cnpj, descricao))
+                cursor.execute(query, (nome, categoria_id, descricao))
                 conn.commit()
 
         flash('Produto cadastrado com sucesso!', 'sucesso')
@@ -218,24 +210,22 @@ def editar_produtos(id):
         with mysql.connector.connect(**db_config) as conn:
             with conn.cursor(dictionary=True) as cursor:
                 # Obtém os dados atuais do produto
-                cursor.execute("SELECT categoria_id, fornecedor_cnpj FROM produtos_orc WHERE id_produto = %s", (id,))
+                cursor.execute("SELECT categoria_id FROM produtos_orc WHERE id_produto = %s", (id,))
                 produto = cursor.fetchone()
 
                 if not produto:
                     return jsonify({'erro': 'Produto não encontrado'}), 404
 
                 categoria_id = produto['categoria_id']
-                fornecedor_cnpj = produto['fornecedor_cnpj']
 
                 # Verifica se já existe outro produto com o mesmo nome/categoria/fornecedor
                 query_verifica = """
                     SELECT COUNT(*) FROM produtos_orc
                     WHERE LOWER(TRIM(nome)) = LOWER(%s)
                     AND categoria_id = %s
-                    AND fornecedor_cnpj = %s
                     AND id_produto != %s
                 """
-                cursor.execute(query_verifica, (novo_nome, categoria_id, fornecedor_cnpj, id))
+                cursor.execute(query_verifica, (novo_nome, categoria_id, id))
                 (existe,) = cursor.fetchone().values()
 
                 if existe > 0:
