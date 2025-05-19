@@ -336,7 +336,7 @@
 <!--Formulário de cadastro de orçamentos-->
 <div class="form-container">
     <h2>Cadastro de Orçamentos</h2>
-    <form action="{{ url_for('cadastrar') }}" method="POST">
+    <form action="{{ url_for('cadastrar') }}" method="POST" autocomplete="off">
         <label for="data">Data *</label>
         <input type="date" id="data" name="data" required>
 
