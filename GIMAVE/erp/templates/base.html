@@ -84,23 +84,39 @@
 <!-- Menu -->
 <div class="sidenav">
     <div style="display: flex; flex-direction: column; height: 99%;">
-        <a href="{{url_for('homecompras')}}">Compras(2)</a>
-
+        <a href="{{ url_for('menu_principal') }}">Home</a>
         <div class="dropdown">
-            <div class="dropdown-btn">Cadastros (4)</div>
+            <div class="dropdown-btn">Compras (2)</div>
             <div class="dropdown-container">
-                <a href="{{ url_for('cadastro_form') }}">Orçamentos</a>
-                <a href="{{ url_for('fornecedores_form') }}">Fornecedores</a>
-                <a href="{{ url_for('produtos_form') }}">Produtos</a>
-                <a href="{{ url_for('categorias_form')}}">Categorias</a>
+                
+                <!-- Submenu Cadastros -->
+                <div class="dropdown">
+                    <div class="dropdown-btn">Cadastros (4)</div>
+                    <div class="dropdown-container">
+                        <a href="{{ url_for('cadastro_form') }}">Orçamentos</a>
+                        <a href="{{ url_for('fornecedores_form') }}">Fornecedores</a>
+                        <a href="{{ url_for('produtos_form') }}">Produtos</a>
+                        <a href="{{ url_for('categorias_form') }}">Categorias</a>
+                    </div>
+                </div>
+
+                <!-- Submenu Orçamentos -->
+                <div class="dropdown">
+                    <div class="dropdown-btn">Orçamentos (2)</div>
+                    <div class="dropdown-container">
+                        <a href="{{ url_for('validar') }}">Validar</a>
+                        <a href="{{ url_for('dashboard') }}">Dashboard</a>
+                    </div>
+                </div>
             </div>
         </div>
 
+        <!-- Menu Comercial -->
         <div class="dropdown">
-            <div class="dropdown-btn">Orçamentos (2)</div>
+            <div class="dropdown-btn">Comercial (2)</div>
             <div class="dropdown-container">
-                <a href="{{ url_for('validar') }}">Validar</a>
-                <a href="{{ url_for('dashboard') }}">Dashboard</a>
+                <a href="{{ url_for('homecomercial') }}">Home</a>
+                <a href="{{ url_for('parametros') }}">Parâmetros</a>
             </div>
         </div>
 
