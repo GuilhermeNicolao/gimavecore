@@ -1,8 +1,6 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <title>Parâmetros - Viabilidade</title>
+{% extends "base.html" %}
+
+{% block head_extra %}
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -89,8 +87,9 @@
             background-color: #006d3a;
         }
     </style>
-</head>
-<body>
+{% endblock %}
+
+{% block content %}
 
 <div style="display: flex; flex-direction: column; align-items: center;">
 
@@ -174,10 +173,11 @@
             </div>
 
     </div>
-
-
-
 </div>
+
+{% endblock %}
+
+{% block scripts %}
 
 <script>
     // Campos monetários que devem receber máscara
@@ -260,7 +260,4 @@
         });
     });
     </script>
-    
-
-</body>
-</html>
+{% endblock %}
