@@ -801,53 +801,9 @@ def parametros():
     # Verifica se o usuário tem permissão de ADMIN
     if session.get('nivel') != 'ADMIN':
         flash('Você não tem permissão para acessar esta página.', 'danger')
-        return redirect(url_for('homecomercial'))  # Redireciona para a home comercial
+        return redirect(url_for('menu_principal'))  # Redireciona para a home comercial
 
     return render_template('parametros_com.html')
-
-# Registrar-se
-@app.route('/registrar', methods=['GET', 'POST'])
-def registrar():
-    if request.method == 'POST':
-        nome = request.form['nome']
-        username = request.form['username']
-        senha = request.form['senha']
-        nivel = request.form['nivel'].upper()
-
-        # Conectar ao banco usando db_config
-        conn = mysql.connector.connect(**db_config)  # Usando **db_config para passar os parâmetros de conexão
-        cursor = conn.cursor()
-
-        # Verificar se o usuário já existe
-        cursor.execute("SELECT COUNT(*) FROM usuarios_com WHERE username = %s", (username,))
-        result = cursor.fetchone()
-
-        # Se o usuário já existir, exibe mensagem e não tenta cadastrar
-        if result[0] > 0:
-            flash('Este usuário já existe!', 'danger')
-            cursor.close()
-            conn.close()
-            return render_template('registrar_com.html')
-
-        # Criptografa a senha
-        senha_hash = bcrypt.hashpw(senha.encode('utf-8'), bcrypt.gensalt())
-
-        try:
-            cursor.execute(
-                "INSERT INTO usuarios_com (nome, username, senha_hash, nivel) VALUES (%s, %s, %s, %s)",
-                (nome, username, senha_hash, nivel)
-            )
-            conn.commit()
-            flash('Usuário cadastrado com sucesso!', 'success')
-        except mysql.connector.Error as err:
-            flash(f'Erro ao cadastrar: {err}', 'danger')
-        finally:
-            cursor.close()
-            conn.close()
-
-        return redirect(url_for('registrar'))
-
-    return render_template('registrar_com.html')
 
 #------------------------------------------------------------------#
 
