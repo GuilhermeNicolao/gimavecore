@@ -108,7 +108,7 @@
             {% endif %}
         {% endwith %}
 
-        <form method="POST">
+        <form method="POST" autocomplete="off">
             <label for="username">Usuário</label>
             <input type="text" id="username" name="username" required>
 
@@ -116,9 +116,6 @@
             <input type="password" id="senha" name="senha" required>
 
             <button type="submit">Entrar</button>
-
-            <div class="param-link">
-            <a href="{{ url_for('registrar') }}">Registrar-se</a>
             </div>
         </form>
     </div>
