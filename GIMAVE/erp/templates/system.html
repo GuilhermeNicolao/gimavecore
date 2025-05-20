@@ -1,21 +1,8 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <title>Sistema - Menu Principal</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: #f2f2f2;
-            font-family: Arial, sans-serif;
-            display: flex;
-            height: 100vh;
-            justify-content: center;
-            align-items: center;
-        }
+{% extends 'base.html' %}
 
-        .menu-container {
+{% block head_extra %}
+<style>
+    .menu-container {
             background-color: white;
             padding: 40px;
             border-radius: 12px;
@@ -45,24 +32,57 @@
         .menu-button:hover {
             background-color: #585858;
         }
-    </style>
-</head>
-<body>
+               .alert-container {
+            margin-top: 20px;
+            text-align: center;
+        }
 
-<div class="menu-container">
-    <h1>BEM-VINDO!</h1>
-    <button class="menu-button" onclick="acessarTela1()">COMPRAS</button>
-    <button class="menu-button" onclick="acessarTela2()">COMERCIAL</button>
-</div>
+        .alert {
+            background-color: #f44336; /* Cor de fundo vermelha para o alert */
+            color: white;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+            text-align: center;
+            opacity: 1;
+            transition: opacity 1s ease-out; /* Transição suave para o fade out */
+        }
 
-<script>
-    function acessarTela1() {
-        window.location.href = "{{ url_for('homecompras') }}";
-    }
-    function acessarTela2() {
-        window.location.href = "{{ url_for('homecomercial') }}";
-    }
-</script>
+        .alert.danger {
+            background-color: #f44336;
+        }
 
-</body>
-</html>
+        .alert.warning {
+            background-color: #ff9800;
+        }
+
+        .alert.success {
+            background-color: #4CAF50;
+        }
+
+        .alert.info {
+            background-color: #2196F3;
+        }
+
+        .alert.fade-out {
+            opacity: 0;
+        }
+</style>
+{% endblock %}
+
+{% block content %}
+    <h2 style="text-align: center; margin-top: 50px;">Bem vindo, usuário!</h2>
+
+            <!-- Alert de Acesso Restrito -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="alert-container">
+                {% for category, message in messages %}
+                    <div class="alert {{ category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+{% endblock %}
