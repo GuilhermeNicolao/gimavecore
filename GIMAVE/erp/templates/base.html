@@ -83,24 +83,32 @@
 
 <!-- Menu -->
 <div class="sidenav">
-    <a href="{{url_for('home')}}">Home</a>
+    <div style="display: flex; flex-direction: column; height: 99%;">
+        <a href="{{url_for('homecompras')}}">Compras(2)</a>
 
-    <div class="dropdown">
-        <div class="dropdown-btn">Cadastros (4)</div>
-        <div class="dropdown-container">
-            <a href="{{ url_for('cadastro_form') }}">Orçamentos</a>
-            <a href="{{ url_for('fornecedores_form') }}">Fornecedores</a>
-            <a href="{{ url_for('produtos_form') }}">Produtos</a>
-            <a href="{{ url_for('categorias_form')}}">Categorias</a>
+        <div class="dropdown">
+            <div class="dropdown-btn">Cadastros (4)</div>
+            <div class="dropdown-container">
+                <a href="{{ url_for('cadastro_form') }}">Orçamentos</a>
+                <a href="{{ url_for('fornecedores_form') }}">Fornecedores</a>
+                <a href="{{ url_for('produtos_form') }}">Produtos</a>
+                <a href="{{ url_for('categorias_form')}}">Categorias</a>
+            </div>
         </div>
-    </div>
 
-    <div class="dropdown">
-        <div class="dropdown-btn">Orçamentos (2)</div>
-        <div class="dropdown-container">
-            <a href="{{ url_for('validar') }}">Validar</a>
-            <a href="{{ url_for('dashboard') }}">Dashboard</a>
+        <div class="dropdown">
+            <div class="dropdown-btn">Orçamentos (2)</div>
+            <div class="dropdown-container">
+                <a href="{{ url_for('validar') }}">Validar</a>
+                <a href="{{ url_for('dashboard') }}">Dashboard</a>
+            </div>
         </div>
+
+        <form action="{{ url_for('logout') }}" method="POST" style="margin-top: auto; padding: 15px;">
+            <button type="submit" style="width: 100%; padding: 10px; background-color: #333333; color: white; border: none; cursor: pointer; font-size: 17px; font-family: Calibri;">
+                Log Out
+            </button>
+        </form>
     </div>
 </div>
 
