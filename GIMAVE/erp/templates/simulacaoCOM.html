@@ -128,7 +128,7 @@
             padding: 15px;
             border-radius: 8px;
             flex: 1;
-            min-width: 200px;
+            /* min-width: 200px; */
             box-shadow: 0 0 8px rgba(0,0,0,0.05);
             font-family: Calibri;
         }
@@ -163,8 +163,6 @@
         .logout-container button:hover {
             background-color: #636363;
         }   
-
-
     </style>
 {% endblock %}
 
@@ -242,235 +240,142 @@
         });
     }
 });
-
-    // Submissão do formulário
-    document.getElementById('form-simulacao').addEventListener('submit', function(e) {
-    e.preventDefault();
-
     const formatadorBR = new Intl.NumberFormat('pt-BR', {
         style: 'currency',
-        currency: 'BRL',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0
+        currency: 'BRL'
     });
 
-    const receitaTagQtdeValue = parseInt(document.getElementById("qtde_cartoes_tag").value);
-    const receitaEusQtdeValue = parseInt(document.getElementById("qtde_cartoes_eus").value);
-    const meses = parseInt(document.getElementById("meses").value);
-    const qtdeCartoes = parseInt(document.getElementById("qtde_cartoes").value);
-    const valorCredito = parseFloat(
-        document.getElementById("valor_credito").value
-            .replace("R$ ", "")
-            .replace(/\./g, "")
-            .replace(",", ".")
-    );
-    const receitaTagValue = parseFloat(
-        document.getElementById("rec_tags").value
-            .replace("R$ ", "")
-            .replace(/\./g, "")
-            .replace(",", ".")
-    );
-    const receitaEusValue = parseFloat(
-        document.getElementById("rec_saude").value
-            .replace("R$ ", "")
-            .replace(/\./g, "")
-            .replace(",", ".")
-    );
+    // Cálculos e resultados da simulação
+    document.getElementById('form-simulacao').addEventListener('submit', async (e) => {
+    e.preventDefault();
     
+    // Pega dados do formulário
+    const data = {
+        qtde_cartoes: Number(document.getElementById('qtde_cartoes').value),
+        valor_credito: parseFloat(document.getElementById('valor_credito').value.replace(/[R$\s\.]/g, '').replace(',', '.')),
+        meses: Number(document.getElementById('meses').value),
+        taxa_adm: parseFloat(document.getElementById('taxa_adm').value),
+        venda_cartoes: parseFloat(document.getElementById('venda_cartoes').value.replace(/[R$\s\.]/g, '').replace(',', '.')),
+        qtde_cartoes_tag: Number(document.getElementById('qtde_cartoes_tag').value),
+        rec_tags: parseFloat(document.getElementById('rec_tags').value.replace(/[R$\s\.]/g, '').replace(',', '.')),
+        qtde_cartoes_eus: Number(document.getElementById('qtde_cartoes_eus').value),
+        rec_saude: parseFloat(document.getElementById('rec_saude').value.replace(/[R$\s\.]/g, '').replace(',', '.'))
+    };
 
+    // Chama rota Flask que vai fazer o cálculo
+    fetch('/calcular_simulacao', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        const volumeMensal = data.volumeMensal;
+        const volumeAnual = data.volumeAnual;
+        const volumeContrato = data.volumeContrato;
+        const rentabilidadeIdeal = data.rentabilidadeIdeal;
+        const rentabilidadeAtual = data.rentabilidadeAtual;
+        const statusPendente = data.statusPendente;  
+        const statusAprovado = data.statusAprovado;       
 
-    if (!isNaN(qtdeCartoes) && !isNaN(valorCredito) && !isNaN(meses) && !isNaN(receitaEusQtdeValue)
-    && !isNaN(receitaEusValue) && !isNaN(receitaTagQtdeValue) && !isNaN(receitaTagValue)) {
+        // Condições de negociação
+        let mensagemNegociacao = '';
+        
+        if (rentabilidadeAtual < statusPendente) {
+            mensagemNegociacao = `
+                <div style="background-color: #f8d7da; color: #721c24; padding: 10px; border-radius: 5px; font-weight: bold; text-align: center; height: 20% ;width: 50%; margin: 0 auto;">
+                    Negociação Negada
+                </div>
+            `;
 
-    // Volume Mensal
-    const volumeMensal = qtdeCartoes * valorCredito;
+        } else if ((rentabilidadeAtual >= statusPendente) && (rentabilidadeAtual < statusAprovado)) {
+            mensagemNegociacao = `
+                <div style="background-color: #fff3cd; color: #856404; padding: 10px; border-radius: 5px; font-weight: bold; text-align: center; height: 20% ; width: 50%; margin: 0 auto;">
+                    Necessita aprovação superior
+                </div>
+            `;
 
-    // Volume Anual
-    const volumeAnual = volumeMensal * 12;
+        } else if (rentabilidadeAtual >= statusAprovado) {
+            mensagemNegociacao = `
+                <div style="background-color: #d4edda; color: #155724; padding: 10px; border-radius: 5px; font-weight: bold; text-align: center; height: 20% ; width: 50%; margin: 0 auto;">
+                    Negociação Aprovada
+                </div>
+            `;
+        }
 
-    // Volume Contrato
-    const volumeContrato = volumeMensal * meses;
-    
-
-    // Acessar o Storage Local
-    const parametros = JSON.parse(localStorage.getItem("parametrosForm") || "{}");
-
-
-    // -------------------------------------------------------------------------------------------------------------------------------//
-    // RECEITAS PREVISTAS - CARTÃO ELO //
-
-    // Consumo Rede Credenciada
-    const redeCredenciadaPercent = parametros?.rede_credenciada || 0;
-    const consumoRedeCredenciadaMensal = volumeMensal * (redeCredenciadaPercent / 100); // Mensal
-    const consumoRedeCredenciadaAnual = volumeAnual * (redeCredenciadaPercent / 100); // Anual
-    const consumoRedeCredenciadaContrato = volumeContrato * (redeCredenciadaPercent / 100); // Contrato
-
-    // Taxa Adm Crédito Mensal
-    const taxaAdmPercent = parseFloat(document.getElementById("taxa_adm").value);
-    const taxaAdmCreditoMensal = volumeMensal * (taxaAdmPercent / 100); // Mensal
-    const taxaAdmCreditoAnual = volumeAnual * (taxaAdmPercent / 100); // Anual
-    const taxaAdmCreditoContrato = volumeContrato * (taxaAdmPercent / 100); // Contrato
-    
-    // Venda Cartões
-    const vendaCartoesValue = parseFloat(
-        document.getElementById("venda_cartoes").value
-            .replace("R$ ", "")
-            .replace(/\./g, "")
-            .replace(",", ".")
-    );
-    const vendaCartoesContrato = qtdeCartoes * vendaCartoesValue; // Contrato
-    const vendaCartoesAnual = vendaCartoesContrato / (meses / 12); // Anual
-    const vendaCartoesMensal = vendaCartoesAnual / 12; // Mensal
-
-    // Total
-    const totalReceitasPrevistasMensal = vendaCartoesMensal + taxaAdmCreditoMensal + consumoRedeCredenciadaMensal; // Mensal
-    const totalReceitasPrevistasAnual = vendaCartoesAnual + taxaAdmCreditoAnual + consumoRedeCredenciadaAnual; // Anual
-    const totalReceitasPrevistasContrato = vendaCartoesContrato + taxaAdmCreditoContrato + consumoRedeCredenciadaContrato; // Contrato
-    // -------------------------------------------------------------------------------------------------------------------------------//
-
-
-    // -------------------------------------------------------------------------------------------------------------------------------//    
-    // OUTROS PRODUTOS
-
-    // Receita Tag - Mensalidade PJ
-    const receitaTagContrato = receitaTagValue * receitaTagQtdeValue * meses;
-
-    // Despesa TAG - Envio (Custo único por cliente)
-    const despesaTagEnvioValue = parametros?.envio_tag || 0;
-    const despesaTagEnvioContrato = despesaTagEnvioValue * receitaTagQtdeValue;
-
-    // Despesa TAG - Operação + TAG Fìsica (Custo único por unidade de TAG)
-    const despesaTagFisicaValue = parametros?.tag_fisica || 0;
-    const despesaTagFisicaContrato = despesaTagFisicaValue * receitaTagQtdeValue;
-
-    // Despesa TAG - Mensalidade Greenpass (Custo Mensal por tag ativa)
-    const despesaTagGreenpassValue = parametros?.greenpass || 0;
-    const despesaTagGreenpassContrato = despesaTagGreenpassValue * receitaTagQtdeValue * meses;
-
-    // Total despesas
-    const totalDespesasTagContrato = despesaTagGreenpassContrato + despesaTagFisicaContrato + despesaTagEnvioContrato; 
-
-    
-    // Receita Eu+ Saúde - Mnesalidade PJ
-    const receitaEusContrato = receitaEusValue * receitaEusQtdeValue * meses;
-    
-    // Custo por Vida - Epharma - Mensalidade PJ
-    const despesaEpharmaValue = parametros?.epharma || 0;
-    const despesaEpharmaContrato = despesaEpharmaValue * receitaEusQtdeValue * meses;
-
-    // Custo por Vida - Telemedicina
-    const despesaTelemedicinaValue = parametros?.telemedicina || 0;
-    const despesaTelemedicinaContrato = despesaTelemedicinaValue * receitaEusQtdeValue;
-
-    // Custo Cartão - Envio único
-    const despesaEnvioValue = parametros?.custo_enviounico || 0;
-    const despesaEnvioContrato = despesaEnvioValue * receitaEusQtdeValue;
-
-    // Total despesas
-    const totalDespesasEusContrato = despesaEnvioContrato + despesaTelemedicinaContrato + despesaEpharmaContrato;
-    // -------------------------------------------------------------------------------------------------------------------------------//
-
-    // -------------------------------------------------------------------------------------------------------------------------------//
-    // RESULTADO DE RECEITA CARTÃO + PRODUTOS
-
-    const resultReceitas = totalReceitasPrevistasContrato + receitaTagContrato + receitaEusContrato;
-    // -------------------------------------------------------------------------------------------------------------------------------//
-    // DESPESAS PREVISTAS - CARTÃO ELO //
-
-    // Confecção dos Cartões 1ª Via
-    const confeccaoCartoesValue = parametros?.confeccao || 0;
-    const confeccaoCartoesContrato = qtdeCartoes * confeccaoCartoesValue;
-
-    // Custos Operacionais - Processamento
-    const custosProcessamentoValue = parametros?.processamento || 0;
-    const custosProcessamentoQtdeValue = parametros?.qtde_processamento || 0;
-    const custosProcessamentoContrato = (custosProcessamentoValue * custosProcessamentoQtdeValue * qtdeCartoes) * meses;
-
-    // Custo Operacional TAG
-    const custoTagValue = parametros?.custo_tag || 0;
-    const custoTagQtdeValue = parametros?.qtde_custo_tag || 0;
-    const custoTagContrato = (custoTagValue * custoTagQtdeValue * qtdeCartoes) * meses;
-
-    // Custo Operacional Eu+ Saúde
-    const custoEusValue = parametros?.custo_eus || 0;
-    const custoEusQtdeValue = parametros?.qtde_custo_eus || 0;
-    const custoEusContrato = (custoEusValue * custoEusQtdeValue * qtdeCartoes) * meses;
-
-    // Custo Operacional de Investimento (Por Cartão)
-    const custoInvestimentoValue = parametros?.investimento || 0;
-    const custoInvestimentoContrato = (custoInvestimentoValue * qtdeCartoes);
-
-    // Total
-    const totalDespesasPrevistasContrato = custoInvestimentoContrato + custoEusContrato + custoTagContrato + custosProcessamentoContrato + confeccaoCartoesContrato;
-    // -------------------------------------------------------------------------------------------------------------------------------//
-    
-    // -------------------------------------------------------------------------------------------------------------------------------//
-    // RESULTADO DE DESPESA CARTÃO + PRODUTOS
-
-    const resultDespesas = custoInvestimentoContrato + totalDespesasTagContrato + totalDespesasEusContrato;
-    // -------------------------------------------------------------------------------------------------------------------------------//
-
-    const rentabilidadeIdeal = parametros.rentabilidade_ideal || 0;
-    const statusAprovado = parametros.aprovada || 0; 
-    const statusIntermediario = parametros.intermediario || 0; 
-    const lucroOperacao = resultReceitas - resultDespesas;
-    const lucroOperacaoMensal = lucroOperacao / meses;
-    const rentabilidadeAtual = (lucroOperacao / volumeContrato) * 100;
-
-    let mensagemNegociacao = '';
-
-    if (rentabilidadeAtual < statusIntermediario) {
-    mensagemNegociacao = `
-        <div style="background-color: #f8d7da; color: #721c24; padding: 10px; border-radius: 5px; font-weight: bold; text-align: center; height: 20% ;width: 50%; margin: 0 auto;">
-            Negociação Negada
-        </div>
-    `;
-    } else if ((rentabilidadeAtual >= statusIntermediario) && (rentabilidadeAtual < statusAprovado)) {
-        mensagemNegociacao = `
-            <div style="background-color: #fff3cd; color: #856404; padding: 10px; border-radius: 5px; font-weight: bold; text-align: center; height: 20% ; width: 50%; margin: 0 auto;">
-                Necessita aprovação superior
+        // <div> dos resultados
+        document.getElementById("resultado").innerHTML = `
+            <div class="result-grid">
+                <div class="result-item">
+                    <p><h3><strong>Vol. Mensal</strong><br>${formatadorBR.format(volumeMensal)}</p>
+                </div>
+                <div class="result-item">
+                    <p><h3><strong>Vol. Anual</strong><br>${formatadorBR.format(volumeAnual)}</p>
+                </div>
+                <div class="result-item">
+                    <p><h3><strong>Vol. Contrato</strong><br>${formatadorBR.format(volumeContrato)}</p>
+                </div>
+                <div style="margin-top: 30px; font-size: 16px; color: #333;">
+                    <p><h4><strong>Rentabilidade Ideal:</strong><br>${rentabilidadeIdeal}%</p><br>
+                    <p><h4><strong>Rentabilidade Atual:</strong><br>${rentabilidadeAtual.toFixed(2)}%</p>
+                </div>
+                ${mensagemNegociacao}<br>
+                <button id="btn-gravar" style="font-size: 16px; background-color: #333; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                    Gravar Proposta
+                </button>
             </div>
         `;
-    } else if (rentabilidadeAtual >= statusAprovado) {
-        mensagemNegociacao = `
-            <div style="background-color: #d4edda; color: #155724; padding: 10px; border-radius: 5px; font-weight: bold; text-align: center; height: 20% ; width: 50%; margin: 0 auto;">
-                Negociação Aprovada
-            </div>
-        `;
-    }
 
+        // Bloquear botão de Gravar Proposta mediante condição comercial
+        if (rentabilidadeAtual < statusPendente) {
+            const botaoGravar = document.getElementById("btn-gravar");
+            if (botaoGravar) {
+                botaoGravar.disabled = true;
+                botaoGravar.style.backgroundColor = "#999";
+                botaoGravar.style.cursor = "not-allowed";
+            }
+        }
 
-    document.getElementById("resultado").innerHTML = `
-    <div class="result-grid">
-        <div class="result-item">
-            <p><h3><strong>Volume Mensal</strong><br>${formatadorBR.format(volumeMensal)}</p>
-        </div>
-        <div class="result-item">
-            <p><h3><strong>Volume Anual</strong><br>${formatadorBR.format(volumeAnual)}</p>
-        </div>
-        <div class="result-item">
-            <p><h3><strong>Volume do Contrato</strong><br>${formatadorBR.format(volumeContrato)}</p>
-        </div>
-        <div style="margin-top: 30px; font-size: 16px; color: #333;">
-            <p><h4><strong>Rentabilidade Ideal:</strong><br>${rentabilidadeIdeal}%</p><br>
-            <p><h4><strong>Rentabilidade Atual:</strong><br>${rentabilidadeAtual.toFixed(2)}%</p>
-        </div>
-        ${mensagemNegociacao}<br>
-        <button style="font-size: 16px; background-color: #333; color: white; border: none; border-radius: 5px; cursor: pointer;">
-            Gravar Proposta
-        </button>
-        </div>
-    </div>
-`;
+        document.getElementById("result-box").style.display = "block";
 
-
-    document.getElementById("result-box").style.display = "block";
-} else {
-    document.getElementById("resultado").innerHTML =
-        "Preencha os campos corretamente.";
-    document.getElementById("result-box").style.display = "block";
-}
+    })
+    .catch(error => console.error('Erro ao calcular:', error));
 });
+
+    // Gravar no banco de dados
+    document.addEventListener("click", function(e) {
+    if (e.target && e.target.id === "btn-gravar") {
+        const dadosFormulario = {
+            qtde_cartoes: document.getElementById("qtde_cartoes").value,
+            valor_credito: document.getElementById("valor_credito").value,
+            meses: document.getElementById("meses").value,
+            taxa_adm: document.getElementById("taxa_adm").value,
+            venda_cartoes: document.getElementById("venda_cartoes").value,
+            qtde_cartoes_tag: document.getElementById("qtde_cartoes_tag").value,
+            rec_tags: document.getElementById("rec_tags").value,
+            qtde_cartoes_eus: document.getElementById("qtde_cartoes_eus").value,
+            rec_saude: document.getElementById("rec_saude").value
+        };
+
+        fetch("/gravar_proposta", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(dadosFormulario)
+        })
+        .then(res => res.json())
+        .then(data => {
+            alert(data.message || "Proposta gravada com sucesso!");
+        })
+        .catch(error => {
+            console.error("Erro ao gravar proposta:", error);
+        });
+    }
+});
+
 </script>
 {% endblock %}
 
