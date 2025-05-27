@@ -296,89 +296,19 @@ def inserir_Sem_Espaço(driver, elemento_id, texto, tempo_espera=30):
 
 
 #Variáveis / Diretórios / Loads
-diretorio = r"C:\Users\Guilherme.Silva\Desktop\Baixa Credenciados"
 dirbordero = r"C:\Users\Guilherme.Silva\Desktop\GIMAVE\Credenciados\Borderôs"
-data = "07/05/2025"
-arquivo = "BORDERO 07.xlsx"
+arquivo = "BORDERO 05.xlsx"
 caminho_arquivo = os.path.join(dirbordero, arquivo)
 wb = load_workbook(caminho_arquivo)
 ws = wb["Reembolso"]
-imagem_ok = os.path.join(diretorio, "ok.png")
-imagem_inicio = os.path.join(diretorio, "totvs_inicio.png")
-imagem_nome = os.path.join(diretorio, "nome.png")
-imagem_favorito = os.path.join(diretorio, "favorito.png")
-imagem_funcoes_cpg = os.path.join(diretorio, "funcoescpg.png")
-imagem_antesbordero = os.path.join(diretorio, "antesbordero.png")
 
 # Abrir página
 navegador.get("http://an148124.protheus.cloudtotvs.com.br:1703/webapp/")
 WebDriverWait(navegador, 30).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
 actions = ActionChains(navegador)
-time.sleep(5)
 
-detectar_e_clicar_imagem(navegador, imagem_ok)
-time.sleep(5)
-
-esperar_imagem_aparecer(navegador, imagem_inicio)
-time.sleep(5)
-
-#Colocar login e senha
-digitar_entrada_com_TAB(navegador, os.getenv("LOGIN"), 1)
-digitar_entrada_com_TAB(navegador, os.getenv("SENHA"), 1)
-actions.send_keys(Keys.ENTER).perform()
-time.sleep(5)
-
-esperar_imagem_aparecer(navegador, imagem_nome)
-time.sleep(1)
-
-for _ in range(2):
-    actions.key_down(Keys.SHIFT).send_keys(Keys.TAB).key_up(Keys.SHIFT).perform()
-    time.sleep(0.5)
-time.sleep(1)
-
-#Checagem de Ambiente
-digitar_entrada_com_TAB(navegador, data ,2)
-time.sleep(0.5)
-actions.key_down(Keys.CONTROL).send_keys('a').key_up(Keys.CONTROL).perform()
-actions.key_down(Keys.CONTROL).send_keys('c').key_up(Keys.CONTROL).perform()
-nome_digitado = pyperclip.paste()
-print(nome_digitado)
-
-if nome_digitado == '06':
-    digitar_entrada(navegador, "06")
-    for _ in range(4):
-        actions.send_keys(Keys.TAB).perform()
-        time.sleep(0.5)
-else:
-    digitar_entrada(navegador, "06")
-    for _ in range(3):
-        actions.send_keys(Keys.TAB).perform()
-        time.sleep(0.5)
-
-#Colocar Modulo
-digitar_entrada_com_TAB(navegador, "6",5)
-actions.send_keys(Keys.ENTER).perform()
-time.sleep(5)
-
-# Clicar em Favorito
-Clique_Ousado(navegador, imagem_favorito)
-time.sleep(3)
-
-#Funções CPG
-Clique_Ousado(navegador, imagem_funcoes_cpg)
-time.sleep(15)
-
-# try:
-#     elemento = WebDriverWait(navegador, 40).until(
-#         EC.presence_of_element_located((By.ID, "COMP4522"))
-#     )
-#     elemento.click()
-#     print("COMP4522 encontrado e clicado.")
-# except TimeoutException:
-#     print("COMP4522 não encontrado, seguindo com o código.")
-
-esperar_imagem_aparecer(navegador, imagem_antesbordero)
-time.sleep(2)
+#Logar e entrar no módulo manualmente
+time.sleep(60)
 
 #Outras ações
 esperar_e_clicar_simples(navegador, "COMP4606")
