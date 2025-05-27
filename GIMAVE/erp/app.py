@@ -1,9 +1,11 @@
 from flask import Flask, render_template, request, redirect, flash, jsonify, url_for, session
+from mysql.connector import Error
 from collections import defaultdict
 from dotenv import load_dotenv
 from datetime import datetime
 from datetime import timedelta
 from decimal import Decimal
+from functools import wraps
 import mysql.connector
 import bcrypt
 import os
@@ -14,13 +16,70 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("SK")
 app.permanent_session_lifetime = timedelta(minutes=15) #Tempo máximo de inatividade
-db_config = {
-    "host": os.getenv("HOST"),
-    "user": os.getenv("USER"),
-    "password": os.getenv("PW"),
-    "database": os.getenv("DB")
-}
+try:
+    db_config = {
+        "host": os.getenv("HOST"),
+        "user": os.getenv("USER"),
+        "password": os.getenv("PW"),
+        "database": os.getenv("DB")
+    }
 
+except Error as e:
+    print("Erro de conexão com o banco:")
+    print(3)
+    raise
+
+def modulo_requerido(*modulos_necessarios):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            modulos_usuario = session.get('modulos', [])
+            if not any(mod in modulos_usuario for mod in modulos_necessarios):
+                flash('Você não tem permissão para acessar esta página.', 'danger')
+                return redirect(url_for('menu_principal'))
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+def get_parametros_calculos():
+    # Exemplo simples para pegar parâmetro consumo_credenciado do banco
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT consumo_credenciado, confeccao_cartoes, custos_operacionais, custos_operacionais_qtde, " \
+    "custo_tag, custo_tag_qtde, custo_eus, custo_eus_qtde, despesatag_envio, despesatag_tagfisica, despesatag_greenpass," \
+    "despesaeus_epharma, despesaeus_telemedicina, despesaeus_enviounico, investimento_cartao, negociacao_aprovada," \
+    "negociacao_pendente, rentabilidade_ideal FROM parametros_com LIMIT 1;")
+
+    row = cursor.fetchone()
+    cursor.close()
+    conn.close()
+
+    # Monta um dicionário com os nomes e valores
+    if row:
+        parametros = {
+            "consumo_credenciado": row['consumo_credenciado'],
+            "confeccao_cartoes": row['confeccao_cartoes'],
+            "custos_operacionais": row['custos_operacionais'],
+            "custos_operacionais_qtde": row['custos_operacionais_qtde'],
+            "custo_tag": row['custo_tag'],
+            "custo_tag_qtde": row['custo_tag_qtde'],
+            "custo_eus": row['custo_eus'],
+            "custo_eus_qtde": row['custo_eus_qtde'],
+            "despesatag_envio": row['despesatag_envio'],
+            "despesatag_tagfisica": row['despesatag_tagfisica'],
+            "despesatag_greenpass": row['despesatag_greenpass'],
+            "despesaeus_epharma": row['despesaeus_epharma'],
+            "despesaeus_telemedicina": row['despesaeus_telemedicina'],
+            "despesaeus_enviounico": row['despesaeus_enviounico'],
+            "investimento_cartao": row['investimento_cartao'],
+            "negociacao_aprovada": row['negociacao_aprovada'],
+            "negociacao_pendente": row['negociacao_pendente'],
+            "rentabilidade_ideal": row['rentabilidade_ideal']
+        }
+    else:
+        parametros = {}
+
+    return parametros
 
 #---------------LOGIN E TELAS INICIAIS----------------#
 # Login
@@ -82,6 +141,8 @@ def logout():
     # Redirecionar para a página de login
     return redirect(url_for('login'))
 
+
+
 # Registrar novos usuários
 @app.route('/usuarios', methods=['GET', 'POST'])
 def reg_usuarios():
@@ -135,14 +196,6 @@ def excluir_usuario(user_id):
     conexao.close()
     flash('Usuário excluído com sucesso.', 'success')
     return redirect(url_for('reg_usuarios'))
-
-# Tela inicial ERP
-@app.route('/system')
-def menu_principal():
-    if 'username' not in session:
-        flash('Você precisa estar logado para acessar esta página.', 'warning')
-        return redirect(url_for('login'))
-    return render_template('homepage.html')
 
 # Lista de usuários
 @app.route('/modulos')
@@ -199,8 +252,19 @@ def gerenciar_modulos(user_id):
 
     return render_template('modulos.html', user_id=user_id, modulos_disponiveis=modulos_disponiveis, modulos_atuais=modulos_atuais)
 
+
+
+# Tela inicial ERP
+@app.route('/system')
+def menu_principal():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+    return render_template('homepage.html')
+
 # Homepage | Orçamento Compras
 @app.route('/home')
+@modulo_requerido('COMPRAS')
 def homecompras():
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
@@ -209,6 +273,7 @@ def homecompras():
 
 # Homepage | Viabilidade Comercial - Elo
 @app.route('/home_com')
+@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
 def homecomercial():
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
@@ -220,6 +285,7 @@ def homecomercial():
 # ----------ROTAS ORÇAMENTO COMPRAS---------------------#
 #Rotas de cadastro de fornecedores
 @app.route('/fornecedores')
+@modulo_requerido('COMPRAS')
 def fornecedores_form():
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
@@ -227,6 +293,7 @@ def fornecedores_form():
     return render_template('fornecedoresCMP.html')
 
 @app.route('/api/fornecedores')
+@modulo_requerido('COMPRAS')
 def listar_fornecedores():
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
@@ -241,6 +308,7 @@ def listar_fornecedores():
     return jsonify(fornecedores)
 
 @app.route('/cadastrar_fornecedor', methods=['POST'])
+@modulo_requerido('COMPRAS')
 def cadastrar_fornecedor():
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
@@ -289,6 +357,7 @@ def cadastrar_fornecedor():
         return redirect('/fornecedores')
 
 @app.route('/api/fornecedores/<int:id>', methods=['PUT'])
+@modulo_requerido('COMPRAS')
 def editar_fornecedores(id):
     novo_nome = request.json.get('nome', '').strip()
 
@@ -316,6 +385,7 @@ def editar_fornecedores(id):
         return jsonify({'erro': str(err)}), 500
 
 @app.route('/api/fornecedores/<int:id>', methods=['DELETE'])
+@modulo_requerido('COMPRAS')
 def excluir_fornecedores(id):
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor()
@@ -326,6 +396,7 @@ def excluir_fornecedores(id):
     return jsonify({'sucesso': True})
 
 @app.route('/fornecedores_sugestoes')
+@modulo_requerido('COMPRAS')
 def fornecedores_sugestoes():
     termo = request.args.get('q', '').strip()
 
@@ -341,6 +412,7 @@ def fornecedores_sugestoes():
 
 #Rotas Produtos
 @app.route('/produtos')
+@modulo_requerido('COMPRAS')
 def produtos_form():
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
@@ -348,6 +420,7 @@ def produtos_form():
     return render_template('produtosCMP.html')
 
 @app.route('/cadastrar_produto', methods=['POST'])
+@modulo_requerido('COMPRAS')
 def cadastrar_produto():
     try:
         nome = request.form['nome'].strip()
@@ -395,6 +468,7 @@ def cadastrar_produto():
         return redirect('/produtos')
 
 @app.route('/api/produtos')
+@modulo_requerido('COMPRAS')
 def listar_produtos():
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor(dictionary=True)
@@ -405,6 +479,7 @@ def listar_produtos():
     return jsonify(produtos)
 
 @app.route('/api/produtos/<int:id>', methods=['PUT'])
+@modulo_requerido('COMPRAS')
 def editar_produtos(id):
     novo_nome = request.json.get('nome', '').strip()
 
@@ -445,6 +520,7 @@ def editar_produtos(id):
         return jsonify({'erro': str(err)}), 500
 
 @app.route('/api/produtos/<int:id>', methods=['DELETE'])
+@modulo_requerido('COMPRAS')
 def excluir_produtos(id):
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor()
@@ -455,6 +531,7 @@ def excluir_produtos(id):
     return jsonify({'sucesso': True})
 
 @app.route('/produtos_sugestoes')
+@modulo_requerido('COMPRAS')
 def produtos_sugestoes():
     termo = request.args.get('q', '').strip()
     
@@ -474,6 +551,7 @@ def produtos_sugestoes():
 
 #Rotas Categorias
 @app.route('/categorias')
+@modulo_requerido('COMPRAS')
 def categorias_form():
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
@@ -481,6 +559,7 @@ def categorias_form():
     return render_template('categoriasCMP.html')
 
 @app.route('/cadastrar_categoria', methods=['POST'])
+@modulo_requerido('COMPRAS')
 def cadastrar_categoria():
     try:
         descricao = request.form['descricao'].strip()
@@ -520,6 +599,7 @@ def cadastrar_categoria():
         return redirect('/categorias')
 
 @app.route('/api/categorias')
+@modulo_requerido('COMPRAS')
 def listar_categorias():
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor(dictionary=True)
@@ -530,6 +610,7 @@ def listar_categorias():
     return jsonify(categorias)
 
 @app.route('/api/categorias/<int:id>', methods=['PUT'])
+@modulo_requerido('COMPRAS')
 def editar_categoria(id):
     nova_descricao = request.json.get('descricao', '').strip()
 
@@ -545,6 +626,7 @@ def editar_categoria(id):
     return jsonify({'sucesso': True})
 
 @app.route('/api/categorias/<int:id>', methods=['DELETE'])
+@modulo_requerido('COMPRAS')
 def excluir_categoria(id):
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor()
@@ -555,6 +637,7 @@ def excluir_categoria(id):
     return jsonify({'sucesso': True})
 
 @app.route('/categorias_sugestoes')
+@modulo_requerido('COMPRAS')
 def categorias_sugestoes():
     termo = request.args.get('q', '').strip()
 
@@ -570,6 +653,7 @@ def categorias_sugestoes():
 
 #Rotas Orçamentos
 @app.route('/cadastro')
+@modulo_requerido('COMPRAS')
 def cadastro_form():
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
@@ -577,6 +661,7 @@ def cadastro_form():
     return render_template('cadastroCMP.html')
 
 @app.route('/cadastrar', methods=['POST'])
+@modulo_requerido('COMPRAS')
 def cadastrar():
     try:
         # Coletar dados do formulário
@@ -638,6 +723,7 @@ def cadastrar():
         return redirect('/cadastro')
 
 @app.route('/validar', methods=['GET', 'POST'])
+@modulo_requerido('COMPRAS')
 def validar():
     if request.method == 'POST':
         id_orcamento = request.form.get('id_orcamento')
@@ -706,6 +792,7 @@ def validar():
     return render_template('validarCMP.html', orcamentos=orcamentos, datetime=datetime)
 
 @app.route('/autocomplete')
+@modulo_requerido('COMPRAS')
 def autocomplete():
     termo = request.args.get('term', '')
     filtro = request.args.get('filtro', '')
@@ -731,6 +818,7 @@ def autocomplete():
     return jsonify(resultados)
 
 @app.route('/visualizar', methods=['GET'])
+@modulo_requerido('COMPRAS')
 def visualizar():
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor(dictionary=True)
@@ -777,6 +865,7 @@ def visualizar():
     return render_template('visualizar.html', orcamentos=orcamentos, filtro=filtro, valor=valor)
 
 @app.route('/editar_orcamento/<int:cod>', methods=['POST'])
+@modulo_requerido('COMPRAS')
 def editar_orcamento(cod):
     produto = request.form['produto']
     fornecedor = request.form['fornecedor']
@@ -809,6 +898,7 @@ def editar_orcamento(cod):
     return redirect(url_for('visualizar'))
 
 @app.route('/remover_orcamento/<int:cod>', methods=['GET'])
+@modulo_requerido('COMPRAS')
 def remover_orcamento(cod):
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor()
@@ -826,6 +916,7 @@ def remover_orcamento(cod):
 
 # Rota Dashboard
 @app.route('/dashboard')
+@modulo_requerido('COMPRAS')
 def dashboard():
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
@@ -931,20 +1022,290 @@ def dashboard():
 #----------ROTAS VIABILIDADE COMERCIAL ELO------------------------#
 # Parâmetros
 @app.route('/parametros')
+@modulo_requerido('COMERCIALGESTOR')
 def parametros():
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
 
-    # Verifica se o usuário tem permissão de ADMIN
-    if session.get('nivel') != 'ADMIN':
-        flash('Você não tem permissão para acessar esta página.', 'danger')
-        return redirect(url_for('menu_principal'))  # Redireciona para a home comercial
-
     return render_template('parametrosCOM.html')
 
+# Buscar parâmetros no DB
+@app.route('/get_parametros')
+@modulo_requerido('COMERCIALGESTOR')
+def get_parametros():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor(dictionary=True)
+
+
+    cursor.execute("SELECT * FROM parametros_com LIMIT 1")
+    resultado = cursor.fetchone()
+
+    cursor.close()
+    conn.close()
+
+    return jsonify(resultado)
+
+@app.route('/salvar_parametros', methods=['POST'])
+@modulo_requerido('COMERCIALGESTOR')
+def salvar_parametros():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+    
+    dados = request.json
+
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor()
+
+    # Aqui você pode decidir se quer sobrescrever (DELETE e INSERT) ou usar UPDATE com WHERE
+    cursor.execute("DELETE FROM parametros_com")  # Mantém só 1 registro
+    query = """
+        INSERT INTO parametros_com (
+            consumo_credenciado, confeccao_cartoes, custos_operacionais, custos_operacionais_qtde,
+            custo_tag, custo_tag_qtde, custo_eus, custo_eus_qtde,
+            despesatag_envio, despesatag_tagfisica, despesatag_greenpass,
+            despesaeus_epharma, despesaeus_telemedicina, despesaeus_enviounico,
+            investimento_cartao, negociacao_aprovada, negociacao_pendente, rentabilidade_ideal
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    """
+    valores = (
+        dados['consumo_credenciado'],
+        dados['confeccao_cartoes'],
+        dados['custos_operacionais'],
+        dados['custos_operacionais_qtde'],
+        dados['custo_tag'],
+        dados['custo_tag_qtde'],
+        dados['custo_eus'],
+        dados['custo_eus_qtde'],
+        dados['despesatag_envio'],
+        dados['despesatag_tagfisica'],
+        dados['despesatag_greenpass'],
+        dados['despesaeus_epharma'],
+        dados['despesaeus_telemedicina'],
+        dados['despesaeus_enviounico'],
+        dados['investimento_cartao'],
+        dados['negociacao_aprovada'],
+        dados['negociacao_pendente'],
+        dados['rentabilidade_ideal'],
+    )
+    cursor.execute(query, valores)
+    conn.commit()
+    cursor.close()
+
+    return jsonify({"status": "ok"})
+
+@app.route('/calcular_simulacao', methods=['POST'])
+@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
+def calcular_simulacao():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+
+    dados_form = request.json  # dicionário com os dados do formulário
+    parametros = get_parametros_calculos()  # dicionário com os parâmetros do banco
+
+    # Formulário simulacaoCOM.html
+    qtde_cartoes = float(dados_form.get('qtde_cartoes') or 0)
+    valor_credito = float(dados_form.get('valor_credito') or 0)
+    qtde_meses = int(dados_form.get('meses') or 0)
+    taxa_adm = float(dados_form.get('taxa_adm') or 0)
+    venda_cartoes = float(dados_form.get('venda_cartoes') or 0)
+    qtde_cartoes_tag = int(dados_form.get('qtde_cartoes_tag') or 0)
+    rec_tags = float(dados_form.get('rec_tags') or 0)
+    qtde_cartoes_eus = int(dados_form.get('qtde_cartoes_eus') or 0)
+    rec_saude = float(dados_form.get('rec_saude') or 0)
+
+    # Tabela banco de dados
+    consumo_credenciado = float(parametros.get('consumo_credenciado', 0))
+    confeccao_cartoes = float(parametros.get('confeccao_cartoes', 0))
+    custos_operacionais = float(parametros.get('custos_operacionais', 0))
+    custos_operacionais_qtde = float(parametros.get('custos_operacionais_qtde', 0))
+    custo_tag = float(parametros.get('custo_tag', 0))
+    custo_tag_qtde = float(parametros.get('custo_tag_qtde', 0))
+    custo_eus = float(parametros.get('custo_eus', 0))
+    custo_eus_qtde = float(parametros.get('custo_eus_qtde', 0))
+    despesatag_envio = float(parametros.get('despesatag_envio', 0))
+    despesatag_tagfisica = float(parametros.get('despesatag_tagfisica', 0))
+    despesatag_greeenpass = float(parametros.get('despesatag_greenpass', 0))
+    despesaeus_epharma = float(parametros.get('despesaeus_epharma', 0))
+    despesaeus_telemedicina = float(parametros.get('despesaeus_telemedicina', 0))
+    despesaeus_enviounico = float(parametros.get('despesaeus_enviounico', 0))
+    investimento_cartao = float(parametros.get('investimento_cartao', 0))
+    negociacao_aprovada = float(parametros.get('negociacao_aprovada', 0))
+    negociacao_pendente = float(parametros.get('negociacao_pendente', 0))
+    rentabilidade_ideal = float(parametros.get('rentabilidade_ideal', 0))
+
+    # Volumetria
+    volumeMensal = qtde_cartoes * valor_credito
+    volumeAnual = volumeMensal * 12
+    volumeContrato = volumeMensal * qtde_meses
+
+    # Receitas Previstas - Cartão Elo
+    consumoCredenciadoMensal = volumeMensal * (consumo_credenciado / 100)
+    consumoCredenciadoAnual = volumeAnual * (consumo_credenciado / 100)
+    consumoCredenciadoContrato = volumeContrato * (consumo_credenciado / 100)
+
+    taxaAdmMensal = volumeMensal * (taxa_adm / 100)
+    taxaAdmAnual = volumeAnual * (taxa_adm / 100)
+    taxaAdmContrato = volumeContrato * (taxa_adm / 100)
+
+    vendaCartoesContrato = venda_cartoes * qtde_cartoes
+    vendaCartoesAnual = vendaCartoesContrato / (qtde_meses / 12)
+    vendaCartoesMensal = vendaCartoesAnual / 12
+
+    totalReceitasPrevistasMensal = vendaCartoesMensal + taxaAdmMensal + consumoCredenciadoMensal
+    totalReceitasPrevistasAnual = vendaCartoesAnual + taxaAdmAnual + consumoCredenciadoAnual
+    totalReceitasPrevistasContrato = vendaCartoesContrato + taxaAdmContrato + consumoCredenciadoContrato
+
+    # Despesas Previstas - Cartão Elo
+    confeccaoCartoesContrato = confeccao_cartoes * qtde_cartoes
+    custosOperacionaisContrato = (custos_operacionais * custos_operacionais_qtde * qtde_cartoes) * qtde_meses
+    custoTagContrato = (custo_tag * custo_tag_qtde * qtde_cartoes) * qtde_meses
+    custoEusContrato = (custo_eus * custo_eus_qtde * qtde_cartoes) * qtde_meses
+    custoInvestimentoContrato = investimento_cartao * qtde_cartoes
+    totalDespesasPrevistasContrato = custoInvestimentoContrato + custoEusContrato + custoTagContrato + custosOperacionaisContrato + confeccaoCartoesContrato
+    
+    # Outros Produtos
+    receitaTagContrato = rec_tags * qtde_cartoes_tag * qtde_meses
+    despesaTagEnvioContrato = despesatag_envio * qtde_cartoes_tag
+    despesaTagFisicaContrato = despesatag_tagfisica * qtde_cartoes_tag
+    despesaTagGreenpassContrato = (despesatag_greeenpass * qtde_cartoes_tag) * qtde_meses
+    totalDespesasTagContrato = despesaTagGreenpassContrato + despesaTagFisicaContrato + despesaTagEnvioContrato
+
+    receitaEusContrato = rec_saude * qtde_cartoes_eus * qtde_meses
+    despesaEusEpharma = despesaeus_epharma * qtde_cartoes_eus * qtde_meses
+    despesaEusTelemedicina = despesaeus_telemedicina * qtde_cartoes_eus
+    despesaEusEnvio = despesaeus_enviounico * qtde_cartoes_eus
+
+    totalDespesasEusContrato = despesaEusEnvio + despesaEusTelemedicina + despesaEusEpharma
+
+    # Resultados
+    resultReceitas = totalReceitasPrevistasContrato + receitaTagContrato + receitaEusContrato
+    resultDespesas = custoInvestimentoContrato + totalDespesasTagContrato + totalDespesasEusContrato
+    rentabilidadeIdeal = rentabilidade_ideal
+    statusAprovado = negociacao_aprovada
+    statusPendente = negociacao_pendente
+    lucroOperacao = resultReceitas - resultDespesas
+    lucroOperacaoMensal = lucroOperacao / qtde_meses
+    rentabilidadeAtual = (lucroOperacao / volumeContrato) * 100
+
+    resultado = {
+        "volumeMensal": volumeMensal,
+        "volumeAnual": volumeAnual,
+        "volumeContrato": volumeContrato,
+        "consumoCredenciadoMensal": consumoCredenciadoMensal,
+        "consumoCredenciadoAnual": consumoCredenciadoMensal,
+        "consumoCredenciadoContrato": consumoCredenciadoContrato,
+        "taxaAdmMensal": taxaAdmMensal,
+        "taxaAdmAnual": taxaAdmAnual,
+        "taxaAdmContrato": taxaAdmContrato,
+        "vendaCartoesContrato": vendaCartoesContrato,
+        "vendaCartoesAnual": vendaCartoesAnual,
+        "vendaCartoesMensal": vendaCartoesMensal,
+        "totalReceitasPrevistasMensal": totalReceitasPrevistasMensal,
+        "totalReceitasPrevistasAnual": totalReceitasPrevistasAnual,
+        "totalReceitasPrevistasContrato": totalReceitasPrevistasContrato,
+        "confeccaoCartoesContrato": confeccaoCartoesContrato,
+        "custosOperacionaisContrato": custosOperacionaisContrato,
+        "custoTagContrato": custoTagContrato,
+        "custoEusContrato": custoEusContrato,  
+        "custoInvestimentoContrato": custoInvestimentoContrato,
+        "totalDespesasPrevistasContrato": totalDespesasPrevistasContrato,
+        "receitaTagContrato": receitaTagContrato,
+        "despesaTagEnvioContrato": despesaTagEnvioContrato,
+        "despesaTagFisicaContrato": despesaTagFisicaContrato,
+        "despesaTagGreenpassContrato": despesaTagGreenpassContrato,
+        "totalDespesasTagContrato": totalDespesasTagContrato,
+        "receitaEusContrato": receitaEusContrato,
+        "despesaEusEpharma": despesaEusEpharma,
+        "despesaEusTelemedicina": despesaEusTelemedicina,
+        "despesaEusEnvio": despesaEusEnvio,
+        "totalDespesasEusContrato": totalDespesasEusContrato,
+        "resultReceitas": resultReceitas,
+        "resultDespesas": resultDespesas,
+        "rentabilidadeIdeal": rentabilidadeIdeal,
+        "statusAprovado": statusAprovado,
+        "statusPendente": statusPendente,
+        "lucroOperacao": lucroOperacao,
+        "lucroOperacaoMensal": lucroOperacaoMensal,
+        "rentabilidadeAtual": rentabilidadeAtual     
+    }
+
+    return jsonify(resultado)
+
+@app.route('/gravar_proposta', methods=['POST'])
+@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
+def gravar_proposta():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+
+    data = request.get_json()
+    user_id = session.get('user_id')
+
+    try:
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
+
+        # Buscar os parâmetros vigentes
+        cursor.execute("SELECT * FROM parametros_com ORDER BY id DESC LIMIT 1")
+        parametros = cursor.fetchone()
+
+        if not parametros:
+            return jsonify({"message": "Nenhum parâmetro cadastrado!"}), 400
+
+        parametros = list(parametros)[1:]  # Ignora o ID da linha
+
+        # Certifique-se de que os dados do formulário estejam no formato certo
+        def tratar_valor(valor):
+            return float(valor.replace("R$", "").replace(".", "").replace(",", ".").strip())
+
+        valores = (
+            int(data['qtde_cartoes']),
+            tratar_valor(data['valor_credito']),
+            int(data['meses']),
+            float(data['taxa_adm']),
+            tratar_valor(data['venda_cartoes']),
+            int(data['qtde_cartoes_tag']),
+            tratar_valor(data['rec_tags']),
+            int(data['qtde_cartoes_eus']),
+            tratar_valor(data['rec_saude']),
+            *parametros,  # já tratado
+            user_id
+        )
+
+        sql = """
+            INSERT INTO simulacao_com (
+                qtde_cartoes, valor_credito, qtde_meses, taxa_adm, venda_cartoes,
+                qtde_cartoes_tag, rec_tags, qtde_cartoes_eus, rec_saude,
+                consumo_credenciado, confeccao_cartoes, custos_operacionais, custos_operacionais_qtde,
+                custo_tag, custo_tag_qtde, custo_eus, custo_eus_qtde,
+                despesatag_envio, despesatag_tagfisica, despesatag_greenpass,
+                despesaeus_epharma, despesaeus_telemedicina, despesaeus_enviounico,
+                investimento_cartao, negociacao_aprovada, negociacao_pendente, rentabilidade_ideal,
+                user_id
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        
+        cursor.execute(sql, valores)
+        conn.commit()
+
+        return jsonify({"message": "Proposta gravada com sucesso!"})
+
+    except Exception as e:
+        print("Erro ao gravar proposta:", e)
+        return jsonify({"message": "Erro ao gravar proposta."}), 500
+
+    finally:
+        cursor.close()
+        conn.close()
 #------------------------------------------------------------------#
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True) 
