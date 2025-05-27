@@ -1,0 +1,11 @@
+SIGLAS:
+
+COM - Comercial
+CMP - Compras
+CPG - Contas a Pagar
+CRC - Contas a Receber
+CTB - Contabilidade
+LIC - Licitação
+OPE - Operacional
+EST - Estoque
+ORC - Orçamento

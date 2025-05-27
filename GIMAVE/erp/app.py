@@ -2,17 +2,18 @@ from flask import Flask, render_template, request, redirect, flash, jsonify, url
 from collections import defaultdict
 from dotenv import load_dotenv
 from datetime import datetime
+from datetime import timedelta
 from decimal import Decimal
-from functools import wraps
 import mysql.connector
 import bcrypt
 import os
 import re
 
-# Load nas credenciais e no DB
+# Load nas credenciais, parâmetros e no DB
 load_dotenv()
 app = Flask(__name__)
-app.secret_key = os.getenv("SK")  
+app.secret_key = os.getenv("SK")
+app.permanent_session_lifetime = timedelta(minutes=15) #Tempo máximo de inatividade
 db_config = {
     "host": os.getenv("HOST"),
     "user": os.getenv("USER"),
@@ -23,7 +24,7 @@ db_config = {
 
 #---------------LOGIN E TELAS INICIAIS----------------#
 # Login
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         username = request.form['username']
@@ -32,19 +33,38 @@ def login():
         try:
             conexao = mysql.connector.connect(**db_config)
             cursor = conexao.cursor()
-            cursor.execute("SELECT senha_hash, nivel FROM usuarios_com WHERE username = %s", (username,))
+            
+            # Verifica se o usuário existe
+            cursor.execute("SELECT user_id, senha_hash, nivel FROM usuarios WHERE username = %s", (username,))
             resultado = cursor.fetchone()
-        finally:
-            cursor.close()
-            conexao.close()
 
-        if resultado:
-            senha_hash, nivel = resultado
-            if bcrypt.checkpw(senha.encode('utf-8'), senha_hash.encode('utf-8') if isinstance(senha_hash, str) else senha_hash):
-                session['username'] = username
-                session['nivel'] = nivel
-                flash('Login realizado com sucesso!', 'success')
-                return redirect(url_for('menu_principal'))
+            if resultado:
+                user_id, senha_hash, nivel = resultado
+
+                if bcrypt.checkpw(senha.encode('utf-8'), senha_hash.encode('utf-8') if isinstance(senha_hash, str) else senha_hash):
+                    session.permanent = True
+                    session['user_id'] = user_id
+                    session['username'] = username
+                    session['nivel'] = nivel
+
+                    if nivel == 'USER':
+                        cursor.execute("SELECT modulo FROM modulos WHERE user_id = %s", (user_id,))
+                        modulos = [row[0] for row in cursor.fetchall()]
+                    else:
+                        modulos = ['COMPRAS', 'COMERCIALGESTOR' , 'COMERCIAL']
+
+                    session['modulos'] = modulos
+                    flash('Login realizado com sucesso!', 'success')
+                    return redirect(url_for('menu_principal'))
+
+        except mysql.connector.Error as err:
+            flash(f"Erro ao conectar ao banco: {err}", 'danger')
+
+        finally:
+            if 'cursor' in locals():
+                cursor.close()
+            if 'conexao' in locals():
+                conexao.close()
 
         flash('Credenciais inválidas', 'danger')
 
@@ -62,13 +82,122 @@ def logout():
     # Redirecionar para a página de login
     return redirect(url_for('login'))
 
-#Tela inicial ERP
+# Registrar novos usuários
+@app.route('/usuarios', methods=['GET', 'POST'])
+def reg_usuarios():
+    if session.get('nivel') != 'ADMIN':
+        flash('Você não tem permissão para acessar esta página.', 'danger')
+        return redirect(url_for('menu_principal'))  # Redireciona para a home comercial
+    
+    if request.method == 'POST':
+        nome = request.form['nome']
+        username = request.form['username']
+        senha = request.form['senha']
+        nivel = request.form['nivel']
+
+        senha_hash = bcrypt.hashpw(senha.encode('utf-8'), bcrypt.gensalt())
+
+        try:
+            conexao = mysql.connector.connect(**db_config)
+            cursor = conexao.cursor()
+            cursor.execute("INSERT INTO usuarios (nome, username, senha_hash, nivel) VALUES (%s, %s, %s, %s)",
+                           (nome, username, senha_hash, nivel))
+            conexao.commit()
+            flash('Usuário cadastrado com sucesso.', 'success')
+        except mysql.connector.IntegrityError:
+            flash('Usuário já existe.', 'danger')
+        finally:
+            cursor.close()
+            conexao.close()
+
+    # Listar todos os usuários
+    conexao = mysql.connector.connect(**db_config)
+    cursor = conexao.cursor()
+    cursor.execute("SELECT user_id, nome, username, nivel FROM usuarios")
+    usuarios = cursor.fetchall()
+    cursor.close()
+    conexao.close()
+
+    return render_template('reg_users.html', usuarios=usuarios)
+
+# Excluir usuários
+@app.route('/usuarios/excluir/<int:user_id>', methods=['POST'])
+def excluir_usuario(user_id):
+    if session.get('nivel') != 'ADMIN':
+        flash('Você não tem permissão para acessar esta página.', 'danger')
+        return redirect(url_for('menu_principal'))  # Redireciona para a home comercial
+    
+    conexao = mysql.connector.connect(**db_config)
+    cursor = conexao.cursor()
+    cursor.execute("DELETE FROM usuarios WHERE user_id = %s", (user_id,))
+    conexao.commit()
+    cursor.close()
+    conexao.close()
+    flash('Usuário excluído com sucesso.', 'success')
+    return redirect(url_for('reg_usuarios'))
+
+# Tela inicial ERP
 @app.route('/system')
 def menu_principal():
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
-    return render_template('system.html')
+    return render_template('homepage.html')
+
+# Lista de usuários
+@app.route('/modulos')
+def listar_usuarios_acessos():
+    if session.get('nivel') != 'ADMIN':
+        flash('Você não tem permissão para acessar esta página.', 'danger')
+        return redirect(url_for('menu_principal'))  # Redireciona para a home comercial
+    
+    try:
+        conexao = mysql.connector.connect(**db_config)
+        cursor = conexao.cursor(dictionary=True)
+        cursor.execute("SELECT user_id, nome, username, nivel FROM usuarios")
+        usuarios = cursor.fetchall()
+    finally:
+        cursor.close()
+        conexao.close()
+
+    return render_template('usuarios_modulos.html', usuarios=usuarios)
+
+# Gerenciar acesso aos módulos
+@app.route('/modulos/<int:user_id>', methods=['GET', 'POST'])
+def gerenciar_modulos(user_id):
+    if session.get('nivel') != 'ADMIN':
+        flash('Você não tem permissão para acessar esta página.', 'danger')
+        return redirect(url_for('menu_principal'))  # Redireciona para a home comercial
+
+    modulos_disponiveis = ['COMPRAS', 'COMERCIALGESTOR' , 'COMERCIAL']
+
+    try:
+        conexao = mysql.connector.connect(**db_config)
+        cursor = conexao.cursor()
+
+        if request.method == 'POST':
+            modulos_selecionados = request.form.getlist('modulos')
+
+            # Apaga os acessos antigos
+            cursor.execute("DELETE FROM modulos WHERE user_id = %s", (user_id,))
+
+            # Insere os novos acessos
+            for modulo in modulos_selecionados:
+                cursor.execute("INSERT INTO modulos (user_id, modulo) VALUES (%s, %s)", (user_id, modulo))
+
+            conexao.commit()
+            flash('Acessos atualizados com sucesso.', 'success')
+            return redirect(url_for('listar_usuarios_acessos'))
+
+        # Para GET: busca os acessos atuais do usuário
+        cursor.execute("SELECT modulo FROM modulos WHERE user_id = %s", (user_id,))
+        modulos_atuais = [row[0] for row in cursor.fetchall()]
+
+    finally:
+        cursor.close()
+        conexao.close()
+
+    return render_template('modulos.html', user_id=user_id, modulos_disponiveis=modulos_disponiveis, modulos_atuais=modulos_atuais)
 
 # Homepage | Orçamento Compras
 @app.route('/home')
@@ -84,7 +213,7 @@ def homecomercial():
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
-    return render_template('home_com.html')
+    return render_template('simulacaoCOM.html')
 #-------------------------------------------------------#
 
 
@@ -95,13 +224,17 @@ def fornecedores_form():
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
-    return render_template('fornecedores_fin.html')
+    return render_template('fornecedoresCMP.html')
 
 @app.route('/api/fornecedores')
 def listar_fornecedores():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+    
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT cnpj, razao_social FROM fornecedores_orc ORDER BY razao_social")
+    cursor.execute("SELECT cnpj, razao_social FROM fornecedores_cmp ORDER BY razao_social")
     fornecedores = cursor.fetchall()
     cursor.close()
     conn.close()
@@ -109,6 +242,10 @@ def listar_fornecedores():
 
 @app.route('/cadastrar_fornecedor', methods=['POST'])
 def cadastrar_fornecedor():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+    
     try:
         # Coleta de dados do formulário
         cnpj = re.sub(r'\D', '', request.form['cnpj'].strip())
@@ -125,20 +262,20 @@ def cadastrar_fornecedor():
         with mysql.connector.connect(**db_config) as conn:
             with conn.cursor() as cursor:
                 # Verifica duplicidade de CNPJ
-                cursor.execute("SELECT COUNT(*) FROM fornecedores_orc WHERE cnpj = %s", (cnpj,))
+                cursor.execute("SELECT COUNT(*) FROM fornecedores_cmp WHERE cnpj = %s", (cnpj,))
                 if cursor.fetchone()[0] > 0:
                     flash("Já existe um fornecedor com esse CNPJ.", "erro")
                     return redirect('/fornecedores')
 
                 # Verifica duplicidade de razão social
-                cursor.execute("SELECT COUNT(*) FROM fornecedores_orc WHERE LOWER(TRIM(razao_social)) = LOWER(%s)", (razao_social,))
+                cursor.execute("SELECT COUNT(*) FROM fornecedores_cmp WHERE LOWER(TRIM(razao_social)) = LOWER(%s)", (razao_social,))
                 if cursor.fetchone()[0] > 0:
                     flash("Já existe um fornecedor com essa razão social.", "erro")
                     return redirect('/fornecedores')
 
                 # Inserção
                 query = """
-                    INSERT INTO fornecedores_orc (cnpj, razao_social, rua, numero, cep)
+                    INSERT INTO fornecedores_cmp (cnpj, razao_social, rua, numero, cep)
                     VALUES (%s, %s, %s, %s, %s)
                 """
                 cursor.execute(query, (cnpj, razao_social, rua, numero, cep))
@@ -163,14 +300,14 @@ def editar_fornecedores(id):
             with conn.cursor() as cursor:
                 # Verifica se razão social já está sendo usada por outro fornecedor
                 cursor.execute("""
-                    SELECT COUNT(*) FROM fornecedores_orc 
+                    SELECT COUNT(*) FROM fornecedores_cmp 
                     WHERE LOWER(TRIM(razao_social)) = LOWER(%s) AND cnpj != %s
                 """, (novo_nome, id))
                 if cursor.fetchone()[0] > 0:
                     return jsonify({'erro': 'Já existe outro fornecedor com essa razão social.'}), 400
 
                 # Atualiza a razão social
-                cursor.execute("UPDATE fornecedores_orc SET razao_social = %s WHERE cnpj = %s", (novo_nome, id))
+                cursor.execute("UPDATE fornecedores_cmp SET razao_social = %s WHERE cnpj = %s", (novo_nome, id))
                 conn.commit()
 
         return jsonify({'sucesso': True})
@@ -182,7 +319,7 @@ def editar_fornecedores(id):
 def excluir_fornecedores(id):
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM fornecedores_orc WHERE cnpj = %s", (id,))
+    cursor.execute("DELETE FROM fornecedores_cmp WHERE cnpj = %s", (id,))
     conn.commit()
     cursor.close()
     conn.close()
@@ -194,7 +331,7 @@ def fornecedores_sugestoes():
 
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor()
-    cursor.execute("SELECT cnpj, razao_social FROM fornecedores_orc WHERE razao_social LIKE %s LIMIT 10", (f'%{termo}%',))
+    cursor.execute("SELECT cnpj, razao_social FROM fornecedores_cmp WHERE razao_social LIKE %s LIMIT 10", (f'%{termo}%',))
     resultados = [{'cnpj': row[0], 'razao_social': row[1]} for row in cursor.fetchall()]
     cursor.close()
     conn.close()
@@ -208,7 +345,7 @@ def produtos_form():
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
-    return render_template('produtos_fin.html')
+    return render_template('produtosCMP.html')
 
 @app.route('/cadastrar_produto', methods=['POST'])
 def cadastrar_produto():
@@ -224,14 +361,14 @@ def cadastrar_produto():
         with mysql.connector.connect(**db_config) as conn:
             with conn.cursor() as cursor:
                 # Verifica se a categoria existe
-                cursor.execute("SELECT COUNT(*) FROM categoria_orc WHERE id_categoria = %s", (categoria_id,))
+                cursor.execute("SELECT COUNT(*) FROM categorias_cmp WHERE id_categoria = %s", (categoria_id,))
                 if cursor.fetchone()[0] == 0:
                     flash("Categoria não encontrada. Por favor, selecione uma válida.", "erro")
                     return redirect('/produtos')
 
                 # Verifica se já existe produto com o mesmo nome, categoria e fornecedor
                 query_verifica = """
-                    SELECT COUNT(*) FROM produtos_orc 
+                    SELECT COUNT(*) FROM produtos_cmp 
                     WHERE LOWER(TRIM(nome)) = LOWER(%s)
                     AND categoria_id = %s
                 """
@@ -244,7 +381,7 @@ def cadastrar_produto():
 
                 # Inserção
                 query = """
-                    INSERT INTO produtos_orc (nome, categoria_id, descricao)
+                    INSERT INTO produtos_cmp (nome, categoria_id, descricao)
                     VALUES (%s, %s, %s)
                 """
                 cursor.execute(query, (nome, categoria_id, descricao))
@@ -261,7 +398,7 @@ def cadastrar_produto():
 def listar_produtos():
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT id_produto, nome FROM produtos_orc ORDER BY nome")
+    cursor.execute("SELECT id_produto, nome FROM produtos_cmp ORDER BY nome")
     produtos = cursor.fetchall()
     cursor.close()
     conn.close()
@@ -278,7 +415,7 @@ def editar_produtos(id):
         with mysql.connector.connect(**db_config) as conn:
             with conn.cursor(dictionary=True) as cursor:
                 # Obtém os dados atuais do produto
-                cursor.execute("SELECT categoria_id FROM produtos_orc WHERE id_produto = %s", (id,))
+                cursor.execute("SELECT categoria_id FROM produtos_cmp WHERE id_produto = %s", (id,))
                 produto = cursor.fetchone()
 
                 if not produto:
@@ -288,7 +425,7 @@ def editar_produtos(id):
 
                 # Verifica se já existe outro produto com o mesmo nome/categoria/fornecedor
                 query_verifica = """
-                    SELECT COUNT(*) FROM produtos_orc
+                    SELECT COUNT(*) FROM produtos_cmp
                     WHERE LOWER(TRIM(nome)) = LOWER(%s)
                     AND categoria_id = %s
                     AND id_produto != %s
@@ -299,7 +436,7 @@ def editar_produtos(id):
                 if existe > 0:
                     return jsonify({'erro': 'Já existe outro produto com esse nome, categoria e fornecedor.'}), 400
 
-                cursor.execute("UPDATE produtos_orc SET nome = %s WHERE id_produto = %s", (novo_nome, id))
+                cursor.execute("UPDATE produtos_cmp SET nome = %s WHERE id_produto = %s", (novo_nome, id))
                 conn.commit()
 
         return jsonify({'sucesso': True})
@@ -311,7 +448,7 @@ def editar_produtos(id):
 def excluir_produtos(id):
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM produtos_orc WHERE id_produto = %s", (id,))
+    cursor.execute("DELETE FROM produtos_cmp WHERE id_produto = %s", (id,))
     conn.commit()
     cursor.close()
     conn.close()
@@ -324,7 +461,7 @@ def produtos_sugestoes():
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor(dictionary=True)
     cursor.execute("""
-        SELECT id_produto, nome FROM produtos_orc
+        SELECT id_produto, nome FROM produtos_cmp
         WHERE nome LIKE %s
         ORDER BY nome
         LIMIT 10
@@ -341,7 +478,7 @@ def categorias_form():
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
-    return render_template('categoria_fin.html')
+    return render_template('categoriasCMP.html')
 
 @app.route('/cadastrar_categoria', methods=['POST'])
 def cadastrar_categoria():
@@ -358,7 +495,7 @@ def cadastrar_categoria():
 
 
         # Verifica se a categoria já existe (ignorando maiúsculas/minúsculas)
-        query_verifica = "SELECT COUNT(*) FROM categoria_orc WHERE LOWER(TRIM(descricao)) = LOWER(%s)"
+        query_verifica = "SELECT COUNT(*) FROM categorias_cmp WHERE LOWER(TRIM(descricao)) = LOWER(%s)"
         cursor.execute(query_verifica, (descricao,))
         (existe,) = cursor.fetchone()
 
@@ -369,7 +506,7 @@ def cadastrar_categoria():
             return redirect('/categorias')
 
 
-        query = "INSERT INTO categoria_orc (descricao) VALUES (%s)"
+        query = "INSERT INTO categorias_cmp (descricao) VALUES (%s)"
         cursor.execute(query, (descricao,))
         conn.commit()
         cursor.close()
@@ -386,7 +523,7 @@ def cadastrar_categoria():
 def listar_categorias():
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT id_categoria, descricao FROM categoria_orc ORDER BY descricao")
+    cursor.execute("SELECT id_categoria, descricao FROM categorias_cmp ORDER BY descricao")
     categorias = cursor.fetchall()
     cursor.close()
     conn.close()
@@ -401,7 +538,7 @@ def editar_categoria(id):
 
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor()
-    cursor.execute("UPDATE categoria_orc SET descricao = %s WHERE id_categoria = %s", (nova_descricao, id))
+    cursor.execute("UPDATE categorias_cmp SET descricao = %s WHERE id_categoria = %s", (nova_descricao, id))
     conn.commit()
     cursor.close()
     conn.close()
@@ -411,7 +548,7 @@ def editar_categoria(id):
 def excluir_categoria(id):
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM categoria_orc WHERE id_categoria = %s", (id,))
+    cursor.execute("DELETE FROM categorias_cmp WHERE id_categoria = %s", (id,))
     conn.commit()
     cursor.close()
     conn.close()
@@ -423,7 +560,7 @@ def categorias_sugestoes():
 
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor()
-    cursor.execute("SELECT id_categoria, descricao FROM categoria_orc WHERE descricao LIKE %s LIMIT 10", (f'%{termo}%',))
+    cursor.execute("SELECT id_categoria, descricao FROM categorias_cmp WHERE descricao LIKE %s LIMIT 10", (f'%{termo}%',))
     resultados = [{'id_categoria': row[0], 'descricao': row[1]} for row in cursor.fetchall()]
     cursor.close()
     conn.close()
@@ -437,7 +574,7 @@ def cadastro_form():
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
-    return render_template('cadastro_fin.html')
+    return render_template('cadastroCMP.html')
 
 @app.route('/cadastrar', methods=['POST'])
 def cadastrar():
@@ -448,6 +585,7 @@ def cadastrar():
         fornecedor_cnpj = request.form['fornecedor_cnpj']
         valor = request.form['valor'].strip()
         observacao = request.form['observacao'].strip()
+        user_id = session.get('user_id')
 
         # Validação simples
         if not data or not produto_id or not fornecedor_cnpj or not valor:
@@ -464,7 +602,7 @@ def cadastrar():
         cursor = conn.cursor()
 
         # Verifica se o produto existe
-        cursor.execute("SELECT COUNT(*) FROM produtos_orc WHERE id_produto = %s", (produto_id,))
+        cursor.execute("SELECT COUNT(*) FROM produtos_cmp WHERE id_produto = %s", (produto_id,))
         produto_existe = cursor.fetchone()[0]
   
         if not produto_existe:
@@ -474,7 +612,7 @@ def cadastrar():
             return redirect('/cadastro')  
 
         # Verifica se o fornecedor existe
-        cursor.execute("SELECT COUNT(*) FROM fornecedores_orc WHERE cnpj = %s", (fornecedor_cnpj,))
+        cursor.execute("SELECT COUNT(*) FROM fornecedores_cmp WHERE cnpj = %s", (fornecedor_cnpj,))
         fornecedor_existe = cursor.fetchone()[0] 
 
         if not fornecedor_existe:
@@ -485,11 +623,11 @@ def cadastrar():
 
         # Inserção
         query = """
-            INSERT INTO cadastro_orc_teste 
-            (dt, vlr_orcamento, observacao, status, produto_id, fornecedor_cnpj)
-            VALUES (%s, %s, %s, 'Pendente', %s, %s)
+            INSERT INTO cadorc_cmp 
+            (dt, vlr_orcamento, observacao, status, produto_id, fornecedor_cnpj, user_id)
+            VALUES (%s, %s, %s, 'Pendente', %s, %s, %s)
         """
-        cursor.execute(query, (data_formatada, vlr_formatado, observacao, produto_id, fornecedor_cnpj))
+        cursor.execute(query, (data_formatada, vlr_formatado, observacao, produto_id, fornecedor_cnpj, user_id))
         conn.commit()
 
         flash('Cadastro realizado com sucesso!', 'sucesso')
@@ -513,11 +651,11 @@ def validar():
 
         if acao == 'validar':
             # Aprova o orçamento selecionado
-            cursor.execute("UPDATE cadastro_orc_teste SET status = 'Aprovado' WHERE id_orcamento = %s", (id_orcamento,))
+            cursor.execute("UPDATE cadorc_cmp SET status = 'Aprovado' WHERE id_orcamento = %s", (id_orcamento,))
 
             # Reprova os demais do mesmo produto
             cursor.execute("""
-                UPDATE cadastro_orc_teste
+                UPDATE cadorc_cmp
                 SET status = 'Reprovado'
                 WHERE produto_id = %s AND id_orcamento != %s
             """, (produto_id, id_orcamento))
@@ -526,7 +664,7 @@ def validar():
 
 
         elif acao == 'excluir':
-            cursor.execute("DELETE FROM cadastro_orc_teste WHERE id_orcamento = %s", (id_orcamento,))
+            cursor.execute("DELETE FROM cadorc_cmp WHERE id_orcamento = %s", (id_orcamento,))
             flash('Orçamento excluído com sucesso', 'success')
 
         conn.commit()
@@ -547,9 +685,9 @@ def validar():
         query = """
             SELECT c.id_orcamento, c.produto_id, c.vlr_orcamento, c.status, c.dt, c.observacao,
                    p.nome AS nome_produto, f.razao_social AS nome_fornecedor
-            FROM cadastro_orc_teste c
-            JOIN produtos_orc p ON c.produto_id = p.id_produto
-            JOIN fornecedores_orc f ON c.fornecedor_cnpj = f.cnpj
+            FROM cadorc_cmp c
+            JOIN produtos_cmp p ON c.produto_id = p.id_produto
+            JOIN fornecedores_cmp f ON c.fornecedor_cnpj = f.cnpj
             WHERE c.dt BETWEEN %s AND %s
             ORDER BY c.produto_id, c.dt
         """
@@ -565,7 +703,7 @@ def validar():
         cur.close()
         conn.close()
 
-    return render_template('validar_fin.html', orcamentos=orcamentos, datetime=datetime)
+    return render_template('validarCMP.html', orcamentos=orcamentos, datetime=datetime)
 
 @app.route('/autocomplete')
 def autocomplete():
@@ -581,7 +719,7 @@ def autocomplete():
 
     if filtro in colunas_permitidas:
         coluna = colunas_permitidas[filtro]
-        query = f"SELECT DISTINCT {coluna} FROM cadastro_orc_teste WHERE {coluna} LIKE %s LIMIT 10"
+        query = f"SELECT DISTINCT {coluna} FROM cadorc_cmp WHERE {coluna} LIKE %s LIMIT 10"
         cursor.execute(query, (f"%{termo}%",))
         resultados = [row[0] for row in cursor.fetchall()]
     else:
@@ -603,9 +741,9 @@ def visualizar():
     query_base = """
         SELECT o.id_orcamento, o.dt, o.vlr_orcamento, o.observacao, o.status,
                p.nome AS produto, f.razao_social AS fornecedor
-        FROM cadastro_orc_teste o
-        JOIN produtos_orc p ON o.produto_id = p.id_produto
-        JOIN fornecedores_orc f ON o.fornecedor_cnpj = f.cnpj
+        FROM cadorc_cmp o
+        JOIN produtos_cmp p ON o.produto_id = p.id_produto
+        JOIN fornecedores_cmp f ON o.fornecedor_cnpj = f.cnpj
         WHERE 1=1
     """
     params = []
@@ -658,7 +796,7 @@ def editar_orcamento(cod):
     cursor = conn.cursor()
 
     cursor.execute("""
-        UPDATE cadastro_orc_teste 
+        UPDATE cadorc_cmp 
         SET produto = %s, fornecedor = %s, vlr_orcamento = %s, observacao = %s, dt = %s 
         WHERE cod = %s
     """, (produto, fornecedor, vlr_orcamento, observacao, dt_formatada, cod))
@@ -676,7 +814,7 @@ def remover_orcamento(cod):
     cursor = conn.cursor()
 
     # Excluir o orçamento com base no cod
-    cursor.execute("DELETE FROM cadastro_orc_teste WHERE cod = %s", (cod,))
+    cursor.execute("DELETE FROM cadorc_cmp WHERE cod = %s", (cod,))
     conn.commit()
 
     cursor.close()
@@ -704,7 +842,7 @@ def dashboard():
     cur = conn.cursor(dictionary=True)
 
     # Buscar produtos para o select
-    cur.execute("SELECT id_produto, nome FROM produtos_orc ORDER BY nome")
+    cur.execute("SELECT id_produto, nome FROM produtos_cmp ORDER BY nome")
     produtos = cur.fetchall()
 
     total_economia = Decimal('0.00')  # Inicializa totalizador
@@ -715,9 +853,9 @@ def dashboard():
                 SELECT 
                     c.produto_id, p.nome AS nome_produto, c.dt,
                     c.vlr_orcamento, c.status, f.razao_social AS fornecedor
-                FROM cadastro_orc_teste c
-                JOIN produtos_orc p ON c.produto_id = p.id_produto
-                JOIN fornecedores_orc f ON c.fornecedor_cnpj = f.cnpj
+                FROM cadorc_cmp c
+                JOIN produtos_cmp p ON c.produto_id = p.id_produto
+                JOIN fornecedores_cmp f ON c.fornecedor_cnpj = f.cnpj
                 WHERE c.dt BETWEEN %s AND %s
                   AND c.produto_id = %s
                 ORDER BY c.produto_id, c.dt
@@ -728,9 +866,9 @@ def dashboard():
                 SELECT 
                     c.produto_id, p.nome AS nome_produto, c.dt,
                     c.vlr_orcamento, c.status, f.razao_social AS fornecedor
-                FROM cadastro_orc_teste c
-                JOIN produtos_orc p ON c.produto_id = p.id_produto
-                JOIN fornecedores_orc f ON c.fornecedor_cnpj = f.cnpj
+                FROM cadorc_cmp c
+                JOIN produtos_cmp p ON c.produto_id = p.id_produto
+                JOIN fornecedores_cmp f ON c.fornecedor_cnpj = f.cnpj
                 WHERE c.dt BETWEEN %s AND %s
                 ORDER BY c.produto_id, c.dt
             """
@@ -783,7 +921,7 @@ def dashboard():
     cur.close()
     conn.close()
 
-    return render_template('dashboard_fin.html', 
+    return render_template('dashboardCMP.html', 
                            relatorio=relatorio, 
                            produtos=produtos, 
                            total_economia=float(total_economia))
@@ -803,7 +941,7 @@ def parametros():
         flash('Você não tem permissão para acessar esta página.', 'danger')
         return redirect(url_for('menu_principal'))  # Redireciona para a home comercial
 
-    return render_template('parametros_com.html')
+    return render_template('parametrosCOM.html')
 
 #------------------------------------------------------------------#
 

@@ -164,6 +164,7 @@
             background-color: #636363;
         }   
 
+
     </style>
 {% endblock %}
 
@@ -172,7 +173,7 @@
 <div class="main-content">
     <div class="form-container" id="form-box">
         <h2>Simulação de Viabilidade</h2>
-        <form id="form-simulacao">
+        <form id="form-simulacao" autocomplete="off">
             <label for="qtde_cartoes">Quantidade de Cartões *</label>
             <input type="number" id="qtde_cartoes" name="qtde_cartoes" required>
 
@@ -205,6 +206,7 @@
 
             <button type="submit"><b>CALCULAR</b></button>
         </form>
+    </div>
 
     <div class="result-container" id="result-box">
         <h2>Resultado da Simulação</h2>
@@ -217,7 +219,6 @@
 {% endblock %}
 
 {% block scripts %}
-
 <script>
     // Função para esconder o alert após 3 segundos
     setTimeout(function() {
@@ -227,10 +228,8 @@
         }
     }, 3000); // O tempo está configurado para 3000ms (3 segundos)
 
-
     // Máscara R$
     const camposFormatar = ['valor_credito','rec_tags','rec_saude','venda_cartoes']
-
     camposFormatar.forEach(id => {
     const campo = document.getElementById(id);
     if (campo) {

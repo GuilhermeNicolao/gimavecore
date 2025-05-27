@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+
+{% block head_extra %}
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Alinha ao topo inicialmente */
+            min-height: 100vh;
+        }
+
+        .form-container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 0 12px rgba(0, 0, 0, 0.1);
+            width: 360px;
+            margin-top: 60px; /* AQUI foi adicionado espaço do topo */
+            margin-bottom: 40px;
+        }
+
+        h2 {
+            margin-bottom: 15px;
+            color: #333;
+            text-align: center;
+        }
+
+        h3 {
+            margin-top: 25px;
+            margin-bottom: 10px;
+            color: #444;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            margin-top: 10px;
+            color: #555;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background-color: #333;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        button:hover {
+            background-color: #636363;
+        }
+
+        .home-link {
+            text-align: center;
+            margin-top: 20px;
+            clear: both; /* caso algo esteja flutuando */
+            font-size: 15px;
+        }
+
+        .home-link a {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #333;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+
+        .home-link a:hover {
+            background-color: #006d3a;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div style="display: flex; flex-direction: column; align-items: center;">
+    <div class="form-container">
+        <h2>Configurar Parâmetros</h2>
+        <form id="form-parametros" autocomplete="off">
+
+            <h3>Receitas Previstas - Cartão</h3>
+            <label for="consumo_credenciado">Consumo na rede credenciada (%)</label>
+            <input type="number" id="consumo_credenciado" name="consumo_credenciado" required step="0.01">
+
+            <h3>Despesas Previstas</h3>
+            <label for="confeccao_cartoes">Confecção dos cartões - 1ª Via (R$)</label>
+            <input type="text" id="confeccao_cartoes" name="confeccao_cartoes" required>
+
+            <div style="display: flex; justify-content: space-between;">
+                <label for="custos_operacionais" style="flex: 1;">Custos operacionais (Processamento)</label>
+                <label for="custos_operacionais_qtde" style="width: 80px; text-align: center; font-size: 16px; color: #666;">Qtde</label>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 4px;">
+                <input type="text" id="custos_operacionais" name="custos_operacionais" required style="flex: 1;">
+                <input type="number" id="custos_operacionais_qtde" name="custos_operacionais_qtde" style="width: 80px;">
+            </div>
+
+            <div style="display: flex; justify-content: space-between;">
+                <label for="custo_tag" style="flex: 1;">Custo operacional TAG (R$)</label>
+                <label for="custo_tag_qtde" style="width: 80px; text-align: center; font-size: 16px; color: #666;">Qtde</label>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 4px;">
+                <input type="text" id="custo_tag" name="custo_tag" required style="flex: 1;">
+                <input type="number" id="custo_tag_qtde" name="custo_tag_qtde" style="width: 80px;">
+            </div>
+
+            <div style="display: flex; justify-content: space-between;">
+                <label for="custo_eus" style="flex: 1;">Custo operacional Eu+ Saúde (R$)</label>
+                <label for="custo_eus_qtde" style="width: 80px; text-align: center; font-size: 16px; color: #666;">Qtde</label>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 4px;">
+                <input type="text" id="custo_eus" name="custo_eus" required style="flex: 1;">
+                <input type="number" id="custo_eus_qtde" name="custo_eus_qtde" style="width: 80px;">
+            </div>
+
+            <label for="despesatag_envio">Despesa TAG - Envio (Custo único por cliente) (R$)</label>
+            <input type="text" id="despesatag_envio" name="despesatag_envio" required>
+
+            <label for="despesatag_tagfisica">Despesa TAG - Operação + TAG Física (Custo único por unidade de TAG) (R$)</label>
+            <input type="text" id="despesatag_tagfisica" name="despesatag_tagfisica" required>
+
+            <label for="despesatag_greenpass">Despesa TAG - Mensalidade Greenpass (Custo mensal por tag ativa) (R$)</label>
+            <input type="text" id="despesatag_greenpass" name="despesatag_greenpass" required>
+
+            <label for="despesaeus_epharma">Custo por Vida - Epharma (R$)</label>
+            <input type="text" id="despesaeus_epharma" name="despesaeus_epharma" required>
+
+            <label for="despesaeus_telemedicina">Custo por Vida - Telemedicina (R$)</label>
+            <input type="text" id="despesaeus_telemedicina" name="despesaeus_telemedicina" required>
+
+            <label for="despesaeus_enviounico">Custo Cartão - Envio único (R$)</label>
+            <input type="text" id="despesaeus_enviounico" name="despesaeus_enviounico" required>
+
+            <label for="investimento_cartao">Custo operacional de investimento (por cartão) (R$)</label>
+            <input type="text" id="investimento_cartao" name="investimento_cartao" required>
+
+            <h3>Faixas de Negociação</h3>
+            <label for="negociacao_aprovada">Negociação Aprovada (%)</label>
+            <input type="number" id="negociacao_aprovada" name="negociacao_aprovada" required step="0.01">
+
+            <label for="negociacao_pendente">Negociação necessita aprovação (%)</label>
+            <input type="number" id="negociacao_pendente" name="negociacao_pendente" required step="0.01">
+
+            <h3>Outros</h3>
+            <label for="rentabilidade_ideal">Rentabilidade Ideal (%)</label>
+            <input type="number" id="rentabilidade_ideal" name="rentabilidade_ideal" required step="0.01">
+
+            <button type="submit" id="salvar-parametros"><b>SALVAR PARÂMETROS</b></button>
+        </form>
+
+            <!-- Link "Home" abaixo do container -->
+            <div class="home-link">
+                <a href="/home_com">Home</a></b>
+            </div>
+
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/inputmask/5.0.8/inputmask.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const idsMonetarios = [
+        "confeccao_cartoes",
+        "custos_operacionais",
+        "custo_tag",
+        "custo_eus",
+        "despesatag_envio",
+        "despesatag_tagfisica",
+        "despesatag_greenpass",
+        "despesaeus_epharma",
+        "despesaeus_telemedicina",
+        "despesaeus_enviounico",
+        "investimento_cartao"
+    ];
+
+    // Função para formatar como R$
+    function formatarReal(valor) {
+        return parseFloat(valor).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // Buscar os parâmetros salvos e preenche o formulário
+    fetch('/get_parametros')
+        .then(res => res.json())
+        .then(parametros => {
+            Object.entries(parametros).forEach(([chave, valor]) => {
+                const campo = document.getElementById(chave);
+                if (campo) {
+                    if (idsMonetarios.includes(chave)) {
+                        campo.value = formatarReal(valor);
+                    } else {
+                        campo.value = valor;
+                    }
+                }
+            });
+        });
+
+    // Enviar os parâmetros preenchidos (e converter os campos monetários)
+    document.getElementById("form-parametros").addEventListener("submit", async function (e) {
+        e.preventDefault();
+
+        const dados = {};
+        const campos = document.querySelectorAll('#form-parametros input');
+
+        campos.forEach(campo => {
+            let valor = campo.value;
+
+            if (idsMonetarios.includes(campo.name)) {
+                valor = valor
+                    .replace(/[\R\$\s]/gi, '') // Remove R$, espaços
+                    .replace(/\./g, '')        // Remove milhar
+                    .replace(',', '.');        // Converte vírgula para ponto
+            }
+
+            dados[campo.name] = valor;
+        });
+
+        const resposta = await fetch('/salvar_parametros', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dados)
+        });
+
+        const resultado = await resposta.json();
+        if (resultado.status === 'ok') {
+            alert('Parâmetros salvos com sucesso!');
+        } else {
+            alert('Erro ao salvar os parâmetros.');
+        }
+    });
+});
+</script>
+{% endblock %}

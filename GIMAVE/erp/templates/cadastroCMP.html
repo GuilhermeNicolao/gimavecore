@@ -43,12 +43,11 @@
         }
 
         .form-container h2{
-            color: #218f0b;
+            color: #faab00;
             text-align: center;
             font-family: Arial, sans-serif;
             margin: 2px;
         }
-
 
 
         /* Alerta */
@@ -91,7 +90,7 @@
         .input-icon i{
             position:absolute;
             right: 10px;
-            top: 59%;
+            top: 55%;
             transform: translateY(-50%);
             color: #666;
             cursor: pointer;
@@ -152,6 +151,7 @@
         }
 
 
+
         /* Tabela Produtos */
         .tabela-produtos {
             width: 100%;
@@ -199,32 +199,32 @@
         }
 
 
-        /* Tabela Categoria */
-        .tabela-categorias {
+        /* Tabela Fornecedores */
+        .tabela-fornecedores {
             width: 100%;
             border-collapse: collapse;
         }
 
-        .tabela-categorias th, .tabela-categorias td {
+        .tabela-fornecedores th, .tabela-fornecedores td {
             padding: 8px 12px;
             text-align: left;
             font-size: 14px;
             border-bottom: 1px solid #ddd;
         }
 
-        .tabela-categorias th {
+        .tabela-fornecedores th {
             background-color: #cfcece;
             color: #333;
             text-align: center;
         }
 
-        .tabela-categorias tr:hover {
+        .tabela-fornecedores tr:hover {
             background-color: #f5f5f5;
             transform: scale(1.02);
             transition: all 0.3s ease;
         }
 
-        .tabela-categorias button {
+        .tabela-fornecedores button {
             padding: 6px 12px;
             margin: 2px;
             width: 180px;
@@ -236,11 +236,11 @@
             transition: background-color 0.2s ease;
         }
 
-        .tabela-categorias button:hover {
+        .tabela-fornecedores button:hover {
             background-color: #a5a5a5;
         }
 
-        .tabela-categorias td {
+        .tabela-fornecedores td {
             text-align: center;
             vertical-align: middle;
         }
@@ -270,14 +270,14 @@
         }
 
 
-        /* Lista de Categorias */
-        #lista-categorias {
+        /* Lista de Fornecedores */
+        #lista-fornecedores {
             list-style: none;
             padding: 0;
             margin: 0;
         }
 
-        #lista-categorias li {
+        #lista-fornecedores li {
             font-size: 12px;
             padding: 6px 10px;
             margin-bottom: 4px;
@@ -288,67 +288,10 @@
             cursor: pointer;
         }
 
-        #lista-categorias li:hover {
+        #lista-fornecedores li:hover {
             background-color: #eaeaea;
             transform: scale(1.02);
         }
-
-
-        /* Pop-up */
-        .popup {
-            display: none;
-            position: fixed;
-            z-index: 1001;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.6);
-            font-family: Arial, sans-serif;
-            transition: all 0.3s ease;
-        }
-
-        .popup-content {
-            position: relative;
-            background-color: #f2f2f2;
-            margin: 50px auto;
-            padding: 25px;
-            width: 40%;
-            max-height: 80vh;
-            border-radius: 8px;
-            box-shadow: 0 6px 25px rgba(0, 0, 0, 0.2);
-            text-align: center;
-        }
-
-        .popup button {
-            padding: 10px 20px;
-            font-size: 16px;
-            margin-top: 15px;
-            background-color: #646363;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-
-        .popup button:hover {
-            background-color: #555555;
-        }
-
-
-        /* Modal de Edição */
-        #modal-editar .modal-content {
-            width: 400px;
-        }
-
-        #modal-editar input {
-            width: 100%;
-            padding: 10px;
-            margin-top: 10px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-        }
-
 
 
         /* Autocomplete */
@@ -386,32 +329,56 @@
     {% endif %}
 {% endwith %}
 
-<!--Formulário de Cadastro de Produtos-->
+<!--Formulário de cadastro de orçamentos-->
 <div class="form-container">
-    <h2>Cadastro de Produtos</h2>
-    <form action="{{ url_for('cadastrar_produto') }}" method="POST" autocomplete="off">
-        
-        <label for="nome">Nome do Produto *</label>
+    <h2>Cadastro de Orçamentos</h2>
+    <form action="{{ url_for('cadastrar') }}" method="POST" autocomplete="off">
+        <label for="data">Data *</label>
+        <input type="date" id="data" name="data" required>
+
+        <label for="nome">Produto *</label>
         <div class="input-icon">
-            <input type="text" id="nome" name="nome" required placeholder="Digite o nome do produto">
-            <input type="hidden" id="produto_id" name="produto_id">
+            <input type="text" id="nome" required placeholder="Digite ou clique na lupa" oninput="limparProdutoID()">
+            <input type="hidden" name="produto_id" id="produto_id" required>
             <i class="fa fa-search" onclick="abrirModalProdutos()"></i>
-            <div id="sugestoes-produto" class="autocomplete-box" style="display: none;"></div>
+            <div id="sugestoes-produto" class="autocomplete-box"></div>
         </div>
 
-        <label for="categoria_nome">Categoria *</label>
+        <label for="fornecedor_nome">Fornecedor *</label>
         <div class="input-icon">
-            <input type="text" id="categoria_nome" required placeholder="Digite ou clique na lupa" oninput="limparCategoriaID()">
-            <input type="hidden" name="categoria_id" id="categoria_id" required>
-            <div id="sugestoes-categoria" class="autocomplete-box"></div>
-            <i class="fa fa-search" onclick="abrirModalCategorias()"></i>
+            <input type="text" id="fornecedor_nome" required placeholder="Digite ou clique na lupa" oninput="limparFornecedorCNPJ()">
+            <input type="hidden" name="fornecedor_cnpj" id="fornecedor_cnpj" required>
+            <div id="sugestoes-fornecedor" class="autocomplete-box"></div>
+            <i class="fa fa-search" onclick="abrirModalFornecedores()"></i>
         </div>
+        
+        <label for="valor">Valor *</label>
+        <input type="text" id="valor" name="valor" placeholder="0,00" required>
 
-        <label for="descricao">Descrição</label>
-        <textarea id="descricao" name="descricao" style="height: 120px; width: 100%;" placeholder="Detalhes adicionais..."></textarea>
+        <label for="observacao">Observação</label>
+        <textarea id="observacao" name="observacao" style="height: 120px; width: 100%;" rows="4"></textarea>
 
         <button type="submit"><b>CADASTRAR</b></button>
     </form>
+</div>
+
+<!--Modal de fornecedores-->
+<div id="modal-fornecedores" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="fecharModalFornecedores()">&times;</span>
+        <h2>Fornecedores Cadastrados</h2>
+        <table class="tabela-fornecedores">
+            <thead>
+                <tr>
+                    <th>Descrição</th>
+                    <th>Ação</th>
+                </tr>
+            </thead>
+            <tbody id="lista-fornecedores">
+                <!-- Preenchido via JavaScript -->
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <!--Modal de produtos-->
@@ -433,64 +400,29 @@
     </div>
 </div>
 
-<!--Modal de Edição do Produto -->
-<div id="modal-editar" class="modal">
-    <div class="modal-content">
-        <span class="close" onclick="fecharModalEditar()">&times;</span>
-        <h2>Editar Produto</h2>
-        <form id="form-editar-produto">
-            <label for="novo-nome">Nova Descrição *</label>
-            <input type="text" id="novo-nome" name="novo-nome" required placeholder="Digite o novo produto">
-            <button type="submit"><b>OK</b></button>
-        </form>
-    </div>
-</div>
-
-<!--Pop-up de Sucesso para Alteração -->
-<div id="popup-alteracao" class="popup">
-    <div class="popup-content">
-        <p>Alteração realizada!</p>
-        <button onclick="fecharPopup('popup-alteracao')">Ok</button>
-    </div>
-</div>
-
-<!--Pop-up de Confirmação de Exclusão -->
-<div id="popup-exclusao" class="popup">
-    <div class="popup-content">
-        <p><b>Deseja mesmo excluir esta categoria?</b></p>
-        <button onclick="confirmarExclusao()">Sim</button>
-        <button onclick="fecharPopup('popup-exclusao')">Não</button>
-    </div>
-</div>
-
-
-
-<!--Modal de categorias-->
-<div id="modal-categorias" class="modal">
-    <div class="modal-content">
-        <span class="close" onclick="fecharModalCategorias()">&times;</span>
-        <h2>Categorias Cadastradas</h2>
-        <table class="tabela-categorias">
-            <thead>
-                <tr>
-                    <th>Descrição</th>
-                    <th>Ação</th>
-                </tr>
-            </thead>
-            <tbody id="lista-categorias">
-                <!-- Preenchido via JavaScript -->
-            </tbody>
-        </table>
-    </div>
-</div>
-
 {% endblock %}
 
 {% block scripts %}
 
+
 <script src="https://unpkg.com/imask"></script>
 
 <script>
+    // Máscara R$
+    const camposFormatar = ['valor']
+    camposFormatar.forEach(id => {
+    const campo = document.getElementById(id);
+    if (campo) {
+        campo.addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            value = (value / 100).toFixed(2) + '';
+            value = value.replace(".", ",");
+            value = value.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
+            e.target.value = "R$ " + value;
+        });
+    }
+});
+
     // Abrir lista de Produtos
     function abrirModalProdutos() {
         fetch('/api/produtos')
@@ -498,13 +430,12 @@
             .then(data => {
                 const lista = document.getElementById('lista-produtos');
                 lista.innerHTML = '';
-                data.forEach(cat => {
+                data.forEach(p => {
                     const row = document.createElement('tr');
                     row.innerHTML = `
-                        <td>${cat.nome}</td>
+                        <td>${p.nome}</td>
                         <td>
-                            <button onclick="abrirModalEditar(${cat.id_produto}, '${cat.nome}')">Editar</button>
-                            <button onclick="excluirProduto(${cat.id_produto})">Excluir</button>
+                            <button onclick="selecionarProduto('${p.id_produto}', '${p.nome}')">Selecionar</button>
                         </td>
                     `;
                     lista.appendChild(row);
@@ -519,87 +450,16 @@
         document.getElementById('modal-produtos').style.display = 'none';
     }
 
-   // Exibir modal de edição de produtos
-   function abrirModalEditar(id, nomeAtual) {
-        document.getElementById('modal-editar').style.display = 'block';
-        document.getElementById('novo-nome').value = nomeAtual; 
-        document.getElementById('form-editar-produto').onsubmit = function(event) {
-            event.preventDefault();
-            editarProduto(id); // Chama a função de editar ao submeter o formulário
-        };
+    // Selecionar Produtos
+    function selecionarProduto(id, nome) {
+        document.getElementById('produto_id').value = id;
+        document.getElementById('nome').value = nome;
+        document.getElementById('modal-produtos').style.display = 'none';
     }
 
-    // Fechar modal de edição
-    function fecharModalEditar() {
-        document.getElementById('modal-editar').style.display = 'none';
-    }
-
-    // Editar produto
-    function editarProduto(id) {
-        const novoNome = document.getElementById('novo-nome').value.trim();
-        if (novoNome === "") return;
-
-        fetch(`/api/produtos/${id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nome: novoNome })
-        })
-        .then(response => {
-            if (response.ok) {
-                fecharModalEditar(); 
-                abrirModalProdutos(); 
-                mostrarPopupAlteracao(); 
-            } else {
-                alert("Erro ao editar produto.");
-            }
-        });
-    }
-
-    // Exibir pop-up de alteração realizada
-    function mostrarPopupAlteracao() {
-        document.getElementById('popup-alteracao').style.display = 'block';
-    }
-
-    // Excluir produto
-    function excluirProduto(id) {
-        mostrarPopupExclusao(id); // Exibe o pop-up de confirmação
-    }
-
-    // Exibir pop-up de exclusão
-    function mostrarPopupExclusao(id) {
-        document.getElementById('popup-exclusao').style.display = 'block';
-        document.getElementById('popup-exclusao').dataset.idProduto = id;
-    }
-
-    // Confirmar exclusão
-    function confirmarExclusao() {
-        const idProduto = document.getElementById('popup-exclusao').dataset.idProduto;
-
-        fetch(`/api/produtos/${idProduto}`, { method: 'DELETE' })
-            .then(response => {
-                if (response.ok) {
-                    abrirModalProdutos(); 
-                    mostrarPopupExclusaoSucesso();
-                    fecharPopup('popup-exclusao');
-                } else {
-                    alert("Erro ao excluir produto.");
-                }
-            });
-    }
-
-    // Fechar qualquer pop-up
-    function fecharPopup(popupId) {
-        document.getElementById(popupId).style.display = 'none';
-    }
-
-    // Exibir pop-up de exclusão com sucesso
-    function mostrarPopupExclusaoSucesso() {
-        alert("Produto excluído com sucesso!");
-    }
-
-    // Fechar pop-up de exclusão
-    function fecharModalExcluir() {
-        document.getElementById('popup-exclusao').style.display = 'none';
+    // Limpar ID ao digitar manualmente
+    function limparProdutoID() {
+        document.getElementById('produto_id').value = '';
     }
 
     // Autocomplete
@@ -652,95 +512,93 @@
 
 
 
-    // Abrir lista de categorias
-    function abrirModalCategorias() {
-        fetch('/api/categorias')
+    // Abrir lista de Fornecedores
+    function abrirModalFornecedores() {
+        fetch('/api/fornecedores')
             .then(response => response.json())
             .then(data => {
-                const lista = document.getElementById('lista-categorias');
+                const lista = document.getElementById('lista-fornecedores');
                 lista.innerHTML = '';
-                data.forEach(cat => {
+                data.forEach(f => {
                     const row = document.createElement('tr');
                     row.innerHTML = `
-                        <td>${cat.descricao}</td>
+                        <td>${f.razao_social}</td>
                         <td>
-                            <button onclick="selecionarCategoria('${cat.id_categoria}', '${cat.descricao}')">Selecionar</button>
+                            <button onclick="selecionarFornecedor('${f.cnpj}', '${f.razao_social}')">Selecionar</button>
                         </td>
                     `;
                     lista.appendChild(row);
                 });
-                document.getElementById('modal-categorias').style.display = 'block';
+                document.getElementById('modal-fornecedores').style.display = 'block';
             })
-            .catch(err => console.error("Erro ao carregar categorias:", err));
+            .catch(err => console.error("Erro ao carregar fornecedores:", err));
     }
 
-    // Fechar lista de categorias
-    function fecharModalCategorias() {
-        document.getElementById('modal-categorias').style.display = 'none';
+    // Fechar lista de Fornecedores
+    function fecharModalFornecedores() {
+        document.getElementById('modal-fornecedores').style.display = 'none';
     }
 
-    // Selecionar categoria
-    function selecionarCategoria(id, descricao) {
-        document.getElementById('categoria_nome').value = descricao; // campo visível
-        document.getElementById('categoria_id').value = id; // campo oculto
-        fecharModalCategorias();
+    // Selecionar Fornecedor
+    function selecionarFornecedor(cnpj, razao_social) {
+        document.getElementById('fornecedor_nome').value = razao_social; // campo visível
+        document.getElementById('fornecedor_cnpj').value = cnpj; // campo oculto
+        fecharModalFornecedores();
     }
 
-    // Limpar ID ao digitar manualmente
-    function limparCategoriaID() {
-        document.getElementById('categoria_id').value = '';
+    // Limpar CNPJ ao digitar manualmente
+    function limparFornecedorCNPJ() {
+        document.getElementById('fornecedor_cnpj').value = '';
     }
 
     // Autocomplete
     document.addEventListener('DOMContentLoaded', function () {
-    const input = document.getElementById('categoria_nome');
-    const sugestoesBox = document.getElementById('sugestoes-categoria');
-    const hiddenInput = document.getElementById('categoria_id');
+        const input = document.getElementById('fornecedor_nome');
+        const sugestoesBox = document.getElementById('sugestoes-fornecedor');
+        const hiddenInput = document.getElementById('fornecedor_cnpj');
 
-    input.addEventListener('input', function () {
-        const termo = this.value.trim();
-        hiddenInput.value = ''; // limpa o id ao alterar o nome
+        input.addEventListener('input', function () {
+            const termo = this.value.trim();
+            hiddenInput.value = ''; // Limpa o CNPJ ao digitar
 
-        if (termo.length < 1) {
-            sugestoesBox.innerHTML = '';
-            sugestoesBox.style.display = 'none';
-            return;
-        }
-
-        fetch(`/categorias_sugestoes?q=${encodeURIComponent(termo)}`)
-            .then(response => response.json())
-            .then(dados => {
+            if (termo.length < 1) {
                 sugestoesBox.innerHTML = '';
-                if (dados.length > 0) {
-                    dados.forEach(item => {
-                        const div = document.createElement('div');
-                        div.textContent = item.descricao;
-                        div.classList.add('sugestao-item');
-                        div.addEventListener('click', () => {
-                            input.value = item.descricao;
-                            hiddenInput.value = item.id_categoria;
-                            sugestoesBox.innerHTML = '';
-                            sugestoesBox.style.display = 'none';
-                        });
-                        sugestoesBox.appendChild(div);
-                    });
-                    sugestoesBox.style.display = 'block';
-                } else {
-                    sugestoesBox.style.display = 'none';
-                }
-            });
-    });
+                sugestoesBox.style.display = 'none';
+                return;
+            }
 
-    // Fecha sugestões se clicar fora
-    document.addEventListener('click', function (e) {
-        if (!input.contains(e.target) && !sugestoesBox.contains(e.target)) {
-            sugestoesBox.innerHTML = '';
-            sugestoesBox.style.display = 'none';
-        }
+            fetch(`/fornecedores_sugestoes?q=${encodeURIComponent(termo)}`)
+                .then(response => response.json())
+                .then(dados => {
+                    sugestoesBox.innerHTML = '';
+                    if (dados.length > 0) {
+                        dados.forEach(item => {
+                            const div = document.createElement('div');
+                            div.textContent = item.razao_social;
+                            div.classList.add('sugestao-item');
+                            div.addEventListener('click', () => {
+                                input.value = item.razao_social;
+                                hiddenInput.value = item.cnpj;
+                                sugestoesBox.innerHTML = '';
+                                sugestoesBox.style.display = 'none';
+                            });
+                            sugestoesBox.appendChild(div);
+                        });
+                        sugestoesBox.style.display = 'block';
+                    } else {
+                        sugestoesBox.style.display = 'none';
+                    }
+                });
+        });
+
+        document.addEventListener('click', function (e) {
+            if (!input.contains(e.target) && !sugestoesBox.contains(e.target)) {
+                sugestoesBox.innerHTML = '';
+                sugestoesBox.style.display = 'none';
+            }
+        });
     });
-});
 
 
 </script>
 {% endblock %}
-

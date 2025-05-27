@@ -2,7 +2,8 @@
 
 {% block head_extra %}
 <style>
-    .menu-container {
+        
+        .menu-container {
             background-color: white;
             padding: 40px;
             border-radius: 12px;
@@ -32,7 +33,8 @@
         .menu-button:hover {
             background-color: #585858;
         }
-               .alert-container {
+
+        .alert-container {
             margin-top: 20px;
             text-align: center;
         }
@@ -73,7 +75,7 @@
 {% block content %}
     <h2 style="text-align: center; margin-top: 50px;">Bem vindo, usuário!</h2>
 
-            <!-- Alert de Acesso Restrito -->
+    <!-- Alert de Acesso Restrito -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             <div class="alert-container">

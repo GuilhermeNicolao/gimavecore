@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+
+{% block head_extra %}
+<style>
+    .usuario-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 30px;
+    max-width: 400px;
+    }
+
+    .usuario-form input,
+    .usuario-form select,
+    .usuario-form button {
+        padding: 10px;
+        font-size: 16px;
+    }
+
+    .usuario-form button {
+        background-color: #333;
+        color: white;
+        border: none;
+        cursor: pointer;
+    }
+
+    .usuario-form button:hover {
+        background-color: #7a7a7a;
+    }
+
+    .usuario-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .usuario-table th,
+    .usuario-table td {
+        border: 1px solid #ccc;
+        padding: 10px;
+        text-align: left;
+    }
+
+    .usuario-table th {
+        background-color: #f2f2f2;
+    }
+
+    .usuario-table button {
+        padding: 5px 10px;
+        background-color: #dc3545;
+        color: white;
+        border: none;
+        cursor: pointer;
+    }
+
+    .usuario-table button:hover {
+        background-color: #c82333;
+    }
+
+</style>
+{% endblock %}
+
+{% block content %}
+<h2>Gerenciar Usuários</h2>
+<form method="POST" class="usuario-form">
+    <input type="text" name="nome" placeholder="Nome completo" required>
+    <input type="text" name="username" placeholder="Usuário" required>
+    <input type="password" name="senha" placeholder="Senha" required>
+    <select name="nivel" required>
+        <option value="">Nível de Acesso</option>
+        <option value="USER">USER</option>
+        <option value="ADMIN">ADMIN</option>
+    </select>
+    <button type="submit">Cadastrar</button>
+</form>
+
+<table class="usuario-table">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Nome</th>
+            <th>Usuário</th>
+            <th>Nível</th>
+            <th>Ações</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for u in usuarios %}
+        <tr>
+            <td>{{ u[0] }}</td>
+            <td>{{ u[1] }}</td>
+            <td>{{ u[2] }}</td>
+            <td>{{ u[3] }}</td>
+            <td>
+                <form method="POST" action="{{ url_for('excluir_usuario', user_id=u[0]) }}" onsubmit="return confirm('Tem certeza que deseja excluir este usuário?')">
+                    <button type="submit">Excluir</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

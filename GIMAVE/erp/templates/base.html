@@ -85,11 +85,12 @@
 <div class="sidenav">
     <div style="display: flex; flex-direction: column; height: 99%;">
         <a href="{{ url_for('menu_principal') }}">Home</a>
+
+        {% if 'COMPRAS' in session['modulos'] %}
         <div class="dropdown">
             <div class="dropdown-btn">Compras (2)</div>
             <div class="dropdown-container">
-                
-                <!-- Submenu Cadastros -->
+
                 <div class="dropdown">
                     <div class="dropdown-btn">Cadastros (4)</div>
                     <div class="dropdown-container">
@@ -100,7 +101,6 @@
                     </div>
                 </div>
 
-                <!-- Submenu Orçamentos -->
                 <div class="dropdown">
                     <div class="dropdown-btn">Orçamentos (2)</div>
                     <div class="dropdown-container">
@@ -110,15 +110,31 @@
                 </div>
             </div>
         </div>
+        {% endif %}
 
+        {% if 'COMERCIAL' in session['modulos'] or 'COMERCIALGESTOR' in session['modulos'] %}
         <!-- Menu Comercial -->
         <div class="dropdown">
             <div class="dropdown-btn">Comercial (2)</div>
             <div class="dropdown-container">
-                <a href="{{ url_for('homecomercial') }}">Home</a>
-                <a href="{{ url_for('parametros') }}">Parâmetros</a>
+                <a href="{{ url_for('homecomercial') }}">Simulação Elo</a>
+
+                {%if 'COMERCIALGESTOR' in session['modulos']%}
+                <a href="{{ url_for('parametros') }}">Parâmetros Comerciais</a>
+                {% endif %}
             </div>
         </div>
+        {% endif %}
+
+        {% if session['nivel'] == 'ADMIN' %}
+        <div class="dropdown">
+            <div class="dropdown-btn">Admin (2)</div>
+            <div class="dropdown-container">
+                <a href="{{ url_for('listar_usuarios_acessos')}}">Acessos Módulos</a>
+                <a href="{{ url_for('reg_usuarios')}}">Gerenciar Usuários</a>
+            </div>
+        </div>
+        {% endif %}
 
         <form action="{{ url_for('logout') }}" method="POST" style="margin-top: auto; padding: 15px;">
             <button type="submit" style="width: 100%; padding: 10px; background-color: #333333; color: white; border: none; cursor: pointer; font-size: 17px; font-family: Calibri;">
@@ -130,7 +146,8 @@
 
 <!-- Conteúdo principal -->
 <div class="main">
-    {% block content %}{% endblock %}
+    {% block content %}
+    {% endblock %}
 </div>
 
 {% block scripts %}{% endblock %}
