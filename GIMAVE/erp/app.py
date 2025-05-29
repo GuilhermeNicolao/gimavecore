@@ -1,11 +1,14 @@
-from flask import Flask, render_template, request, redirect, flash, jsonify, url_for, session
-from mysql.connector import Error
+from flask import Flask, render_template, request, redirect, flash, jsonify, url_for, session, send_file
+from reportlab.lib.pagesizes import A4, landscape
 from collections import defaultdict
+from reportlab.pdfgen import canvas
+from mysql.connector import Error
+from datetime import timedelta
 from dotenv import load_dotenv
 from datetime import datetime
-from datetime import timedelta
 from decimal import Decimal
 from functools import wraps
+from io import BytesIO
 import mysql.connector
 import bcrypt
 import os
@@ -220,7 +223,7 @@ def listar_usuarios_acessos():
 def gerenciar_modulos(user_id):
     if session.get('nivel') != 'ADMIN':
         flash('Você não tem permissão para acessar esta página.', 'danger')
-        return redirect(url_for('menu_principal'))  # Redireciona para a home comercial
+        return redirect(url_for('menu_principal'))  
 
     modulos_disponiveis = ['COMPRAS', 'COMERCIALGESTOR' , 'COMERCIAL']
 
@@ -261,40 +264,22 @@ def menu_principal():
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
     return render_template('homepage.html')
-
-# Homepage | Orçamento Compras
-@app.route('/home')
-@modulo_requerido('COMPRAS')
-def homecompras():
-    if 'username' not in session:
-        flash('Você precisa estar logado para acessar esta página.', 'warning')
-        return redirect(url_for('login'))
-    return render_template('home_fin.html')
-
-# Homepage | Viabilidade Comercial - Elo
-@app.route('/home_com')
-@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
-def homecomercial():
-    if 'username' not in session:
-        flash('Você precisa estar logado para acessar esta página.', 'warning')
-        return redirect(url_for('login'))
-    return render_template('simulacaoCOM.html')
 #-------------------------------------------------------#
 
 
 # ----------ROTAS ORÇAMENTO COMPRAS---------------------#
 #Rotas de cadastro de fornecedores
-@app.route('/fornecedores')
+@app.route('/fornecedoresCMP')
 @modulo_requerido('COMPRAS')
-def fornecedores_form():
+def fornecedoresCMP():
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
     return render_template('fornecedoresCMP.html')
 
-@app.route('/api/fornecedores')
+@app.route('/api/fornecedoresCMP')
 @modulo_requerido('COMPRAS')
-def listar_fornecedores():
+def listar_fornecedoresCMP():
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
@@ -307,9 +292,9 @@ def listar_fornecedores():
     conn.close()
     return jsonify(fornecedores)
 
-@app.route('/cadastrar_fornecedor', methods=['POST'])
+@app.route('/cadastrar_fornecedorCMP', methods=['POST'])
 @modulo_requerido('COMPRAS')
-def cadastrar_fornecedor():
+def cadastrar_fornecedorCMP():
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
@@ -325,68 +310,76 @@ def cadastrar_fornecedor():
         # Validação simples
         if not cnpj or not razao_social or not rua or not numero or not cep:
             flash('Preencha todos os campos obrigatórios!', 'erro')
-            return redirect('/fornecedores')
+            return redirect('/fornecedoresCMP')
 
-        with mysql.connector.connect(**db_config) as conn:
-            with conn.cursor() as cursor:
-                # Verifica duplicidade de CNPJ
-                cursor.execute("SELECT COUNT(*) FROM fornecedores_cmp WHERE cnpj = %s", (cnpj,))
-                if cursor.fetchone()[0] > 0:
-                    flash("Já existe um fornecedor com esse CNPJ.", "erro")
-                    return redirect('/fornecedores')
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor(dictionary=True)
 
-                # Verifica duplicidade de razão social
-                cursor.execute("SELECT COUNT(*) FROM fornecedores_cmp WHERE LOWER(TRIM(razao_social)) = LOWER(%s)", (razao_social,))
-                if cursor.fetchone()[0] > 0:
-                    flash("Já existe um fornecedor com essa razão social.", "erro")
-                    return redirect('/fornecedores')
+        # Verifica duplicidade de CNPJ
+        cursor.execute("SELECT COUNT(*) AS total FROM fornecedores_cmp WHERE cnpj = %s", (cnpj,))
+        if int(cursor.fetchone()['total']) > 0:
+            flash("Já existe um fornecedor com esse CNPJ.", "erro")
+            return redirect('/fornecedoresCMP')
 
-                # Inserção
-                query = """
-                    INSERT INTO fornecedores_cmp (cnpj, razao_social, rua, numero, cep)
-                    VALUES (%s, %s, %s, %s, %s)
-                """
-                cursor.execute(query, (cnpj, razao_social, rua, numero, cep))
-                conn.commit()
+        # Verifica duplicidade de razão social
+        cursor.execute("SELECT COUNT(*) AS total FROM fornecedores_cmp WHERE LOWER(TRIM(razao_social)) = LOWER(%s)", (razao_social,))
+        if cursor.fetchone()['total'] > 0:
+            flash("Já existe um fornecedor com essa razão social.", "erro")
+            return redirect('/fornecedoresCMP')
+
+        # Inserção
+        query = """
+            INSERT INTO fornecedores_cmp (cnpj, razao_social, rua, numero, cep)
+            VALUES (%s, %s, %s, %s, %s)
+        """
+        cursor.execute(query, (cnpj, razao_social, rua, numero, cep))
+        conn.commit()
 
         flash('Fornecedor cadastrado com sucesso!', 'sucesso')
-        return redirect('/fornecedores')
+        return redirect('/fornecedoresCMP')
 
     except mysql.connector.Error as err:
         flash(f'Erro ao inserir os dados: {err}', 'erro')
-        return redirect('/fornecedores')
+        return redirect('/fornecedoresCMP')
+    
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
-@app.route('/api/fornecedores/<int:id>', methods=['PUT'])
+@app.route('/api/fornecedoresCMP/<int:id>', methods=['PUT'])
 @modulo_requerido('COMPRAS')
-def editar_fornecedores(id):
+def editar_fornecedoresCMP(id):
     novo_nome = request.json.get('nome', '').strip()
 
     if not novo_nome:
         return jsonify({'erro': 'Nome não pode estar vazio'}), 400
 
     try:
-        with mysql.connector.connect(**db_config) as conn:
-            with conn.cursor() as cursor:
-                # Verifica se razão social já está sendo usada por outro fornecedor
-                cursor.execute("""
-                    SELECT COUNT(*) FROM fornecedores_cmp 
-                    WHERE LOWER(TRIM(razao_social)) = LOWER(%s) AND cnpj != %s
-                """, (novo_nome, id))
-                if cursor.fetchone()[0] > 0:
-                    return jsonify({'erro': 'Já existe outro fornecedor com essa razão social.'}), 400
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor(dictionary=True)
 
-                # Atualiza a razão social
-                cursor.execute("UPDATE fornecedores_cmp SET razao_social = %s WHERE cnpj = %s", (novo_nome, id))
-                conn.commit()
+        # Verifica se razão social já está sendo usada por outro fornecedor
+        cursor.execute("""
+            SELECT COUNT(*) AS total FROM fornecedores_cmp 
+            WHERE LOWER(TRIM(razao_social)) = LOWER(%s) AND cnpj != %s
+        """, (novo_nome, id))
+        if cursor.fetchone()['total'] > 0:
+            return jsonify({'erro': 'Já existe outro fornecedor com essa razão social.'}), 400
+
+        # Atualiza a razão social
+        cursor.execute("UPDATE fornecedores_cmp SET razao_social = %s WHERE cnpj = %s", (novo_nome, id))
+        conn.commit()
 
         return jsonify({'sucesso': True})
 
     except mysql.connector.Error as err:
         return jsonify({'erro': str(err)}), 500
 
-@app.route('/api/fornecedores/<int:id>', methods=['DELETE'])
+@app.route('/api/fornecedoresCMP/<int:id>', methods=['DELETE'])
 @modulo_requerido('COMPRAS')
-def excluir_fornecedores(id):
+def excluir_fornecedoresCMP(id):
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor()
     cursor.execute("DELETE FROM fornecedores_cmp WHERE cnpj = %s", (id,))
@@ -395,9 +388,9 @@ def excluir_fornecedores(id):
     conn.close()
     return jsonify({'sucesso': True})
 
-@app.route('/fornecedores_sugestoes')
+@app.route('/fornecedoresCMP_sugestoes')
 @modulo_requerido('COMPRAS')
-def fornecedores_sugestoes():
+def fornecedoresCMP_sugestoes():
     termo = request.args.get('q', '').strip()
 
     conn = mysql.connector.connect(**db_config)
@@ -411,17 +404,17 @@ def fornecedores_sugestoes():
 
 
 #Rotas Produtos
-@app.route('/produtos')
+@app.route('/produtosCMP')
 @modulo_requerido('COMPRAS')
-def produtos_form():
+def produtosCMP():
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
     return render_template('produtosCMP.html')
 
-@app.route('/cadastrar_produto', methods=['POST'])
+@app.route('/cadastrar_produtoCMP', methods=['POST'])
 @modulo_requerido('COMPRAS')
-def cadastrar_produto():
+def cadastrar_produtoCMP():
     try:
         nome = request.form['nome'].strip()
         categoria_id = request.form['categoria_id'].strip()
@@ -429,47 +422,53 @@ def cadastrar_produto():
 
         if not nome or not categoria_id:
             flash('Preencha todos os campos obrigatórios!', 'erro')
-            return redirect('/produtos')
+            return redirect('/produtosCMP')
 
-        with mysql.connector.connect(**db_config) as conn:
-            with conn.cursor() as cursor:
-                # Verifica se a categoria existe
-                cursor.execute("SELECT COUNT(*) FROM categorias_cmp WHERE id_categoria = %s", (categoria_id,))
-                if cursor.fetchone()[0] == 0:
-                    flash("Categoria não encontrada. Por favor, selecione uma válida.", "erro")
-                    return redirect('/produtos')
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor(dictionary=True)
+        
+        # Verifica se a categoria existe
+        cursor.execute("SELECT COUNT(*) AS total FROM categorias_cmp WHERE id_categoria = %s", (categoria_id,))
+        if int(cursor.fetchone()['total']) == 0:
+            flash("Categoria não encontrada. Por favor, selecione uma válida.", "erro")
+            return redirect('/produtosCMP')
 
-                # Verifica se já existe produto com o mesmo nome, categoria e fornecedor
-                query_verifica = """
-                    SELECT COUNT(*) FROM produtos_cmp 
-                    WHERE LOWER(TRIM(nome)) = LOWER(%s)
-                    AND categoria_id = %s
-                """
-                cursor.execute(query_verifica, (nome, categoria_id))
-                (existe,) = cursor.fetchone()
+        # Verifica se já existe produto com o mesmo nome, categoria e fornecedor
+        query_verifica = """
+            SELECT COUNT(*) AS total FROM produtos_cmp 
+            WHERE LOWER(TRIM(nome)) = LOWER(%s)
+            AND categoria_id = %s
+        """
+        cursor.execute(query_verifica, (nome, categoria_id))
 
-                if existe > 0:
-                    flash("Produto já cadastrado com esses dados!", "erro")
-                    return redirect('/produtos')
+        if int(cursor.fetchone()['total']) > 0:
+            flash("Produto já cadastrado com esses dados!", "erro")
+            return redirect('/produtosCMP')
 
-                # Inserção
-                query = """
-                    INSERT INTO produtos_cmp (nome, categoria_id, descricao)
-                    VALUES (%s, %s, %s)
-                """
-                cursor.execute(query, (nome, categoria_id, descricao))
-                conn.commit()
+        # Inserção
+        query = """
+            INSERT INTO produtos_cmp (nome, categoria_id, descricao)
+            VALUES (%s, %s, %s)
+        """
+        cursor.execute(query, (nome, categoria_id, descricao))
+        conn.commit()
 
         flash('Produto cadastrado com sucesso!', 'sucesso')
-        return redirect('/produtos')
+        return redirect('/produtosCMP')
 
     except mysql.connector.Error as err:
         flash(f'Erro ao inserir os dados: {err}', 'erro')
-        return redirect('/produtos')
+        return redirect('/produtosCMP')
+    
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
-@app.route('/api/produtos')
+@app.route('/api/produtosCMP')
 @modulo_requerido('COMPRAS')
-def listar_produtos():
+def listar_produtosCMP():
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor(dictionary=True)
     cursor.execute("SELECT id_produto, nome FROM produtos_cmp ORDER BY nome")
@@ -478,50 +477,51 @@ def listar_produtos():
     conn.close()
     return jsonify(produtos)
 
-@app.route('/api/produtos/<int:id>', methods=['PUT'])
+@app.route('/api/produtosCMP/<int:id>', methods=['PUT'])
 @modulo_requerido('COMPRAS')
-def editar_produtos(id):
+def editar_produtosCMP(id):
     novo_nome = request.json.get('nome', '').strip()
 
     if not novo_nome:
         return jsonify({'erro': 'Nome não pode estar vazio'}), 400
 
     try:
-        with mysql.connector.connect(**db_config) as conn:
-            with conn.cursor(dictionary=True) as cursor:
-                # Obtém os dados atuais do produto
-                cursor.execute("SELECT categoria_id FROM produtos_cmp WHERE id_produto = %s", (id,))
-                produto = cursor.fetchone()
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor(dictionary=True)
 
-                if not produto:
-                    return jsonify({'erro': 'Produto não encontrado'}), 404
+        # Obtém os dados atuais do produto
+        cursor.execute("SELECT categoria_id FROM produtos_cmp WHERE id_produto = %s", (id,))
+        produto = cursor.fetchone()
 
-                categoria_id = produto['categoria_id']
+        if not produto:
+            return jsonify({'erro': 'Produto não encontrado'}), 404
 
-                # Verifica se já existe outro produto com o mesmo nome/categoria/fornecedor
-                query_verifica = """
-                    SELECT COUNT(*) FROM produtos_cmp
-                    WHERE LOWER(TRIM(nome)) = LOWER(%s)
-                    AND categoria_id = %s
-                    AND id_produto != %s
-                """
-                cursor.execute(query_verifica, (novo_nome, categoria_id, id))
-                (existe,) = cursor.fetchone().values()
+        categoria_id = produto['categoria_id']
 
-                if existe > 0:
-                    return jsonify({'erro': 'Já existe outro produto com esse nome, categoria e fornecedor.'}), 400
+        # Verifica se já existe outro produto com o mesmo nome/categoria/fornecedor
+        query_verifica = """
+            SELECT COUNT(*) FROM produtos_cmp
+            WHERE LOWER(TRIM(nome)) = LOWER(%s)
+            AND categoria_id = %s
+            AND id_produto != %s
+        """
+        cursor.execute(query_verifica, (novo_nome, categoria_id, id))
+        (existe,) = cursor.fetchone().values()
 
-                cursor.execute("UPDATE produtos_cmp SET nome = %s WHERE id_produto = %s", (novo_nome, id))
-                conn.commit()
+        if existe > 0:
+            return jsonify({'erro': 'Já existe outro produto com esse nome, categoria e fornecedor.'}), 400
+
+        cursor.execute("UPDATE produtos_cmp SET nome = %s WHERE id_produto = %s", (novo_nome, id))
+        conn.commit()
 
         return jsonify({'sucesso': True})
 
     except mysql.connector.Error as err:
         return jsonify({'erro': str(err)}), 500
 
-@app.route('/api/produtos/<int:id>', methods=['DELETE'])
+@app.route('/api/produtosCMP/<int:id>', methods=['DELETE'])
 @modulo_requerido('COMPRAS')
-def excluir_produtos(id):
+def excluir_produtosCMP(id):
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor()
     cursor.execute("DELETE FROM produtos_cmp WHERE id_produto = %s", (id,))
@@ -530,9 +530,9 @@ def excluir_produtos(id):
     conn.close()
     return jsonify({'sucesso': True})
 
-@app.route('/produtos_sugestoes')
+@app.route('/produtosCMP_sugestoes')
 @modulo_requerido('COMPRAS')
-def produtos_sugestoes():
+def produtosCMP_sugestoes():
     termo = request.args.get('q', '').strip()
     
     conn = mysql.connector.connect(**db_config)
@@ -550,25 +550,25 @@ def produtos_sugestoes():
 
 
 #Rotas Categorias
-@app.route('/categorias')
+@app.route('/categoriasCMP')
 @modulo_requerido('COMPRAS')
-def categorias_form():
+def categoriasCMP():
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
     return render_template('categoriasCMP.html')
 
-@app.route('/cadastrar_categoria', methods=['POST'])
+@app.route('/cadastrar_categoriaCMP', methods=['POST'])
 @modulo_requerido('COMPRAS')
-def cadastrar_categoria():
+def cadastrar_categoriaCMP():
     try:
         descricao = request.form['descricao'].strip()
 
         if not descricao:
             flash('Preencha o campo de descrição!', 'erro')
-            return redirect('/categorias')
+            return redirect('/categoriasCMP')
 
-        # Conexão com o banco
+        
         conn = mysql.connector.connect(**db_config)
         cursor = conn.cursor()
 
@@ -582,7 +582,7 @@ def cadastrar_categoria():
             flash('Categoria já cadastrada!', 'erro')
             cursor.close()
             conn.close()
-            return redirect('/categorias')
+            return redirect('/categoriasCMP')
 
 
         query = "INSERT INTO categorias_cmp (descricao) VALUES (%s)"
@@ -592,15 +592,15 @@ def cadastrar_categoria():
         conn.close()
 
         flash('Categoria cadastrada com sucesso!', 'sucesso')
-        return redirect('/categorias')
+        return redirect('/categoriasCMP')
 
     except mysql.connector.Error as err:
         flash(f'Erro ao inserir os dados: {err}', 'erro')
-        return redirect('/categorias')
+        return redirect('/categoriasCMP')
 
-@app.route('/api/categorias')
+@app.route('/api/categoriasCMP')
 @modulo_requerido('COMPRAS')
-def listar_categorias():
+def listar_categoriasCMP():
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor(dictionary=True)
     cursor.execute("SELECT id_categoria, descricao FROM categorias_cmp ORDER BY descricao")
@@ -609,9 +609,9 @@ def listar_categorias():
     conn.close()
     return jsonify(categorias)
 
-@app.route('/api/categorias/<int:id>', methods=['PUT'])
+@app.route('/api/categoriasCMP/<int:id>', methods=['PUT'])
 @modulo_requerido('COMPRAS')
-def editar_categoria(id):
+def editar_categoriaCMP(id):
     nova_descricao = request.json.get('descricao', '').strip()
 
     if not nova_descricao:
@@ -625,9 +625,9 @@ def editar_categoria(id):
     conn.close()
     return jsonify({'sucesso': True})
 
-@app.route('/api/categorias/<int:id>', methods=['DELETE'])
+@app.route('/api/categoriasCMP/<int:id>', methods=['DELETE'])
 @modulo_requerido('COMPRAS')
-def excluir_categoria(id):
+def excluir_categoriaCMP(id):
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor()
     cursor.execute("DELETE FROM categorias_cmp WHERE id_categoria = %s", (id,))
@@ -636,9 +636,9 @@ def excluir_categoria(id):
     conn.close()
     return jsonify({'sucesso': True})
 
-@app.route('/categorias_sugestoes')
+@app.route('/categoriasCMP_sugestoes')
 @modulo_requerido('COMPRAS')
-def categorias_sugestoes():
+def categoriasCMP_sugestoes():
     termo = request.args.get('q', '').strip()
 
     conn = mysql.connector.connect(**db_config)
@@ -652,17 +652,17 @@ def categorias_sugestoes():
 
 
 #Rotas Orçamentos
-@app.route('/cadastro')
+@app.route('/cadastroCMP')
 @modulo_requerido('COMPRAS')
-def cadastro_form():
+def cadastroCMP():
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
     return render_template('cadastroCMP.html')
 
-@app.route('/cadastrar', methods=['POST'])
+@app.route('/cadastrarCMP', methods=['POST'])
 @modulo_requerido('COMPRAS')
-def cadastrar():
+def cadastrarCMP():
     try:
         # Coletar dados do formulário
         data = request.form['data']
@@ -675,7 +675,7 @@ def cadastrar():
         # Validação simples
         if not data or not produto_id or not fornecedor_cnpj or not valor:
             flash('Preencha todos os campos obrigatórios!', 'erro')
-            return redirect('/cadastro')
+            return redirect('/cadastroCMP')
 
         # Formatando data e valor para padrão MySQL
         data_formatada = datetime.strptime(data, "%Y-%m-%d").date()
@@ -694,7 +694,7 @@ def cadastrar():
             flash("Produto não encontrado. Por favor, selecione um produto válido.", "erro")
             cursor.close()
             conn.close()
-            return redirect('/cadastro')  
+            return redirect('/cadastroCMP')  
 
         # Verifica se o fornecedor existe
         cursor.execute("SELECT COUNT(*) FROM fornecedores_cmp WHERE cnpj = %s", (fornecedor_cnpj,))
@@ -704,7 +704,7 @@ def cadastrar():
             flash("Fornecedor não encontrado. Por favor, selecione uma válido.", "erro")
             cursor.close()
             conn.close()
-            return redirect('/cadastro')   
+            return redirect('/cadastroCMP')   
 
         # Inserção
         query = """
@@ -716,15 +716,15 @@ def cadastrar():
         conn.commit()
 
         flash('Cadastro realizado com sucesso!', 'sucesso')
-        return redirect('/cadastro')
+        return redirect('/cadastroCMP')
 
     except mysql.connector.Error as err:
         flash(f'Erro ao inserir os dados: {err}', 'erro')
-        return redirect('/cadastro')
+        return redirect('/cadastroCMP')
 
-@app.route('/validar', methods=['GET', 'POST'])
+@app.route('/validarCMP', methods=['GET', 'POST'])
 @modulo_requerido('COMPRAS')
-def validar():
+def validarCMP():
     if request.method == 'POST':
         id_orcamento = request.form.get('id_orcamento')
         produto_id = request.form.get('produto_id')
@@ -757,7 +757,7 @@ def validar():
         cursor.close()
         conn.close()
 
-        return redirect(url_for('validar', data_inicio=data_inicio, data_fim=data_fim))
+        return redirect(url_for('validarCMP', data_inicio=data_inicio, data_fim=data_fim))
 
     # GET – parte do filtro por data
     data_inicio = request.args.get('data_inicio')
@@ -783,9 +783,6 @@ def validar():
         for o in orcamentos:
             if isinstance(o['dt'], str):
                 o['dt'] = datetime.strptime(o['dt'], '%Y-%m-%d').date()
-
-
-
         cur.close()
         conn.close()
 
@@ -817,9 +814,9 @@ def autocomplete():
 
     return jsonify(resultados)
 
-@app.route('/visualizar', methods=['GET'])
+@app.route('/visualizarCMP', methods=['GET'])
 @modulo_requerido('COMPRAS')
-def visualizar():
+def visualizarCMP():
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor(dictionary=True)
 
@@ -862,11 +859,11 @@ def visualizar():
     cursor.close()
     conn.close()
 
-    return render_template('visualizar.html', orcamentos=orcamentos, filtro=filtro, valor=valor)
+    return render_template('visualizarCMP.html', orcamentos=orcamentos, filtro=filtro, valor=valor)
 
-@app.route('/editar_orcamento/<int:cod>', methods=['POST'])
+@app.route('/editar_orcamentoCMP/<int:cod>', methods=['POST'])
 @modulo_requerido('COMPRAS')
-def editar_orcamento(cod):
+def editar_orcamentoCMP(cod):
     produto = request.form['produto']
     fornecedor = request.form['fornecedor']
     vlr_orcamento = request.form['vlr_orcamento']
@@ -897,9 +894,9 @@ def editar_orcamento(cod):
     flash('Orçamento atualizado com sucesso!', 'success')
     return redirect(url_for('visualizar'))
 
-@app.route('/remover_orcamento/<int:cod>', methods=['GET'])
+@app.route('/remover_orcamentoCMP/<int:cod>', methods=['GET'])
 @modulo_requerido('COMPRAS')
-def remover_orcamento(cod):
+def remover_orcamentoCMP(cod):
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor()
 
@@ -915,9 +912,9 @@ def remover_orcamento(cod):
 
 
 # Rota Dashboard
-@app.route('/dashboard')
+@app.route('/dashboardCMP')
 @modulo_requerido('COMPRAS')
-def dashboard():
+def dashboardCMP():
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
@@ -1020,10 +1017,19 @@ def dashboard():
 
 
 #----------ROTAS VIABILIDADE COMERCIAL ELO------------------------#
+# Simulações
+@app.route('/simulacaoCOM')
+@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
+def simulacaoCOM():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+    return render_template('simulacaoCOM.html')
+
 # Parâmetros
-@app.route('/parametros')
+@app.route('/parametrosCOM')
 @modulo_requerido('COMERCIALGESTOR')
-def parametros():
+def parametrosCOM():
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
@@ -1275,7 +1281,10 @@ def gravar_proposta():
             tratar_valor(data['rec_tags']),
             int(data['qtde_cartoes_eus']),
             tratar_valor(data['rec_saude']),
-            *parametros,  # já tratado
+            *parametros,
+            float(data['lucroOperacao']),
+            float(data['lucroOperacaoMensal']),
+            float(data['rentabilidadeAtual']),
             user_id
         )
 
@@ -1288,8 +1297,9 @@ def gravar_proposta():
                 despesatag_envio, despesatag_tagfisica, despesatag_greenpass,
                 despesaeus_epharma, despesaeus_telemedicina, despesaeus_enviounico,
                 investimento_cartao, negociacao_aprovada, negociacao_pendente, rentabilidade_ideal,
+                lucro_operacao, lucro_operacao_mensal, rentabilidade_atual,
                 user_id
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         
         cursor.execute(sql, valores)
@@ -1304,6 +1314,144 @@ def gravar_proposta():
     finally:
         cursor.close()
         conn.close()
+
+@app.route('/relatorio1COM', methods=['GET', 'POST'])
+@modulo_requerido('COMERCIALGESTOR')
+def relatorio1COM():
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor(dictionary=True)
+
+    if request.method == 'POST':
+        user_id = request.form['user_id']
+        data_inicial = request.form['data_inicial']
+        data_final = request.form['data_final']
+        print("POST RECEBIDO")
+
+        # Montar query dinâmica conforme filtro do usuário
+        query = """
+            SELECT * FROM simulacao_com
+            WHERE criado_em BETWEEN %s AND %s
+        """
+        params = [data_inicial, data_final]
+
+        if user_id != 'todos' and user_id != '':
+            query += " AND user_id = %s"
+            params.append(user_id)
+
+        query += " ORDER BY criado_em"
+        cursor.execute(query, tuple(params))
+        simulacoes = cursor.fetchall()
+
+        # Obter os nomes dos usuários presentes nas simulações
+        user_ids = list(set(sim['user_id'] for sim in simulacoes))
+        if user_ids:
+            format_strings = ','.join(['%s'] * len(user_ids))
+            cursor.execute(f"""
+                SELECT u.user_id, u.username
+                FROM usuarios u
+                JOIN modulos m ON u.user_id = m.user_id
+                WHERE u.user_id IN ({format_strings})
+                AND m.modulo IN ('COMERCIAL', 'COMERCIALGESTOR')
+            """, tuple(user_ids))
+            nomes_usuarios = {u['user_id']: u['username'] for u in cursor.fetchall()}
+        else:
+            nomes_usuarios = {}
+
+
+        # Criar PDF com ReportLab
+        buffer = BytesIO()
+        pdf = canvas.Canvas(buffer, pagesize=landscape(A4))
+        width, height = landscape(A4)
+
+        # Cabeçalho
+        pdf.setFont("Helvetica", 14)
+        pdf.drawString(250, height - 40, "Relatório analítico por usuários")
+
+        pdf.setFont("Helvetica", 10)
+
+        # Converter as strings de data para objetos datetime e depois formatar
+        data_ini_formatada = datetime.strptime(data_inicial, "%Y-%m-%d").strftime("%d/%m/%Y")
+        data_fim_formatada = datetime.strptime(data_final, "%Y-%m-%d").strftime("%d/%m/%Y")
+        pdf.drawString(50, height - 80, f"Período: {data_ini_formatada} a {data_fim_formatada}")
+
+        pdf.drawString(50, height - 95, f"Total de simulações: {len(simulacoes)}")
+
+        # Definir colunas e pesos
+        colunas = [
+            ("Id Sim.", 1), ("Usuário", 2.5), ("Qtde Cartões", 2), ("Crédito", 1.5),
+            ("Meses", 1), ("Tx. Adm", 1), ("Venda Cartões", 2),
+            ("TAGs", 1), ("Rec. TAG", 1.5), ("Eu+ Saúde", 1.5),
+            ("Rec. Saúde", 1.5), ("Data Criação", 2)
+        ]
+
+        total_peso = sum(peso for _, peso in colunas)
+        margem_esquerda = 40
+        margem_direita = 20
+        usable_width = width - margem_esquerda - margem_direita
+
+        espacamento_colunas = []
+        x_atual = margem_esquerda
+        for _, peso in colunas:
+            largura_coluna = (peso / total_peso) * usable_width
+            espacamento_colunas.append(x_atual)
+            x_atual += largura_coluna
+
+        # Tabela - Cabeçalho
+        y = height - 120
+        pdf.setFont("Helvetica-Bold", 9)
+        for (titulo, _), x in zip(colunas, espacamento_colunas):
+            pdf.drawString(x, y, titulo)
+
+        # Conteúdo
+        pdf.setFont("Helvetica", 8)
+        y -= 15
+        for sim in simulacoes:
+            if y < 50:
+                pdf.showPage()
+                y = height - 50
+                pdf.setFont("Helvetica-Bold", 9)
+                for (titulo, _), x in zip(colunas, espacamento_colunas):
+                    pdf.drawString(x, y, titulo)
+                pdf.setFont("Helvetica", 8)
+                y -= 15
+
+            dados = [
+                str(sim['id']),
+                nomes_usuarios.get(sim['user_id'], f"ID {sim['user_id']}"),
+                str(sim['qtde_cartoes']),
+                f"R$ {sim['valor_credito']:.2f}",
+                str(sim['qtde_meses']),
+                str(sim['taxa_adm']),
+                str(sim['venda_cartoes']),
+                str(sim['qtde_cartoes_tag']),
+                f"R$ {sim['rec_tags']:.2f}",
+                str(sim['qtde_cartoes_eus']),
+                f"R$ {sim['rec_saude']:.2f}",
+                sim['criado_em'].strftime("%d/%m/%Y %H:%M")
+            ]
+
+            for texto, x in zip(dados, espacamento_colunas):
+                pdf.drawString(x, y, texto)
+
+            y -= 12
+
+        pdf.save()
+        buffer.seek(0)
+
+        return send_file(buffer, download_name='relatorio_simulacoes.pdf', as_attachment=True)
+
+    # GET: renderizar formulário
+    cursor.execute("""
+        SELECT u.user_id AS id, u.username AS nome
+        FROM usuarios u
+        JOIN modulos m ON u.user_id = m.user_id
+        WHERE m.modulo IN ('COMERCIAL', 'COMERCIALGESTOR')
+    """)
+    usuarios = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return render_template('relatoriosimulacoesCOM.html', usuarios=usuarios)
+
 #------------------------------------------------------------------#
 
 
