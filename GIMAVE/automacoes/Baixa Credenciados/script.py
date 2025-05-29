@@ -297,7 +297,7 @@ def inserir_Sem_Espaço(driver, elemento_id, texto, tempo_espera=30):
 
 #Variáveis / Diretórios / Loads
 dirbordero = r"C:\Users\Guilherme.Silva\Desktop\GIMAVE\Credenciados\Borderôs"
-arquivo = "BORDERO 05.xlsx"
+arquivo = "BORDERO 21.xlsx"
 caminho_arquivo = os.path.join(dirbordero, arquivo)
 wb = load_workbook(caminho_arquivo)
 ws = wb["Reembolso"]

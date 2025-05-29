@@ -259,7 +259,8 @@
         qtde_cartoes_tag: Number(document.getElementById('qtde_cartoes_tag').value),
         rec_tags: parseFloat(document.getElementById('rec_tags').value.replace(/[R$\s\.]/g, '').replace(',', '.')),
         qtde_cartoes_eus: Number(document.getElementById('qtde_cartoes_eus').value),
-        rec_saude: parseFloat(document.getElementById('rec_saude').value.replace(/[R$\s\.]/g, '').replace(',', '.'))
+        rec_saude: parseFloat(document.getElementById('rec_saude').value.replace(/[R$\s\.]/g, '').replace(',', '.')),
+
     };
 
     // Chama rota Flask que vai fazer o cálculo
@@ -272,6 +273,11 @@
     })
     .then(response => response.json())
     .then(data => {
+
+        window.lucroOperacao = data.lucroOperacao;
+        window.lucroOperacaoMensal = data.lucroOperacaoMensal;
+        window.rentabilidadeAtual = data.rentabilidadeAtual;
+
         const volumeMensal = data.volumeMensal;
         const volumeAnual = data.volumeAnual;
         const volumeContrato = data.volumeContrato;
@@ -356,7 +362,11 @@
             qtde_cartoes_tag: document.getElementById("qtde_cartoes_tag").value,
             rec_tags: document.getElementById("rec_tags").value,
             qtde_cartoes_eus: document.getElementById("qtde_cartoes_eus").value,
-            rec_saude: document.getElementById("rec_saude").value
+            rec_saude: document.getElementById("rec_saude").value,
+            lucroOperacao: window.lucroOperacao,
+            lucroOperacaoMensal: window.lucroOperacaoMensal,
+            rentabilidadeAtual: window.rentabilidadeAtual
+
         };
 
         fetch("/gravar_proposta", {

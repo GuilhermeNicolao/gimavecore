@@ -193,7 +193,7 @@
     {% endwith %}
 
     <!-- Filtro por data -->
-    <form method="get" action="{{ url_for('validar') }}">
+    <form method="get" action="{{ url_for('validarCMP') }}">
         <label for="data_inicio">De:</label>
         <input type="date" id="data_inicio" name="data_inicio" required>
 
@@ -234,7 +234,7 @@
             </td>
 
             <td>
-            <form method="post" action="{{ url_for('validar') }}">
+            <form method="post" action="{{ url_for('validarCMP') }}">
                 <input type="hidden" name="id_orcamento" value="{{ o.id_orcamento }}">
                 <input type="hidden" name="produto_id" value="{{ o.produto_id }}">
                 <input type="hidden" name="data_inicio" value="{{ request.args.get('data_inicio') }}">

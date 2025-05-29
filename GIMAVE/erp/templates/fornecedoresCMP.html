@@ -295,7 +295,7 @@
 <!--Formulário de Cadastro de Fornecedores-->
 <div class="form-container">
     <h2>Cadastro de Fornecedores</h2>
-    <form action="{{ url_for('cadastrar_fornecedor') }}" method="POST" autocomplete="off">
+    <form action="{{ url_for('cadastrar_fornecedorCMP') }}" method="POST" autocomplete="off">
 
 
         <label for="cnpj">CNPJ *</label>
@@ -377,7 +377,7 @@
 <script>
     // Abrir lista de Fornecedores
     function abrirModalFornecedores() {
-        fetch('/api/fornecedores')
+        fetch('/api/fornecedoresCMP')
             .then(response => response.json())
             .then(data => {
                 const lista = document.getElementById('lista-fornecedores');
@@ -423,7 +423,7 @@
         const novoNome = document.getElementById('novo-nome').value.trim();
         if (novoNome === "") return;
 
-        fetch(`/api/fornecedores/${id}`, {
+        fetch(`/api/fornecedoresCMP/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ nome: novoNome })
@@ -459,7 +459,7 @@
     function confirmarExclusao() {
         const idFornecedor = document.getElementById('popup-exclusao').dataset.idFornecedor;
 
-        fetch(`/api/fornecedores/${idFornecedor}`, { method: 'DELETE' })
+        fetch(`/api/fornecedoresCMP/${idFornecedor}`, { method: 'DELETE' })
             .then(response => {
                 if (response.ok) {
                     abrirModalFornecedores(); 

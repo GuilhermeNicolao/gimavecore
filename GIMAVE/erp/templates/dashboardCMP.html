@@ -72,7 +72,7 @@
 {% block content %}
 <h2>RELATÓRIO DE ECONOMIA</h2>
 
-<form method="get" action="{{ url_for('dashboard') }}">
+<form method="get" action="{{ url_for('dashboardCMP') }}">
     <label for="data_inicio">Data Início:</label>
     <input type="date" name="data_inicio" value="{{ request.args.get('data_inicio', '') }}" required>
 

@@ -69,11 +69,7 @@
             <td>{{ usuario.username }}</td>
             <td>{{ usuario.nivel }}</td>
             <td>
-                {% if usuario.nivel != 'ADMIN' %}
                 <a href="{{ url_for('gerenciar_modulos', user_id=usuario.user_id) }}">Gerenciar Acessos</a>
-                {% else %}
-                <span>Todos os módulos</span>
-                {% endif %}
             </td>
         </tr>
         {% endfor %}

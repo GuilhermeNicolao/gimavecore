@@ -316,7 +316,7 @@
 <!--Formulário de Cadastro de Categorias-->
 <div class="form-container">
     <h2>Cadastro de Categorias</h2>
-    <form action="{{ url_for('cadastrar_categoria') }}" method="POST" autocomplete="off">
+    <form action="{{ url_for('cadastrar_categoriaCMP') }}" method="POST" autocomplete="off">
         <label for="descricao">Descrição *</label>
         <div class="input-icon">
             <input type="text" id="descricao" name="descricao" required placeholder="Nome da Categoria">
@@ -386,7 +386,7 @@
 <script>
     // Abrir lista de categorias
     function abrirModalCategorias() {
-        fetch('/api/categorias')
+        fetch('/api/categoriasCMP')
             .then(response => response.json())
             .then(data => {
                 const lista = document.getElementById('lista-categorias');
@@ -432,7 +432,7 @@
         const novaDescricao = document.getElementById('nova-descricao').value.trim();
         if (novaDescricao === "") return;
 
-        fetch(`/api/categorias/${id}`, {
+        fetch(`/api/categoriasCMP/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ descricao: novaDescricao })
@@ -468,7 +468,7 @@
     function confirmarExclusao() {
         const idCategoria = document.getElementById('popup-exclusao').dataset.idCategoria;
 
-        fetch(`/api/categorias/${idCategoria}`, { method: 'DELETE' })
+        fetch(`/api/categoriasCMP/${idCategoria}`, { method: 'DELETE' })
             .then(response => {
                 if (response.ok) {
                     abrirModalCategorias(); // Atualiza a lista
