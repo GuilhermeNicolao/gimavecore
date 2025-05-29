@@ -74,7 +74,6 @@
         .dropdown-container a {
             font-size: 16px;
         }
-
     </style>
 
     {% block head_extra %}{% endblock %}
@@ -94,18 +93,18 @@
                 <div class="dropdown">
                     <div class="dropdown-btn">Cadastros (4)</div>
                     <div class="dropdown-container">
-                        <a href="{{ url_for('cadastro_form') }}">Orçamentos</a>
-                        <a href="{{ url_for('fornecedores_form') }}">Fornecedores</a>
-                        <a href="{{ url_for('produtos_form') }}">Produtos</a>
-                        <a href="{{ url_for('categorias_form') }}">Categorias</a>
+                        <a href="{{ url_for('cadastroCMP') }}">Orçamentos</a>
+                        <a href="{{ url_for('fornecedoresCMP') }}">Fornecedores</a>
+                        <a href="{{ url_for('produtosCMP') }}">Produtos</a>
+                        <a href="{{ url_for('categoriasCMP') }}">Categorias</a>
                     </div>
                 </div>
 
                 <div class="dropdown">
                     <div class="dropdown-btn">Orçamentos (2)</div>
                     <div class="dropdown-container">
-                        <a href="{{ url_for('validar') }}">Validar</a>
-                        <a href="{{ url_for('dashboard') }}">Dashboard</a>
+                        <a href="{{ url_for('validarCMP') }}">Validar</a>
+                        <a href="{{ url_for('dashboardCMP') }}">Dashboard</a>
                     </div>
                 </div>
             </div>
@@ -115,13 +114,18 @@
         {% if 'COMERCIAL' in session['modulos'] or 'COMERCIALGESTOR' in session['modulos'] %}
         <!-- Menu Comercial -->
         <div class="dropdown">
-            <div class="dropdown-btn">Comercial (2)</div>
+            <div class="dropdown-btn">Comercial (3)</div>
             <div class="dropdown-container">
-                <a href="{{ url_for('homecomercial') }}">Simulação Elo</a>
+                <a href="{{ url_for('simulacaoCOM') }}">Simulação Elo</a>
 
                 {%if 'COMERCIALGESTOR' in session['modulos']%}
-                <a href="{{ url_for('parametros') }}">Parâmetros Comerciais</a>
+                <a href="{{ url_for('parametrosCOM') }}">Parâmetros Comerciais</a>
+                <div class="dropdown-btn">Relatórios (2)</div>
+                <div class="dropdown-container">
+                    <a href="{{ url_for('relatorio1COM') }}">Analítico por Usuário</a>
                 {% endif %}
+                </div>
+
             </div>
         </div>
         {% endif %}
