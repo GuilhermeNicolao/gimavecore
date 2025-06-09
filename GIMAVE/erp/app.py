@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, redirect, flash, jsonify, url_for, session, send_file
 from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.colors import lightgrey
 from collections import defaultdict
 from reportlab.pdfgen import canvas
 from mysql.connector import Error
@@ -10,7 +11,9 @@ from decimal import Decimal
 from functools import wraps
 from io import BytesIO
 import mysql.connector
+import locale
 import bcrypt
+import uuid
 import os
 import re
 
@@ -19,6 +22,7 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("SK")
 app.permanent_session_lifetime = timedelta(minutes=15) #Tempo máximo de inatividade
+locale.setlocale(locale.LC_ALL, '')
 try:
     db_config = {
         "host": os.getenv("HOST"),
@@ -910,8 +914,6 @@ def remover_orcamentoCMP(cod):
     flash('Orçamento removido com sucesso!', 'success')
     return redirect(url_for('visualizar'))
 
-
-# Rota Dashboard
 @app.route('/dashboardCMP')
 @modulo_requerido('COMPRAS')
 def dashboardCMP():
@@ -1017,7 +1019,6 @@ def dashboardCMP():
 
 
 #----------ROTAS VIABILIDADE COMERCIAL ELO------------------------#
-# Simulações
 @app.route('/simulacaoCOM')
 @modulo_requerido('COMERCIAL','COMERCIALGESTOR')
 def simulacaoCOM():
@@ -1026,7 +1027,6 @@ def simulacaoCOM():
         return redirect(url_for('login'))
     return render_template('simulacaoCOM.html')
 
-# Parâmetros
 @app.route('/parametrosCOM')
 @modulo_requerido('COMERCIALGESTOR')
 def parametrosCOM():
@@ -1036,7 +1036,6 @@ def parametrosCOM():
 
     return render_template('parametrosCOM.html')
 
-# Buscar parâmetros no DB
 @app.route('/get_parametros')
 @modulo_requerido('COMERCIALGESTOR')
 def get_parametros():
@@ -1244,9 +1243,9 @@ def calcular_simulacao():
 
     return jsonify(resultado)
 
-@app.route('/gravar_proposta', methods=['POST'])
+@app.route('/gravar_propostaCOM', methods=['POST'])
 @modulo_requerido('COMERCIAL','COMERCIALGESTOR')
-def gravar_proposta():
+def gravar_propostaCOM():
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
@@ -1261,6 +1260,7 @@ def gravar_proposta():
         # Buscar os parâmetros vigentes
         cursor.execute("SELECT * FROM parametros_com ORDER BY id DESC LIMIT 1")
         parametros = cursor.fetchone()
+
 
         if not parametros:
             return jsonify({"message": "Nenhum parâmetro cadastrado!"}), 400
@@ -1285,6 +1285,9 @@ def gravar_proposta():
             float(data['lucroOperacao']),
             float(data['lucroOperacaoMensal']),
             float(data['rentabilidadeAtual']),
+            float(data['volumeMensal']),      
+            float(data['volumeAnual']),       
+            float(data['volumeContrato']),    
             user_id
         )
 
@@ -1298,8 +1301,13 @@ def gravar_proposta():
                 despesaeus_epharma, despesaeus_telemedicina, despesaeus_enviounico,
                 investimento_cartao, negociacao_aprovada, negociacao_pendente, rentabilidade_ideal,
                 lucro_operacao, lucro_operacao_mensal, rentabilidade_atual,
-                user_id
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                volume_mensal, volume_anual, volume_contrato, user_id
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s
+            )
         """
         
         cursor.execute(sql, valores)
@@ -1318,6 +1326,10 @@ def gravar_proposta():
 @app.route('/relatorio1COM', methods=['GET', 'POST'])
 @modulo_requerido('COMERCIALGESTOR')
 def relatorio1COM():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor(dictionary=True)
 
@@ -1325,9 +1337,7 @@ def relatorio1COM():
         user_id = request.form['user_id']
         data_inicial = request.form['data_inicial']
         data_final = request.form['data_final']
-        print("POST RECEBIDO")
 
-        # Montar query dinâmica conforme filtro do usuário
         query = """
             SELECT * FROM simulacao_com
             WHERE criado_em BETWEEN %s AND %s
@@ -1342,7 +1352,6 @@ def relatorio1COM():
         cursor.execute(query, tuple(params))
         simulacoes = cursor.fetchall()
 
-        # Obter os nomes dos usuários presentes nas simulações
         user_ids = list(set(sim['user_id'] for sim in simulacoes))
         if user_ids:
             format_strings = ','.join(['%s'] * len(user_ids))
@@ -1364,8 +1373,8 @@ def relatorio1COM():
         width, height = landscape(A4)
 
         # Cabeçalho
-        pdf.setFont("Helvetica", 14)
-        pdf.drawString(250, height - 40, "Relatório analítico por usuários")
+        pdf.setFont("Helvetica-Bold", 16)
+        pdf.drawString(180, height - 40, "Relatório analítico por usuário")
 
         pdf.setFont("Helvetica", 10)
 
@@ -1378,7 +1387,7 @@ def relatorio1COM():
 
         # Definir colunas e pesos
         colunas = [
-            ("Id Sim.", 1), ("Usuário", 2.5), ("Qtde Cartões", 2), ("Crédito", 1.5),
+            ("Simulação", 1.5), ("Usuário", 2.5), ("Qtde Cartões", 2), ("Crédito", 1.5),
             ("Meses", 1), ("Tx. Adm", 1), ("Venda Cartões", 2),
             ("TAGs", 1), ("Rec. TAG", 1.5), ("Eu+ Saúde", 1.5),
             ("Rec. Saúde", 1.5), ("Data Criação", 2)
@@ -1397,8 +1406,9 @@ def relatorio1COM():
             x_atual += largura_coluna
 
         # Tabela - Cabeçalho
-        y = height - 120
+        y = height - 130
         pdf.setFont("Helvetica-Bold", 9)
+        pdf.line(margem_esquerda, y + 10, width - margem_direita, y + 10)
         for (titulo, _), x in zip(colunas, espacamento_colunas):
             pdf.drawString(x, y, titulo)
 
@@ -1412,8 +1422,15 @@ def relatorio1COM():
                 pdf.setFont("Helvetica-Bold", 9)
                 for (titulo, _), x in zip(colunas, espacamento_colunas):
                     pdf.drawString(x, y, titulo)
+                    pdf.line(margem_esquerda, y + 10, width - margem_direita, y + 10)
                 pdf.setFont("Helvetica", 8)
                 y -= 15
+
+            #Linhas Zebradas
+            if simulacoes.index(sim) % 2 == 0:
+                pdf.setFillColor(lightgrey)
+                pdf.rect(margem_esquerda, y - 2, usable_width, 12, stroke=0, fill=1)
+                pdf.setFillColor("black")
 
             dados = [
                 str(sim['id']),
@@ -1435,6 +1452,9 @@ def relatorio1COM():
 
             y -= 12
 
+        pdf.setFont("Helvetica-Oblique", 7)
+        pdf.drawString(margem_esquerda, 20, f"Relatório gerado em {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+
         pdf.save()
         buffer.seek(0)
 
@@ -1452,6 +1472,179 @@ def relatorio1COM():
     conn.close()
     return render_template('relatoriosimulacoesCOM.html', usuarios=usuarios)
 
+@app.route('/relatorio2COM', methods=['GET', 'POST'])
+@modulo_requerido('COMERCIALGESTOR')
+def relatorio2COM():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor(dictionary=True)
+
+    if request.method == 'POST':
+        id_sim = request.form['id_sim']
+        data_inicial = request.form['data_inicial']
+        data_final = request.form['data_final']
+        
+        query = """
+            SELECT * FROM simulacao_com
+            WHERE criado_em BETWEEN %s AND %s
+        """
+        params = [data_inicial, data_final]
+
+        if id_sim != 'todos' and id_sim != '':
+            query += " AND id = %s"
+            params.append(id_sim)
+
+        query += " ORDER BY criado_em"
+        cursor.execute(query, tuple(params))
+        simulacoes = cursor.fetchall()
+
+        # Criar PDF com ReportLab
+        buffer = BytesIO()
+        pdf = canvas.Canvas(buffer, pagesize=landscape(A4))
+        width, height = landscape(A4)
+
+        # Cabeçalho
+        pdf.setFont("Helvetica-Bold", 16)
+        pdf.drawString(180, height - 40, "Relatório analítico por simulação")
+
+        pdf.setFont("Helvetica", 10)
+
+        # Converter as strings de data para objetos datetime e depois formatar
+        data_ini_formatada = datetime.strptime(data_inicial, "%Y-%m-%d").strftime("%d/%m/%Y")
+        data_fim_formatada = datetime.strptime(data_final, "%Y-%m-%d").strftime("%d/%m/%Y")
+        pdf.drawString(50, height - 80, f"Período: {data_ini_formatada} a {data_fim_formatada}")
+
+        pdf.drawString(50, height - 95, f"Total de simulações: {len(simulacoes)}")
+
+
+        margem_esquerda = 40
+        margem_direita = 20
+
+        # Tabela - Cabeçalho
+        y = height - 130
+        pdf.setFont("Helvetica-Bold", 9)
+        pdf.line(margem_esquerda, y + 10, width - margem_direita, y + 10)
+
+        # Conteúdo
+        pdf.setFont("Helvetica", 8)
+        y -= 10
+
+        for sim in simulacoes:
+            if y < 80:
+                pdf.showPage()
+                pdf.setFont("Helvetica", 8)
+                y = height - 50
+
+            # Cabeçalho de cada simulação
+            pdf.setFont("Helvetica-Bold", 9)
+            pdf.drawString(margem_esquerda, y, f"Simulação ID: {sim['id']}")
+            y -= 12
+
+            pdf.setFont("Helvetica", 8)
+            pdf.drawString(margem_esquerda, y, f"Volume Mensal: {locale.currency(sim['volume_mensal'], grouping=True)}")
+            y -= 12
+            pdf.drawString(margem_esquerda, y, f"Volume Anual: {locale.currency(sim['volume_anual'], grouping=True)}")
+            y -= 12
+            pdf.drawString(margem_esquerda, y, f"Volume Contrato: {locale.currency(sim['volume_contrato'], grouping=True)}")
+            y -= 12
+            pdf.drawString(margem_esquerda, y, f"Lucro Operação: {locale.currency(sim['lucro_operacao'], grouping=True)}")
+            y -= 12
+            pdf.drawString(margem_esquerda, y, f"Lucro Operação p/ Mês: {locale.currency(sim['lucro_operacao_mensal'], grouping=True)}")
+            y -= 12
+            pdf.drawString(margem_esquerda, y, f"Rentabilidade Atual: {sim['rentabilidade_atual']}%")
+            y -= 12
+            pdf.drawString(margem_esquerda, y, f"Data Criação: {sim['criado_em'].strftime('%d/%m/%Y %H:%M')}")
+            y -= 20  # Espaço entre blocos
+
+        pdf.setFont("Helvetica-Oblique", 7)
+        pdf.drawString(margem_esquerda, 20, f"Relatório gerado em {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+
+        pdf.save()
+        buffer.seek(0)
+
+        return send_file(buffer, download_name='relatorio_simulacoes.pdf', as_attachment=True)
+
+    # GET: renderizar formulário
+    cursor.execute("""
+        SELECT id FROM simulacao_com
+        ORDER BY criado_em DESC
+    """)
+    simulacao_com = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+    return render_template('relatoriosimulacoes2COM.html', simulacao_com=simulacao_com)
+
+# Lista temporária de propostas pendentes (em memória)
+propostas_pendentes = []
+
+@app.route('/aprovacoesCOM')
+@modulo_requerido('COMERCIALGESTOR')
+def aprovacoesCOM():
+    return render_template('aprovacoesCOM.html')
+
+@app.route('/enviar_para_aprovacaoCOM', methods=['POST'])
+def enviar_para_aprovacaoCOM():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+
+
+    dados = request.get_json()
+    usuario = session.get('username')
+    dados["id"] = dados.get("id") or str(uuid.uuid4())
+    dados['usuario'] = usuario
+
+    propostas_pendentes.append(dados)
+    return jsonify({"message": "Proposta enviada para aprovação do gestor."})
+
+@app.route('/listar_aprovacoesCOM', methods=['GET'])
+def listar_aprovacoesCOM():
+    return jsonify(propostas_pendentes)
+
+@app.route("/reprovar_propostaCOM", methods=["POST"])
+@modulo_requerido('COMERCIALGESTOR')
+def reprovar_propostaCOM():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+
+    data = request.get_json()
+    proposta_id = data.get("id")
+
+    if not proposta_id:
+        return jsonify({"message": "ID da proposta não informado."}), 400
+
+    try:
+        # Remover a proposta da lista em memória
+        for i, p in enumerate(propostas_pendentes):
+            if str(p.get("id")) == str(proposta_id):
+                propostas_pendentes.pop(i)
+                return jsonify({"message": "Proposta reprovada com sucesso."})
+
+        return jsonify({"message": "Proposta não encontrada."}), 404
+
+    except Exception as e:
+        return jsonify({"message": f"Erro ao reprovar proposta: {str(e)}"}), 500
+
+@app.route('/remover_aprovacaoCOM', methods=['POST'])
+def remover_aprovacaoCOM():
+    data = request.get_json()
+    id_proposta = data.get("id")
+
+    try:
+        for i, p in enumerate(propostas_pendentes):
+            if str(p.get("id")) == str(id_proposta):
+                propostas_pendentes.pop(i)
+                return jsonify({"message": "Proposta removida da lista de pendentes."})
+
+        return jsonify({"message": "Proposta não encontrada."}), 404
+
+    except Exception as e:
+        return jsonify({"message": f"Erro ao remover proposta: {str(e)}"}), 500
 #------------------------------------------------------------------#
 
 
