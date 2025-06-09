@@ -2,62 +2,91 @@
 
 {% block head_extra %}
 <style>
+    h2 {
+        font-size: 1.5rem;
+        color: #2c3e50;
+        margin-bottom: 20px;
+    }
+
     .usuario-form {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-bottom: 30px;
-    max-width: 400px;
+        background-color: #f5f5f5;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        max-width: 800px;
+        margin-bottom: 30px;
     }
 
     .usuario-form input,
-    .usuario-form select,
-    .usuario-form button {
-        padding: 10px;
-        font-size: 16px;
+    .usuario-form select {
+        flex: 1 1 180px;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 0.95rem;
     }
 
     .usuario-form button {
-        background-color: #333;
+        padding: 10px 16px;
+        background-color: #1e88e5;
         color: white;
         border: none;
+        border-radius: 5px;
         cursor: pointer;
+        font-weight: 500;
+        transition: background-color 0.3s;
     }
 
     .usuario-form button:hover {
-        background-color: #7a7a7a;
+        background-color: #1565c0;
     }
 
     .usuario-table {
         width: 100%;
         border-collapse: collapse;
+        font-size: 0.95rem;
     }
 
     .usuario-table th,
     .usuario-table td {
-        border: 1px solid #ccc;
         padding: 10px;
+        border: 1px solid #ccc;
         text-align: left;
     }
 
     .usuario-table th {
-        background-color: #f2f2f2;
+        background-color: #333;
+        font-weight: 600;
+        color: #f5f5f5;
+    }
+
+    .usuario-table tbody tr:nth-child(even) {
+        background-color: #f9f9f9;
+    }
+
+    .usuario-table form {
+        margin: 0;
     }
 
     .usuario-table button {
-        padding: 5px 10px;
-        background-color: #dc3545;
+        padding: 6px 10px;
+        background-color: #e53935;
         color: white;
         border: none;
+        border-radius: 4px;
         cursor: pointer;
+        font-size: 0.85rem;
     }
 
     .usuario-table button:hover {
-        background-color: #c82333;
+        background-color: #c62828;
     }
-
 </style>
 {% endblock %}
+
 
 {% block content %}
 <h2>Gerenciar Usuários</h2>
