@@ -33,7 +33,7 @@
         }
 
         .sidenav:hover {
-            width: 200px;
+            width: 210px;
         }
 
         .sidenav a,
@@ -120,9 +120,11 @@
 
                 {%if 'COMERCIALGESTOR' in session['modulos']%}
                 <a href="{{ url_for('parametrosCOM') }}">Parâmetros Comerciais</a>
+                <a href="{{ url_for('aprovacoesCOM') }}">Apovar Simulações</a>
                 <div class="dropdown-btn">Relatórios (2)</div>
                 <div class="dropdown-container">
                     <a href="{{ url_for('relatorio1COM') }}">Analítico por Usuário</a>
+                    <a href="{{ url_for('relatorio2COM') }}">Analítico por Simulação</a>
                 {% endif %}
                 </div>
 
