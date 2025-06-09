@@ -277,10 +277,13 @@
         window.lucroOperacao = data.lucroOperacao;
         window.lucroOperacaoMensal = data.lucroOperacaoMensal;
         window.rentabilidadeAtual = data.rentabilidadeAtual;
+        window.statusPendente = data.statusPendente;
+        window.statusAprovado = data.statusAprovado;
 
-        const volumeMensal = data.volumeMensal;
-        const volumeAnual = data.volumeAnual;
-        const volumeContrato = data.volumeContrato;
+        window.volumeMensal = data.volumeMensal;
+        window.volumeAnual = data.volumeAnual;
+        window.volumeContrato = data.volumeContrato;
+        
         const rentabilidadeIdeal = data.rentabilidadeIdeal;
         const rentabilidadeAtual = data.rentabilidadeAtual;
         const statusPendente = data.statusPendente;  
@@ -350,41 +353,61 @@
     .catch(error => console.error('Erro ao calcular:', error));
 });
 
-    // Gravar no banco de dados
+    // Gravar no banco de dados ou enviar para aprovação
     document.addEventListener("click", function(e) {
-    if (e.target && e.target.id === "btn-gravar") {
-        const dadosFormulario = {
-            qtde_cartoes: document.getElementById("qtde_cartoes").value,
-            valor_credito: document.getElementById("valor_credito").value,
-            meses: document.getElementById("meses").value,
-            taxa_adm: document.getElementById("taxa_adm").value,
-            venda_cartoes: document.getElementById("venda_cartoes").value,
-            qtde_cartoes_tag: document.getElementById("qtde_cartoes_tag").value,
-            rec_tags: document.getElementById("rec_tags").value,
-            qtde_cartoes_eus: document.getElementById("qtde_cartoes_eus").value,
-            rec_saude: document.getElementById("rec_saude").value,
-            lucroOperacao: window.lucroOperacao,
-            lucroOperacaoMensal: window.lucroOperacaoMensal,
-            rentabilidadeAtual: window.rentabilidadeAtual
+        if (e.target && e.target.id === "btn-gravar") {
+            const dadosFormulario = {
+                qtde_cartoes: document.getElementById("qtde_cartoes").value,
+                valor_credito: document.getElementById("valor_credito").value,
+                meses: document.getElementById("meses").value,
+                taxa_adm: document.getElementById("taxa_adm").value,
+                venda_cartoes: document.getElementById("venda_cartoes").value,
+                qtde_cartoes_tag: document.getElementById("qtde_cartoes_tag").value,
+                rec_tags: document.getElementById("rec_tags").value,
+                qtde_cartoes_eus: document.getElementById("qtde_cartoes_eus").value,
+                rec_saude: document.getElementById("rec_saude").value,
+                lucroOperacao: window.lucroOperacao,
+                lucroOperacaoMensal: window.lucroOperacaoMensal,
+                rentabilidadeAtual: window.rentabilidadeAtual,
+                volumeMensal: window.volumeMensal,
+                volumeAnual: window.volumeAnual,
+                volumeContrato: window.volumeContrato
+            };
 
-        };
+            if (window.rentabilidadeAtual >= window.statusPendente && window.rentabilidadeAtual < window.statusAprovado) {
+                // Enviar para aprovação
+                fetch("/enviar_para_aprovacaoCOM", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(dadosFormulario)
+                })
+                .then(res => res.json())
+                .then(data => {
+                    alert("Proposta enviada para aprovação do gestor!");
+                    location.reload();
+                })
+                .catch(error => {
+                    console.error("Erro ao enviar para aprovação:", error);
+                });
 
-        fetch("/gravar_proposta", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(dadosFormulario)
-        })
-        .then(res => res.json())
-        .then(data => {
-            alert(data.message || "Proposta gravada com sucesso!");
-        })
-        .catch(error => {
-            console.error("Erro ao gravar proposta:", error);
-        });
-    }
-});
+            } else {
+                // Gravar direto no banco
+                fetch("/gravar_propostaCOM", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(dadosFormulario)
+                })
+                .then(res => res.json())
+                .then(data => {
+                    alert(data.message || "Proposta gravada com sucesso!");
+                    location.reload();
+                })
+                .catch(error => {
+                    console.error("Erro ao gravar proposta:", error);
+                });
+            }
+        }
+    });
 
 </script>
 {% endblock %}
