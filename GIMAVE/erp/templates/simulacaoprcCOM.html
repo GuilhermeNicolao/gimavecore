@@ -1,0 +1,458 @@
+{% extends "base.html" %}
+
+{% block head_extra %}
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 40px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .main-content {
+            display: flex;
+            gap: 40px;
+            align-items: flex-start;
+        }
+
+
+        .form-container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 0 12px rgba(0, 0, 0, 0.1);
+            width: 300px;
+            transition: all 0.3s ease;
+        }
+
+        .result-container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 0 12px rgba(0, 0, 0, 0.1);
+            width: 300px;
+            display: none;
+        }
+
+        h2 {
+            margin-bottom: 25px;
+            color: #333;
+            text-align: center;
+        }
+
+        h3 {
+            margin-top: 25px;
+            margin-bottom: 10px;
+            color: #444;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            margin-top: 15px;
+            color: #555;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background-color: #333;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        button:hover {
+            background-color: #636363;
+        }
+
+        .param-link {
+            text-align: center;
+            margin-top: 20px;
+            clear: both; /* caso algo esteja flutuando */
+            font-size: 15px;
+        }
+
+        .param-link a {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #333;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+
+        .param-link a:hover {
+            background-color: #006d3a;
+        }
+
+        .result-container {
+            background-color: #8a8069; 
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 0 12px rgba(0, 0, 0, 0.1);
+            width: 100%; 
+            max-width: 960px;
+            display: none;
+            transition: all 0.3s ease;
+        }
+
+        .result-container h2{
+            color: white;
+        }
+
+        .result-grid {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .result-item {
+            background: #b8ab8c;
+            padding: 15px;
+            border-radius: 8px;
+            flex: 1;
+            /* min-width: 200px; */
+            box-shadow: 0 0 8px rgba(0,0,0,0.05);
+            font-family: Calibri;
+        }
+        
+        .result-text {
+            margin-top: 20px;
+            color: #333;
+            font-size: 15px;
+        }
+
+        .logout-container {
+            position: absolute;
+            top: -19px;
+            left: 10px;
+        }
+
+        .logout-container form {
+            margin: 0;
+        }
+
+        .logout-container button {
+            padding: 10px 20px;
+            background-color: #333;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .logout-container button:hover {
+            background-color: #636363;
+        }   
+
+        .home-link {
+            text-align: center;
+            margin-top: 20px;
+            clear: both; /* caso algo esteja flutuando */
+            font-size: 15px;
+        }
+
+        .home-link a {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #333;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+
+        .home-link a:hover {
+            background-color: #006d3a;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+
+<div class="main-content">
+    <div class="form-container" id="form-box">
+        <h2>Simulação de Viabilidade da parceria {{ nome_parceiro }}</h2>
+        <form id="form-simulacao" autocomplete="off">
+            <label for="qtde_cartoes">Quantidade de Cartões *</label>
+            <input type="number" id="qtde_cartoes" name="qtde_cartoes" required>
+
+            <label for="valor_credito">Valor de Crédito por Cartão (R$) *</label>
+            <input type="text" id="valor_credito" name="valor_credito" required>
+
+            <label for="meses">Quantidade de Meses *</label>
+            <input type="number" id="meses" name="meses" required>
+
+            <label for="taxa_adm">Taxa adm crédito mensal (%)</label>
+            <input type="number" id="taxa_adm" name="taxa_adm" required step="0.01">
+
+            <label for="venda_cartoes">Venda de cartões (R$)</label>
+            <input type="text" id="venda_cartoes" name="venda_cartoes" required>
+
+
+
+            <h3>Outros Produtos</h3>
+            <label for="qtde_cartoes_tag">Número de Cartões TAG *</label>
+            <input type="number" id="qtde_cartoes_tag" name="qtde_cartoes_tag" required>
+
+            <label for="rec_tags">Receita de Cartões TAG (R$) *</label>
+            <input type="text" id="rec_tags" name="rec_tags" required>
+
+            <label for="qtde_cartoes_eus">Número de Cartões Eu+ Saúde *</label>
+            <input type="number" id="qtde_cartoes_eus" name="qtde_cartoes_eus" required>
+
+            <label for="rec_saude">Receita de Cartões Eu+ Saúde (R$) *</label>
+            <input type="text" id="rec_saude" name="rec_saude" required>
+
+            <button type="submit"><b>CALCULAR</b></button>
+        </form>
+
+        <div class="home-link">
+            <a href="{{ url_for('parceriasCOM') }}">VOLTAR</a></b>
+        </div>
+
+    </div>
+
+    <div class="result-container" id="result-box">
+        <h2>Resultado da Simulação</h2>
+        <div id="resultado">
+            <!-- Exibe os dados aqui -->
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Extrai o id_parceiro da URL e armazena em um campo oculto
+    const urlParams = new URLSearchParams(window.location.search);
+    const idParceiro = urlParams.get('id_parceiro');
+    if (idParceiro) {
+        const inputHidden = document.createElement('input');
+        inputHidden.type = 'hidden';
+        inputHidden.id = 'id_parceiro';
+        inputHidden.value = idParceiro;
+        document.getElementById('form-simulacao').appendChild(inputHidden);
+    }
+
+    // Função para esconder o alert após 3 segundos
+    setTimeout(function() {
+        var alertMessage = document.querySelector('.alert'); // Seleciona o primeiro alert
+        if (alertMessage) {
+            alertMessage.classList.add('fade-out'); // Adiciona a classe para fazer o fade out
+        }
+    }, 3000); // O tempo está configurado para 3000ms (3 segundos)
+
+    // Máscara R$
+    const camposFormatar = ['valor_credito','rec_tags','rec_saude','venda_cartoes']
+    camposFormatar.forEach(id => {
+    const campo = document.getElementById(id);
+    if (campo) {
+        campo.addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            value = (value / 100).toFixed(2) + '';
+            value = value.replace(".", ",");
+            value = value.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
+            e.target.value = "R$ " + value;
+        });
+    }
+});
+    const formatadorBR = new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+    });
+
+    // Cálculos e resultados da simulação
+    document.getElementById('form-simulacao').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    // Pega dados do formulário
+    const data = {
+        id_parceiro: Number(document.getElementById('id_parceiro').value),
+        qtde_cartoes: Number(document.getElementById('qtde_cartoes').value),
+        valor_credito: parseFloat(document.getElementById('valor_credito').value.replace(/[R$\s\.]/g, '').replace(',', '.')),
+        meses: Number(document.getElementById('meses').value),
+        taxa_adm: parseFloat(document.getElementById('taxa_adm').value),
+        venda_cartoes: parseFloat(document.getElementById('venda_cartoes').value.replace(/[R$\s\.]/g, '').replace(',', '.')),
+        qtde_cartoes_tag: Number(document.getElementById('qtde_cartoes_tag').value),
+        rec_tags: parseFloat(document.getElementById('rec_tags').value.replace(/[R$\s\.]/g, '').replace(',', '.')),
+        qtde_cartoes_eus: Number(document.getElementById('qtde_cartoes_eus').value),
+        rec_saude: parseFloat(document.getElementById('rec_saude').value.replace(/[R$\s\.]/g, '').replace(',', '.')),
+
+    };
+
+    // Chama rota Flask que vai fazer o cálculo
+    fetch('/calcular_simulacaoprc', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+
+        window.resultReceitas = data.resultReceitas;
+        window.resultDespesas = data.resultDespesas;
+        window.lucroOperacao = data.lucroOperacao;
+        window.lucroOperacaoMensal = data.lucroOperacaoMensal;
+        window.rentabilidadeAtual = data.rentabilidadeAtual;
+        window.statusPendente = data.statusPendente;
+        window.statusAprovado = data.statusAprovado;
+
+        window.volumeMensal = data.volumeMensal;
+        window.volumeAnual = data.volumeAnual;
+        window.volumeContrato = data.volumeContrato;
+        window.comissao = data.comissao;
+        
+        const rentabilidadeIdeal = data.rentabilidadeIdeal;
+        const rentabilidadeAtual = data.rentabilidadeAtual;
+        const statusPendente = data.statusPendente;  
+        const statusAprovado = data.statusAprovado;       
+
+        // Condições de negociação
+        let mensagemNegociacao = '';
+        
+        if (rentabilidadeAtual < statusPendente) {
+            mensagemNegociacao = `
+                <div style="background-color: #f8d7da; color: #721c24; padding: 10px; border-radius: 5px; font-weight: bold; text-align: center; height: 20% ;width: 50%; margin: 0 auto;">
+                    Negociação Negada
+                </div>
+            `;
+
+        } else if ((rentabilidadeAtual >= statusPendente) && (rentabilidadeAtual < statusAprovado)) {
+            mensagemNegociacao = `
+                <div style="background-color: #fff3cd; color: #856404; padding: 10px; border-radius: 5px; font-weight: bold; text-align: center; height: 20% ; width: 50%; margin: 0 auto;">
+                    Necessita aprovação superior
+                </div>
+            `;
+
+        } else if (rentabilidadeAtual >= statusAprovado) {
+            mensagemNegociacao = `
+                <div style="background-color: #d4edda; color: #155724; padding: 10px; border-radius: 5px; font-weight: bold; text-align: center; height: 20% ; width: 50%; margin: 0 auto;">
+                    Negociação Aprovada
+                </div>
+            `;
+        }
+
+        // <div> dos resultados
+        document.getElementById("resultado").innerHTML = `
+            <div class="result-grid">
+                <div class="result-item">
+                    <p><h3><strong>Vol. Mensal</strong><br>${formatadorBR.format(volumeMensal)}</p>
+                </div>
+                <div class="result-item">
+                    <p><h3><strong>Vol. Anual</strong><br>${formatadorBR.format(volumeAnual)}</p>
+                </div>
+                <div class="result-item">
+                    <p><h3><strong>Vol. Contrato</strong><br>${formatadorBR.format(volumeContrato)}</p>
+                </div>
+                <div style="margin-top: 30px; font-size: 16px; color: #333;">
+                    <p><h4><strong>Rentabilidade Ideal:</strong><br>${rentabilidadeIdeal}%</p><br>
+                    <p><h4><strong>Rentabilidade Atual:</strong><br>${rentabilidadeAtual.toFixed(2)}%</p>
+                </div>
+                ${mensagemNegociacao}<br>
+                <button id="btn-gravar" style="font-size: 16px; background-color: #333; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                    Gravar Proposta
+                </button>
+            </div>
+        `;
+
+        // Bloquear botão de Gravar Proposta mediante condição comercial
+        if (rentabilidadeAtual < statusPendente) {
+            const botaoGravar = document.getElementById("btn-gravar");
+            if (botaoGravar) {
+                botaoGravar.disabled = true;
+                botaoGravar.style.backgroundColor = "#999";
+                botaoGravar.style.cursor = "not-allowed";
+            }
+        }
+
+        document.getElementById("result-box").style.display = "block";
+
+    })
+    .catch(error => console.error('Erro ao calcular:', error));
+});
+
+    // Gravar no banco de dados ou enviar para aprovação
+    document.addEventListener("click", function(e) {
+        if (e.target && e.target.id === "btn-gravar") {
+            const dadosFormulario = {
+                id_parceiro: document.getElementById('id_parceiro').value,
+                qtde_cartoes: document.getElementById("qtde_cartoes").value,
+                valor_credito: document.getElementById("valor_credito").value,
+                meses: document.getElementById("meses").value,
+                taxa_adm: document.getElementById("taxa_adm").value,
+                venda_cartoes: document.getElementById("venda_cartoes").value,
+                qtde_cartoes_tag: document.getElementById("qtde_cartoes_tag").value,
+                rec_tags: document.getElementById("rec_tags").value,
+                qtde_cartoes_eus: document.getElementById("qtde_cartoes_eus").value,
+                rec_saude: document.getElementById("rec_saude").value,
+                total_receitas: window.resultReceitas,
+                total_despesas: window.resultDespesas,
+                lucroOperacao: window.lucroOperacao,
+                lucroOperacaoMensal: window.lucroOperacaoMensal,
+                rentabilidadeAtual: window.rentabilidadeAtual,
+                volumeMensal: window.volumeMensal,
+                volumeAnual: window.volumeAnual,
+                volumeContrato: window.volumeContrato,
+                comissao: window.comissao
+            };
+
+            if (window.rentabilidadeAtual >= window.statusPendente && window.rentabilidadeAtual < window.statusAprovado) {
+                // Enviar para aprovação
+                fetch("/enviar_para_aprovacaoprcCOM", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(dadosFormulario)
+                })
+                .then(res => res.json())
+                .then(data => {
+                    alert("Proposta enviada para aprovação do gestor!");
+                    location.reload();
+                })
+                .catch(error => {
+                    console.error("Erro ao enviar para aprovação:", error);
+                });
+
+            } else {
+                // Gravar direto no banco
+                fetch("/gravar_propostaprcCOM", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(dadosFormulario)
+                })
+                .then(res => res.json())
+                .then(data => {
+                    alert(data.message || "Proposta gravada com sucesso!");
+                    location.reload();
+                })
+                .catch(error => {
+                    console.error("Erro ao gravar proposta:", error);
+                });
+            }
+        }
+    });
+
+</script>
+{% endblock %}
+
