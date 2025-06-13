@@ -7,139 +7,149 @@
 
 {% block scripts %}
 <script>
-document.addEventListener("DOMContentLoaded", () => {
-    fetch("/listar_aprovacoesCOM")
-        .then(res => res.json())
-        .then(propostas => {
-            const container = document.getElementById("lista-aprovacoes");
+    // Formatar R$XX.XXX,XX
+    function formatarMoeda(valor) {
+        if (valor === undefined || valor === null || isNaN(valor)) return 'R$ 0,00';
+        return new Intl.NumberFormat('pt-BR', {
+            style: 'currency',
+            currency: 'BRL'
+        }).format(valor);
+    }
 
-            if (propostas.length === 0) {
-                container.innerHTML = "<p>Nenhuma proposta pendente.</p>";
-                return;
-            }
+    // Aprovar | Reprovar
+    document.addEventListener("DOMContentLoaded", () => {
+        fetch("/listar_aprovacoesCOM")
+            .then(res => res.json())
+            .then(propostas => {
+                const container = document.getElementById("lista-aprovacoes");
 
-            propostas.forEach(p => {
-                const div = document.createElement("div");
-                div.className = "card-aprovacao";
-                div.style = `
-                    width: 75%;
-                    margin-left: 2%;
-                    background-color: #fff;
-                    border: 1px solid #dee2e6;
-                    padding: 20px;
-                    margin-bottom: 20px;
-                    border-radius: 12px;
-                    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-                    transition: transform 0.2s ease;
-                `;
+                if (propostas.length === 0) {
+                    container.innerHTML = "<p>Nenhuma proposta pendente.</p>";
+                    return;
+                }
 
-                div.onmouseover = () => div.style.transform = 'scale(1.01)';
-                div.onmouseout = () => div.style.transform = 'scale(1)';
+                propostas.forEach(p => {
+                    const div = document.createElement("div");
+                    div.className = "card-aprovacao";
+                    div.style = `
+                        width: 75%;
+                        margin-left: 2%;
+                        background-color: #fff;
+                        border: 1px solid #dee2e6;
+                        padding: 20px;
+                        margin-bottom: 20px;
+                        border-radius: 12px;
+                        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+                        transition: transform 0.2s ease;
+                    `;
 
-                div.innerHTML = `
-                    <div style="margin-bottom: 10px;">
-                        <h4 style="margin: 0; color: #333;">Proposta de ${p.usuario}</h4>
-                    </div>
-                    <div style="margin-bottom: 10px; line-height: 1.6;">
-                        <p><strong>Qtd. Cartões:</strong> ${p.qtde_cartoes}</p>
-                        <p><strong>Valor Crédito:</strong> ${p.valor_credito}</p>
-                        <p><strong>Meses:</strong> ${p.meses}</p>
-                        <p><strong>Rentabilidade Atual:</strong> 
-                            <span style="color: ${p.rentabilidadeAtual >= 80 ? '#28a745' : (p.rentabilidadeAtual >= 50 ? '#ffc107' : '#dc3545')};">
-                                ${parseFloat(p.rentabilidadeAtual).toFixed(2)}%
-                            </span>
-                        </p>
-                    </div>
-                    <div style="display: flex; gap: 10px;">
-                        <button class="btn-aprovar" data-id="${p.id}" style="
-                            background-color: #28a745;
-                            color: white;
-                            border: none;
-                            padding: 8px 16px;
-                            border-radius: 6px;
-                            cursor: pointer;
-                        ">Aprovar</button>
+                    div.onmouseover = () => div.style.transform = 'scale(1.01)';
+                    div.onmouseout = () => div.style.transform = 'scale(1)';
 
-                        <button class="btn-reprovar" data-id="${p.id}" style="
-                            background-color: #dc3545;
-                            color: white;
-                            border: none;
-                            padding: 8px 16px;
-                            border-radius: 6px;
-                            cursor: pointer;
-                        ">Reprovar</button>
-                    </div>
-                `;
-                container.appendChild(div);
-            });
+                    div.innerHTML = `
+                        <div style="margin-bottom: 10px;">
+                            <h4 style="margin: 0; color: #333;">Proposta de ${p.usuario}</h4>
+                        </div>
+                        <div style="margin-bottom: 10px; line-height: 1.6;">
+                            <p><strong>Qtd. Cartões:</strong> ${p.qtde_cartoes}</p>
+                            <p><strong>Valor Crédito:</strong> ${formatarMoeda(p.valor_credito)}</p>
+                            <p><strong>Meses:</strong> ${p.meses}</p>
+                            <p><strong>Rentabilidade Atual:</strong> 
+                                <span style="color: ${p.rentabilidadeAtual >= 80 ? '#28a745' : (p.rentabilidadeAtual >= 50 ? '#ffc107' : '#dc3545')};">
+                                    ${parseFloat(p.rentabilidadeAtual).toFixed(2)}%
+                                </span>
+                            </p>
+                        </div>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn-aprovar" data-id="${p.id}" style="
+                                background-color: #28a745;
+                                color: white;
+                                border: none;
+                                padding: 8px 16px;
+                                border-radius: 6px;
+                                cursor: pointer;
+                            ">Aprovar</button>
+
+                            <button class="btn-reprovar" data-id="${p.id}" style="
+                                background-color: #dc3545;
+                                color: white;
+                                border: none;
+                                padding: 8px 16px;
+                                border-radius: 6px;
+                                cursor: pointer;
+                            ">Reprovar</button>
+                        </div>
+                    `;
+                    container.appendChild(div);
+                });
 
 
-            // Aprovar
-            document.querySelectorAll(".btn-aprovar").forEach(btn => {
-                btn.addEventListener("click", () => {
-                    const id = btn.dataset.id;
+                // Aprovar
+                document.querySelectorAll(".btn-aprovar").forEach(btn => {
+                    btn.addEventListener("click", () => {
+                        const id = btn.dataset.id;
 
-                    fetch("/listar_aprovacoesCOM")
-                        .then(res => res.json())
-                        .then(propostasAtualizadas => {
-                            const proposta = propostasAtualizadas.find(p => p.id == id);
-                            if (!proposta) {
-                                alert("Proposta não encontrada.");
-                                return;
-                            }
-
-                            fetch("/gravar_propostaCOM", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify(proposta)
-                            })
+                        fetch("/listar_aprovacoesCOM")
                             .then(res => res.json())
-                            .then(data => {
-                                alert(data.message);
-                                fetch("/remover_aprovacaoCOM", {
+                            .then(propostasAtualizadas => {
+                                const proposta = propostasAtualizadas.find(p => p.id == id);
+                                if (!proposta) {
+                                    alert("Proposta não encontrada.");
+                                    return;
+                                }
+
+                                fetch("/gravar_propostaCOM", {
                                     method: "POST",
                                     headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ id: proposta.id })
-                                }).then(() => location.reload());
+                                    body: JSON.stringify(proposta)
+                                })
+                                .then(res => res.json())
+                                .then(data => {
+                                    alert(data.message);
+                                    fetch("/remover_aprovacaoCOM", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ id: proposta.id })
+                                    }).then(() => location.reload());
+                                });
                             });
-                        });
+                    });
                 });
-            });
 
-            // Reprovar
-            document.querySelectorAll(".btn-reprovar").forEach(btn => {
-                btn.addEventListener("click", () => {
-                    if (!confirm("Tem certeza que deseja reprovar esta proposta?")) return;
+                // Reprovar
+                document.querySelectorAll(".btn-reprovar").forEach(btn => {
+                    btn.addEventListener("click", () => {
+                        if (!confirm("Tem certeza que deseja reprovar esta proposta?")) return;
 
-                    const id = btn.dataset.id;
+                        const id = btn.dataset.id;
 
-                    fetch("/listar_aprovacoesCOM")
-                        .then(res => res.json())
-                        .then(propostasAtualizadas => {
-                            const proposta = propostasAtualizadas.find(p => p.id == id);
-                            if (!proposta) {
-                                alert("Proposta não encontrada.");
-                                return;
-                            }
-
-                            fetch("/reprovar_propostaCOM", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ id: id })
-                            })
+                        fetch("/listar_aprovacoesCOM")
                             .then(res => res.json())
-                            .then(data => {
-                                alert(data.message || "Proposta reprovada e removida.");
-                                fetch("/remover_aprovacaoCOM", {
+                            .then(propostasAtualizadas => {
+                                const proposta = propostasAtualizadas.find(p => p.id == id);
+                                if (!proposta) {
+                                    alert("Proposta não encontrada.");
+                                    return;
+                                }
+
+                                fetch("/reprovar_propostaCOM", {
                                     method: "POST",
                                     headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ id: proposta.id })
-                                }).then(() => location.reload());
+                                    body: JSON.stringify({ id: id })
+                                })
+                                .then(res => res.json())
+                                .then(data => {
+                                    alert(data.message || "Proposta reprovada e removida.");
+                                    fetch("/remover_aprovacaoCOM", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ id: proposta.id })
+                                    }).then(() => location.reload());
+                                });
                             });
-                        });
+                    });
                 });
             });
-        });
-});
+    });
 </script>
 {% endblock %}
