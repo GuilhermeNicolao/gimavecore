@@ -274,6 +274,8 @@
     .then(response => response.json())
     .then(data => {
 
+        window.resultReceitas = data.resultReceitas;
+        window.resultDespesas = data.resultDespesas
         window.lucroOperacao = data.lucroOperacao;
         window.lucroOperacaoMensal = data.lucroOperacaoMensal;
         window.rentabilidadeAtual = data.rentabilidadeAtual;
@@ -366,6 +368,8 @@
                 rec_tags: document.getElementById("rec_tags").value,
                 qtde_cartoes_eus: document.getElementById("qtde_cartoes_eus").value,
                 rec_saude: document.getElementById("rec_saude").value,
+                total_receitas: window.resultReceitas,
+                total_despesas: window.resultDespesas,
                 lucroOperacao: window.lucroOperacao,
                 lucroOperacaoMensal: window.lucroOperacaoMensal,
                 rentabilidadeAtual: window.rentabilidadeAtual,
