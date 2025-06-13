@@ -88,6 +88,10 @@ def get_parametros_calculos():
 
     return parametros
 
+
+
+
+
 #---------------LOGIN E TELAS INICIAIS----------------#
 # Login
 @app.route('/login', methods=['GET', 'POST'])
@@ -269,6 +273,9 @@ def menu_principal():
         return redirect(url_for('login'))
     return render_template('homepage.html')
 #-------------------------------------------------------#
+
+
+
 
 
 # ----------ROTAS ORÇAMENTO COMPRAS---------------------#
@@ -1018,6 +1025,9 @@ def dashboardCMP():
 #-----------------------------------------------------------------#
 
 
+
+
+
 #----------ROTAS VIABILIDADE COMERCIAL ELO------------------------#
 @app.route('/simulacaoCOM')
 @modulo_requerido('COMERCIAL','COMERCIALGESTOR')
@@ -1282,6 +1292,8 @@ def gravar_propostaCOM():
             int(data['qtde_cartoes_eus']),
             tratar_valor(data['rec_saude']),
             *parametros,
+            int(data['total_receitas']),
+            int(data['total_despesas']),
             float(data['lucroOperacao']),
             float(data['lucroOperacaoMensal']),
             float(data['rentabilidadeAtual']),
@@ -1300,13 +1312,13 @@ def gravar_propostaCOM():
                 despesatag_envio, despesatag_tagfisica, despesatag_greenpass,
                 despesaeus_epharma, despesaeus_telemedicina, despesaeus_enviounico,
                 investimento_cartao, negociacao_aprovada, negociacao_pendente, rentabilidade_ideal,
-                lucro_operacao, lucro_operacao_mensal, rentabilidade_atual,
+                total_receitas, total_despesas, lucro_operacao, lucro_operacao_mensal, rentabilidade_atual,
                 volume_mensal, volume_anual, volume_contrato, user_id
             ) VALUES (
                 %s, %s, %s, %s, %s, %s, %s, %s, %s,
                 %s, %s, %s, %s, %s, %s, %s, %s,
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, %s, %s
+                %s, %s, %s, %s, %s, %s, %s, %s, %s
             )
         """
         
@@ -1323,6 +1335,9 @@ def gravar_propostaCOM():
         cursor.close()
         conn.close()
 
+
+
+#Rotas dos relatórios
 @app.route('/relatorio1COM', methods=['GET', 'POST'])
 @modulo_requerido('COMERCIALGESTOR')
 def relatorio1COM():
@@ -1578,8 +1593,10 @@ def relatorio2COM():
     conn.close()
     return render_template('relatoriosimulacoes2COM.html', simulacao_com=simulacao_com)
 
-# Lista temporária de propostas pendentes (em memória)
-propostas_pendentes = []
+
+
+#Rotas de aprovação / reprovação de simulações com status 'PENDENTE'
+propostas_pendentes = [] # Lista temporária de propostas pendentes (em memória)
 
 @app.route('/aprovacoesCOM')
 @modulo_requerido('COMERCIALGESTOR')
@@ -1647,6 +1664,574 @@ def remover_aprovacaoCOM():
         return jsonify({"message": f"Erro ao remover proposta: {str(e)}"}), 500
 #------------------------------------------------------------------#
 
+
+
+
+
+#-----------ROTAS VIABILIDADE COMERCIAL ELO (PARCERIAS)------------#
+#Rotas de cadastro de parcerias
+@app.route('/parceriasCOM')
+@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
+def parceriasCOM():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+    return render_template('cadastroparceiroCOM.html')
+
+@app.route('/api/parceriasCOM')
+@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
+def listar_parceriasCOM():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+    
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT codigo_parceiro, nome, comissao FROM cadprc_com ORDER BY nome")
+    parcerias = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return jsonify(parcerias)
+
+@app.route('/cadastrar_parceriaCOM', methods=['POST'])
+@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
+def cadastrar_parceriaCOM():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+    
+    conn = None
+    cursor = None
+    
+    try:
+        # Coleta de dados do formulário (CORRIGIDO o nome da variável)
+        codigo_parceiro = ''.join(filter(str.isdigit, request.form['codigo_parceiro'].strip()))
+        nome = request.form['nome'].strip()
+        uf = request.form['uf'].strip()
+        comissao = request.form['comissao'].strip()
+
+        # Validação simples
+        if not codigo_parceiro or not nome or not uf or not comissao:
+            flash('Preencha todos os campos obrigatórios!', 'erro')
+            return redirect('/parceriasCOM')
+
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor(dictionary=True)
+
+        # Verifica duplicidade de CNPJ
+        cursor.execute("SELECT COUNT(*) AS total FROM cadprc_com WHERE codigo_parceiro = %s", (codigo_parceiro,))
+        if int(cursor.fetchone()['total']) > 0:
+            flash("Já existe um parceiro com esse CNPJ.", "erro")
+            return redirect('/parceriasCOM')
+
+        # Verifica duplicidade de razão social
+        cursor.execute("SELECT COUNT(*) AS total FROM cadprc_com WHERE LOWER(TRIM(nome)) = LOWER(%s)", (nome,))
+        if cursor.fetchone()['total'] > 0:
+            flash("Já existe um parceiro com essa razão social.", "erro")
+            return redirect('/parceriasCOM')
+
+        # Inserção
+        query = """
+            INSERT INTO cadprc_com (codigo_parceiro, nome, uf, comissao)
+            VALUES (%s, %s, %s, %s)
+        """
+        cursor.execute(query, (codigo_parceiro, nome, uf, comissao))
+        conn.commit()
+
+        flash('Parceiro cadastrado com sucesso!', 'sucesso')
+        return redirect('/parceriasCOM')
+
+    except mysql.connector.Error as err:
+        flash(f'Erro ao inserir os dados: {err}', 'erro')
+        return redirect('/parceriasCOM')
+    
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+@app.route('/api/parceriasCOM/<codigo>', methods=['PUT'])
+@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
+def atualizar_parceriaCOM(codigo):
+    if 'username' not in session:
+        return jsonify({'erro': 'Não autorizado'}), 401
+
+    dados = request.get_json()
+    novo_nome = dados.get('nome', '').strip()
+    nova_comissao = dados.get('comissao', '').strip()
+
+    if not novo_nome or not nova_comissao:
+        return jsonify({'erro': 'Nome e comissão são obrigatórios.'}), 400
+
+    try:
+        nova_comissao = nova_comissao.replace(',', '.')
+        nova_comissao_float = float(nova_comissao)
+    except ValueError:
+        return jsonify({'erro': 'Comissão inválida.'}), 400
+
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        UPDATE cadprc_com 
+        SET nome = %s, comissao = %s 
+        WHERE codigo_parceiro = %s
+    """, (novo_nome, nova_comissao_float, codigo))
+    conn.commit()
+
+    cursor.close()
+    conn.close()
+
+    return jsonify({'mensagem': 'Parceria atualizada com sucesso'}), 200
+
+@app.route('/api/parceriasCOM/<codigo>', methods=['DELETE'])
+@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
+def excluir_parceriaCOM(codigo):
+    if 'username' not in session:
+        return jsonify({'erro': 'Não autorizado'}), 401
+
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM cadprc_com WHERE codigo_parceiro = %s", (codigo,))
+    conn.commit()
+
+    cursor.close()
+    conn.close()
+
+    return jsonify({'mensagem': 'Parceria excluída com sucesso'}), 200
+
+
+
+#Rotas de parâmetros e simulações
+@app.route('/simulacaoprcCOM', methods=['GET'])
+@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
+def simulacaoprcCOM():  
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+    
+    id_parceiro = request.args.get('id_parceiro')
+
+    if session.get('parceiro_confirmado') != id_parceiro:
+        flash('Você precisa selecionar a parceria antes de continuar.')
+        return redirect('/parceriasCOM')  # ou o nome correto
+
+    # Buscar dados do parceiro
+    parceiro = None
+    if id_parceiro:
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT nome, comissao FROM cadprc_com WHERE codigo_parceiro = %s", (id_parceiro,))
+        parceiro = cursor.fetchone()
+    
+    return render_template('simulacaoprcCOM.html', parceiro=parceiro, id_parceiro=id_parceiro, nome_parceiro=parceiro['nome'])
+
+@app.route('/parametrosprcCOM')
+@modulo_requerido('COMERCIALGESTOR')
+def parametrosprcCOM():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+
+    return render_template('parametrosprcCOM.html')
+
+@app.route('/get_parametrosprc')
+@modulo_requerido('COMERCIALGESTOR')
+def get_parametrosprc():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("SELECT * FROM parametrosprc_com LIMIT 1")
+    resultado = cursor.fetchone()
+
+    cursor.close()
+    conn.close()
+
+    return jsonify(resultado)
+
+@app.route('/salvar_parametrosprc', methods=['POST'])
+@modulo_requerido('COMERCIALGESTOR')
+def salvar_parametrosprc():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+    
+    dados = request.json
+
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor()
+
+    # Aqui você pode decidir se quer sobrescrever (DELETE e INSERT) ou usar UPDATE com WHERE
+    cursor.execute("DELETE FROM parametrosprc_com")  # Mantém só 1 registro
+    query = """
+        INSERT INTO parametrosprc_com (
+            consumo_credenciado, confeccao_cartoes, custos_operacionais, custos_operacionais_qtde,
+            custo_tag, custo_tag_qtde, custo_eus, custo_eus_qtde,
+            despesatag_envio, despesatag_tagfisica, despesatag_greenpass,
+            despesaeus_epharma, despesaeus_telemedicina, despesaeus_enviounico,
+            investimento_cartao, negociacao_aprovada, negociacao_pendente, rentabilidade_ideal
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    """
+    valores = (
+        dados['consumo_credenciado'],
+        dados['confeccao_cartoes'],
+        dados['custos_operacionais'],
+        dados['custos_operacionais_qtde'],
+        dados['custo_tag'],
+        dados['custo_tag_qtde'],
+        dados['custo_eus'],
+        dados['custo_eus_qtde'],
+        dados['despesatag_envio'],
+        dados['despesatag_tagfisica'],
+        dados['despesatag_greenpass'],
+        dados['despesaeus_epharma'],
+        dados['despesaeus_telemedicina'],
+        dados['despesaeus_enviounico'],
+        dados['investimento_cartao'],
+        dados['negociacao_aprovada'],
+        dados['negociacao_pendente'],
+        dados['rentabilidade_ideal'],
+    )
+    cursor.execute(query, valores)
+    conn.commit()
+    cursor.close()
+
+    return jsonify({"status": "ok"})
+
+@app.route('/calcular_simulacaoprc', methods=['POST'])
+@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
+def calcular_simulacaoprc():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+
+    #Capturar o id do parceiro enviado pelo formulário de cadastro
+    dados_form = request.json  # dicionário com os dados do formulário
+    parametros = get_parametros_calculos()  # dicionário com os parâmetros do banco
+    id_parceiro = dados_form.get('id_parceiro')
+
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor()
+    cursor.execute("SELECT nome, comissao FROM cadprc_com WHERE codigo_parceiro = %s", (id_parceiro,))
+    parceiro = cursor.fetchone() #Nome e comissão do parceiro armazenados
+
+
+    # Formulário simulacaoprcCOM.html
+    qtde_cartoes = float(dados_form.get('qtde_cartoes') or 0)
+    valor_credito = float(dados_form.get('valor_credito') or 0)
+    qtde_meses = int(dados_form.get('meses') or 0)
+    taxa_adm = float(dados_form.get('taxa_adm') or 0)
+    venda_cartoes = float(dados_form.get('venda_cartoes') or 0)
+    qtde_cartoes_tag = int(dados_form.get('qtde_cartoes_tag') or 0)
+    rec_tags = float(dados_form.get('rec_tags') or 0)
+    qtde_cartoes_eus = int(dados_form.get('qtde_cartoes_eus') or 0)
+    rec_saude = float(dados_form.get('rec_saude') or 0)
+
+    # Tabela banco de dados
+    consumo_credenciado = float(parametros.get('consumo_credenciado', 0))
+    confeccao_cartoes = float(parametros.get('confeccao_cartoes', 0))
+    custos_operacionais = float(parametros.get('custos_operacionais', 0))
+    custos_operacionais_qtde = float(parametros.get('custos_operacionais_qtde', 0))
+    custo_tag = float(parametros.get('custo_tag', 0))
+    custo_tag_qtde = float(parametros.get('custo_tag_qtde', 0))
+    custo_eus = float(parametros.get('custo_eus', 0))
+    custo_eus_qtde = float(parametros.get('custo_eus_qtde', 0))
+    despesatag_envio = float(parametros.get('despesatag_envio', 0))
+    despesatag_tagfisica = float(parametros.get('despesatag_tagfisica', 0))
+    despesatag_greeenpass = float(parametros.get('despesatag_greenpass', 0))
+    despesaeus_epharma = float(parametros.get('despesaeus_epharma', 0))
+    despesaeus_telemedicina = float(parametros.get('despesaeus_telemedicina', 0))
+    despesaeus_enviounico = float(parametros.get('despesaeus_enviounico', 0))
+    investimento_cartao = float(parametros.get('investimento_cartao', 0))
+    negociacao_aprovada = float(parametros.get('negociacao_aprovada', 0))
+    negociacao_pendente = float(parametros.get('negociacao_pendente', 0))
+    rentabilidade_ideal = float(parametros.get('rentabilidade_ideal', 0))
+
+    # Volumetria
+    volumeMensal = qtde_cartoes * valor_credito
+    volumeAnual = volumeMensal * 12
+    volumeContrato = volumeMensal * qtde_meses
+
+    # Receitas Previstas - Cartão Elo
+    consumoCredenciadoMensal = volumeMensal * (consumo_credenciado / 100)
+    consumoCredenciadoAnual = volumeAnual * (consumo_credenciado / 100)
+    consumoCredenciadoContrato = volumeContrato * (consumo_credenciado / 100)
+
+    taxaAdmMensal = volumeMensal * (taxa_adm / 100)
+    taxaAdmAnual = volumeAnual * (taxa_adm / 100)
+    taxaAdmContrato = volumeContrato * (taxa_adm / 100)
+
+    vendaCartoesContrato = venda_cartoes * qtde_cartoes
+    vendaCartoesAnual = vendaCartoesContrato / (qtde_meses / 12)
+    vendaCartoesMensal = vendaCartoesAnual / 12
+
+    totalReceitasPrevistasMensal = vendaCartoesMensal + taxaAdmMensal + consumoCredenciadoMensal
+    totalReceitasPrevistasAnual = vendaCartoesAnual + taxaAdmAnual + consumoCredenciadoAnual
+    totalReceitasPrevistasContrato = vendaCartoesContrato + taxaAdmContrato + consumoCredenciadoContrato
+
+    # Despesas Previstas - Cartão Elo
+    confeccaoCartoesContrato = confeccao_cartoes * qtde_cartoes
+    custosOperacionaisContrato = (custos_operacionais * custos_operacionais_qtde * qtde_cartoes) * qtde_meses
+    custoTagContrato = (custo_tag * custo_tag_qtde * qtde_cartoes) * qtde_meses
+    custoEusContrato = (custo_eus * custo_eus_qtde * qtde_cartoes) * qtde_meses
+    custoInvestimentoContrato = investimento_cartao * qtde_cartoes
+    totalDespesasPrevistasContrato = custoInvestimentoContrato + custoEusContrato + custoTagContrato + custosOperacionaisContrato + confeccaoCartoesContrato
+    
+    # Outros Produtos
+    receitaTagContrato = rec_tags * qtde_cartoes_tag * qtde_meses
+    despesaTagEnvioContrato = despesatag_envio * qtde_cartoes_tag
+    despesaTagFisicaContrato = despesatag_tagfisica * qtde_cartoes_tag
+    despesaTagGreenpassContrato = (despesatag_greeenpass * qtde_cartoes_tag) * qtde_meses
+    totalDespesasTagContrato = despesaTagGreenpassContrato + despesaTagFisicaContrato + despesaTagEnvioContrato
+
+    receitaEusContrato = rec_saude * qtde_cartoes_eus * qtde_meses
+    despesaEusEpharma = despesaeus_epharma * qtde_cartoes_eus * qtde_meses
+    despesaEusTelemedicina = despesaeus_telemedicina * qtde_cartoes_eus
+    despesaEusEnvio = despesaeus_enviounico * qtde_cartoes_eus
+
+    comissao_valor = float(parceiro[1])
+    comissao = (comissao_valor / 100) * volumeContrato
+
+    totalDespesasEusContrato = despesaEusEnvio + despesaEusTelemedicina + despesaEusEpharma + comissao
+
+    # Resultados
+    resultReceitas = totalReceitasPrevistasContrato + receitaTagContrato + receitaEusContrato
+    resultDespesas = custoInvestimentoContrato + totalDespesasTagContrato + totalDespesasEusContrato
+    rentabilidadeIdeal = rentabilidade_ideal
+    statusAprovado = negociacao_aprovada
+    statusPendente = negociacao_pendente
+    lucroOperacao = resultReceitas - resultDespesas
+    lucroOperacaoMensal = lucroOperacao / qtde_meses
+    rentabilidadeAtual = (lucroOperacao / volumeContrato) * 100
+
+    resultado = {
+        "volumeMensal": volumeMensal,
+        "volumeAnual": volumeAnual,
+        "volumeContrato": volumeContrato,
+        "consumoCredenciadoMensal": consumoCredenciadoMensal,
+        "consumoCredenciadoAnual": consumoCredenciadoMensal,
+        "consumoCredenciadoContrato": consumoCredenciadoContrato,
+        "taxaAdmMensal": taxaAdmMensal,
+        "taxaAdmAnual": taxaAdmAnual,
+        "taxaAdmContrato": taxaAdmContrato,
+        "vendaCartoesContrato": vendaCartoesContrato,
+        "vendaCartoesAnual": vendaCartoesAnual,
+        "vendaCartoesMensal": vendaCartoesMensal,
+        "totalReceitasPrevistasMensal": totalReceitasPrevistasMensal,
+        "totalReceitasPrevistasAnual": totalReceitasPrevistasAnual,
+        "totalReceitasPrevistasContrato": totalReceitasPrevistasContrato,
+        "confeccaoCartoesContrato": confeccaoCartoesContrato,
+        "custosOperacionaisContrato": custosOperacionaisContrato,
+        "custoTagContrato": custoTagContrato,
+        "custoEusContrato": custoEusContrato,  
+        "custoInvestimentoContrato": custoInvestimentoContrato,
+        "totalDespesasPrevistasContrato": totalDespesasPrevistasContrato,
+        "receitaTagContrato": receitaTagContrato,
+        "despesaTagEnvioContrato": despesaTagEnvioContrato,
+        "despesaTagFisicaContrato": despesaTagFisicaContrato,
+        "despesaTagGreenpassContrato": despesaTagGreenpassContrato,
+        "totalDespesasTagContrato": totalDespesasTagContrato,
+        "receitaEusContrato": receitaEusContrato,
+        "despesaEusEpharma": despesaEusEpharma,
+        "despesaEusTelemedicina": despesaEusTelemedicina,
+        "despesaEusEnvio": despesaEusEnvio,
+        "comissao": comissao,
+        "totalDespesasEusContrato": totalDespesasEusContrato,
+        "resultReceitas": resultReceitas,
+        "resultDespesas": resultDespesas,
+        "rentabilidadeIdeal": rentabilidadeIdeal,
+        "statusAprovado": statusAprovado,
+        "statusPendente": statusPendente,
+        "lucroOperacao": lucroOperacao,
+        "lucroOperacaoMensal": lucroOperacaoMensal,
+        "rentabilidadeAtual": rentabilidadeAtual     
+    }
+
+    return jsonify(resultado)
+
+@app.route('/gravar_propostaprcCOM', methods=['POST'])
+@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
+def gravar_propostaprcCOM():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+
+    data = request.get_json()
+    comissao = float(data['comissao'])
+    user_id = session.get('user_id')
+
+    try:
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
+
+        # Buscar os parâmetros vigentes
+        cursor.execute("SELECT * FROM parametrosprc_com ORDER BY id DESC LIMIT 1")
+        parametros = cursor.fetchone()
+
+
+        if not parametros:
+            return jsonify({"message": "Nenhum parâmetro cadastrado!"}), 400
+
+        parametros = list(parametros)[1:]  # Ignora o ID da linha
+
+        # Certifique-se de que os dados do formulário estejam no formato certo
+        def tratar_valor(valor):
+            return float(valor.replace("R$", "").replace(".", "").replace(",", ".").strip())
+
+        valores = (
+            int(data['qtde_cartoes']),
+            tratar_valor(data['valor_credito']),
+            int(data['meses']),
+            float(data['taxa_adm']),
+            tratar_valor(data['venda_cartoes']),
+            int(data['qtde_cartoes_tag']),
+            tratar_valor(data['rec_tags']),
+            int(data['qtde_cartoes_eus']),
+            tratar_valor(data['rec_saude']),
+            *parametros[:15], #até investimento_cartao
+            comissao,
+            *parametros[15:18], #resto
+            int(data['total_receitas']),
+            int(data['total_despesas']),
+            float(data['lucroOperacao']),
+            float(data['lucroOperacaoMensal']),
+            float(data['rentabilidadeAtual']),
+            float(data['volumeMensal']),      
+            float(data['volumeAnual']),       
+            float(data['volumeContrato']),    
+            user_id
+        )
+
+        sql = """
+            INSERT INTO simulacaoprc_com (
+                qtde_cartoes, valor_credito, qtde_meses, taxa_adm, venda_cartoes,
+                qtde_cartoes_tag, rec_tags, qtde_cartoes_eus, rec_saude,
+                consumo_credenciado, confeccao_cartoes, custos_operacionais, custos_operacionais_qtde,
+                custo_tag, custo_tag_qtde, custo_eus, custo_eus_qtde,
+                despesatag_envio, despesatag_tagfisica, despesatag_greenpass,
+                despesaeus_epharma, despesaeus_telemedicina, despesaeus_enviounico,
+                investimento_cartao, comissao, negociacao_aprovada, negociacao_pendente, rentabilidade_ideal,
+                total_receitas, total_despesas, lucro_operacao, lucro_operacao_mensal, rentabilidade_atual,
+                volume_mensal, volume_anual, volume_contrato, user_id
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s
+            )
+        """
+        
+        cursor.execute(sql, valores)
+        conn.commit()
+
+        return jsonify({"message": "Proposta gravada com sucesso!"})
+
+    except Exception as e:
+        print("Erro ao gravar proposta:", e)
+        return jsonify({"message": "Erro ao gravar proposta."}), 500
+
+    finally:
+        cursor.close()
+        conn.close()
+
+
+
+#Rotas de aprovação / reprovação de simulações com status 'PENDENTE'
+propostas_pendentes_prc = [] # Lista temporária de propostas pendentes (em memória)
+
+@app.route('/aprovacoesprcCOM')
+@modulo_requerido('COMERCIALGESTOR')
+def aprovacoesprcCOM():
+    return render_template('aprovacoesprcCOM.html')
+
+@app.route('/enviar_para_aprovacaoprcCOM', methods=['POST'])
+def enviar_para_aprovacaoprcCOM():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+
+
+    dados = request.get_json()
+    usuario = session.get('username')
+    dados["id"] = dados.get("id") or str(uuid.uuid4())
+    dados['usuario'] = usuario
+
+    propostas_pendentes_prc.append(dados)
+    return jsonify({"message": "Proposta enviada para aprovação do gestor."})
+
+@app.route('/listar_aprovacoesprcCOM', methods=['GET'])
+def listar_aprovacoesprcCOM():
+    return jsonify(propostas_pendentes_prc)
+
+@app.route("/reprovar_propostaprcCOM", methods=["POST"])
+@modulo_requerido('COMERCIALGESTOR')
+def reprovar_propostaprcCOM():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+
+    data = request.get_json()
+    proposta_id = data.get("id")
+
+    if not proposta_id:
+        return jsonify({"message": "ID da proposta não informado."}), 400
+
+    try:
+        # Remover a proposta da lista em memória
+        for i, p in enumerate(propostas_pendentes_prc):
+            if str(p.get("id")) == str(proposta_id):
+                propostas_pendentes_prc.pop(i)
+                return jsonify({"message": "Proposta reprovada com sucesso."})
+
+        return jsonify({"message": "Proposta não encontrada."}), 404
+
+    except Exception as e:
+        return jsonify({"message": f"Erro ao reprovar proposta: {str(e)}"}), 500
+
+@app.route('/remover_aprovacaoprcCOM', methods=['POST'])
+def remover_aprovacaoprcCOM():
+    data = request.get_json()
+    id_proposta = data.get("id")
+
+    try:
+        for i, p in enumerate(propostas_pendentes_prc):
+            if str(p.get("id")) == str(id_proposta):
+                propostas_pendentes_prc.pop(i)
+                return jsonify({"message": "Proposta removida da lista de pendentes."})
+
+        return jsonify({"message": "Proposta não encontrada."}), 404
+
+    except Exception as e:
+        return jsonify({"message": f"Erro ao remover proposta: {str(e)}"}), 500
+
+@app.route('/parceriasCOM_sugestoes')
+@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
+def parceriasCOM_sugestoes():
+    termo = request.args.get('q', '').strip()
+
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor()
+    cursor.execute("SELECT codigo_parceiro, nome, comissao FROM cadprc_com WHERE nome LIKE %s LIMIT 10", (f'%{termo}%',))
+    resultados = [{'codigo_parceiro': row[0], 'nome': row[1], 'comissao': row[2]} for row in cursor.fetchall()]
+    cursor.close()
+    conn.close()
+
+    return jsonify(resultados)
+
+@app.route('/confirmar_selecao_parceiro', methods=['POST'])
+@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
+def confirmar_selecao_parceiro():
+    data = request.get_json()
+    session['parceiro_confirmado'] = data.get('id_parceiro')
+    return jsonify({'status': 'ok'})
+
+#------------------------------------------------------------------#
 
 if __name__ == '__main__':
     app.run(debug=True) 
