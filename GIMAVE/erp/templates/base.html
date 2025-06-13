@@ -5,21 +5,17 @@
     <meta charset="UTF-8">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
-
-        /* Main */
         body {
             margin: 0;
             font-family: Calibri Light;
             background-color: #F2F2F2;
         }
-            
+
         .main {
             margin-left: 160px;
             padding: 20px;
         }
 
-        
-        /* Menu Lateral */
         .sidenav {
             height: 100%;
             width: 160px;
@@ -49,30 +45,70 @@
             width: 100%;
             font-family: Calibri;
             cursor: pointer;
-            transition: 0.3s;
         }
 
         .sidenav a:hover,
         .dropdown-btn:hover {
-            background-color: #575757;
+            background-color: #3b3b3b;
         }
 
         .dropdown {
             position: relative;
         }
 
+        /* Todos os containers de submenu inicialmente ocultos */
         .dropdown-container {
             display: none;
             background-color: #444;
-            padding-left: 10px;
+            min-width: 200px;
+            z-index: 1;
         }
 
-        .dropdown:hover .dropdown-container {
+        /* Menu principal - posiciona o submenu abaixo */
+        .dropdown > .dropdown-container {
+            left: 0;
+            top: 100%;
+        }
+
+        /* Quando o pai é hover, exibe seu submenu */
+        .dropdown:hover > .dropdown-container {
             display: block;
         }
 
-        .dropdown-container a {
+        /* Submenu dentro de outro submenu */
+        .dropdown-container .dropdown {
+            display: block;
+        }
+
+        /* Mantém submenus aninhados funcionando */
+        .dropdown-container .dropdown:hover > .dropdown-container {
+            display: block;
+            background-color: #6f6f6f;
+        }
+
+        /* Estilo dos links de submenu */
+        .dropdown-container a,
+        .dropdown-container .dropdown-btn {
+            display: block;
             font-size: 16px;
+            padding: 12px 16px;
+            color: white;
+            text-decoration: none;
+            background: none;
+            border: none;
+            cursor: pointer;
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        .dropdown-container a:hover,
+        .dropdown-container .dropdown-btn:hover {
+            background-color: #666;
+        }
+
+        /* Garante que o submenu permaneça aberto quando hover no container */
+        .dropdown-container:hover {
+            display: block;
         }
     </style>
 
@@ -83,25 +119,27 @@
 <!-- Menu -->
 <div class="sidenav">
     <div style="display: flex; flex-direction: column; height: 99%;">
+
+        <!-- Home -->
         <a href="{{ url_for('menu_principal') }}">Home</a>
 
+        <!-- Compras -->
         {% if 'COMPRAS' in session['modulos'] %}
         <div class="dropdown">
             <div class="dropdown-btn">Compras (2)</div>
             <div class="dropdown-container">
 
                 <div class="dropdown">
-                    <div class="dropdown-btn">Cadastros (4)</div>
+                    <div class="dropdown-btn"><b>Cadastros</b></div>
                     <div class="dropdown-container">
                         <a href="{{ url_for('cadastroCMP') }}">Orçamentos</a>
                         <a href="{{ url_for('fornecedoresCMP') }}">Fornecedores</a>
                         <a href="{{ url_for('produtosCMP') }}">Produtos</a>
                         <a href="{{ url_for('categoriasCMP') }}">Categorias</a>
                     </div>
-                </div>
 
                 <div class="dropdown">
-                    <div class="dropdown-btn">Orçamentos (2)</div>
+                    <div class="dropdown-btn"><b>Orçamentos</b></div>
                     <div class="dropdown-container">
                         <a href="{{ url_for('validarCMP') }}">Validar</a>
                         <a href="{{ url_for('dashboardCMP') }}">Dashboard</a>
@@ -109,39 +147,66 @@
                 </div>
             </div>
         </div>
+    </div>
         {% endif %}
 
+        <!-- Comercial -->
         {% if 'COMERCIAL' in session['modulos'] or 'COMERCIALGESTOR' in session['modulos'] %}
-        <!-- Menu Comercial -->
         <div class="dropdown">
             <div class="dropdown-btn">Comercial (3)</div>
             <div class="dropdown-container">
-                <a href="{{ url_for('simulacaoCOM') }}">Simulação Elo</a>
 
-                {%if 'COMERCIALGESTOR' in session['modulos']%}
-                <a href="{{ url_for('parametrosCOM') }}">Parâmetros Comerciais</a>
-                <a href="{{ url_for('aprovacoesCOM') }}">Apovar Simulações</a>
-                <div class="dropdown-btn">Relatórios (2)</div>
-                <div class="dropdown-container">
-                    <a href="{{ url_for('relatorio1COM') }}">Analítico por Usuário</a>
-                    <a href="{{ url_for('relatorio2COM') }}">Analítico por Simulação</a>
-                {% endif %}
+                <!--Cartões Elo-->
+                <div class="dropdown">
+                    <div class="dropdown-btn"><b>Cartões Elo</b></div>
+                    <div class="dropdown-container">
+                        <a href="{{ url_for('simulacaoCOM') }}">Simulação Elo</a>
+
+                        {% if 'COMERCIALGESTOR' in session['modulos'] %}
+                        <a href="{{ url_for('parametrosCOM') }}">Parâmetros Comerciais</a>
+                        <a href="{{ url_for('aprovacoesCOM') }}">Aprovar Simulações</a>
+                    </div>                    
+                    {% endif %}
+                    
+                    <!-- Cartões Elo Parcerias-->
+                    <div class="dropdown">
+                        <div class="dropdown-btn"><b>Cartões Elo Parcerias</b></div>
+                        <div class="dropdown-container">
+                            <a href="{{ url_for('parceriasCOM') }}">Simulação Parcerias</a>
+                            
+                            {% if 'COMERCIALGESTOR' in session['modulos'] %}
+                        <a href="{{ url_for('parametrosprcCOM') }}">Parâmetros Comerciais</a>
+                        <a href="{{ url_for('aprovacoesprcCOM') }}">Aprovar Simulações</a>
+                    {% endif %}
+                    </div>
+                 
+
+                <!--Relatórios-->
+                <div class="dropdown">
+                    <div class="dropdown-btn"><b>Relatórios</b></div>
+                    <div class="dropdown-container">
+                        <a href="{{ url_for('relatorio1COM') }}">Analítico por Usuário</a>
+                        <a href="{{ url_for('relatorio2COM') }}">Analítico por Simulação</a>
+                    </div>
                 </div>
-
+                </div>
+                </div>
             </div>
         </div>
         {% endif %}
 
+        <!-- Admin -->
         {% if session['nivel'] == 'ADMIN' %}
         <div class="dropdown">
             <div class="dropdown-btn">Admin (2)</div>
             <div class="dropdown-container">
-                <a href="{{ url_for('listar_usuarios_acessos')}}">Acessos Módulos</a>
-                <a href="{{ url_for('reg_usuarios')}}">Gerenciar Usuários</a>
+                <a href="{{ url_for('listar_usuarios_acessos') }}">Acessos Módulos</a>
+                <a href="{{ url_for('reg_usuarios') }}">Gerenciar Usuários</a>
             </div>
         </div>
         {% endif %}
 
+        <!-- Logout -->
         <form action="{{ url_for('logout') }}" method="POST" style="margin-top: auto; padding: 15px;">
             <button type="submit" style="width: 100%; padding: 10px; background-color: #333333; color: white; border: none; cursor: pointer; font-size: 17px; font-family: Calibri;">
                 Log Out
@@ -150,13 +215,12 @@
     </div>
 </div>
 
+
 <!-- Conteúdo principal -->
 <div class="main">
     {% block content %}
     {% endblock %}
 </div>
 
-{% block scripts %}{% endblock %}
-
-</body>
-</html>
+{% block scripts %}
+{% endblock %}
