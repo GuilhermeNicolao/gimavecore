@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8" />
+<title>Dashboard de Conciliação</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+
+
+<style>
+  * {
+    box-sizing: border-box;
+    font-family: 'Work Sans', sans-serif;
+    text-align: center;
+  }
+  body {
+    margin: 0;
+    padding: 0;
+  }
+
+  .atualizacao-info {
+    position: relative;
+    height: 55px;
+    background-color: #089877;
+    color: white;
+    font-weight: bold;
+    font-size: 14px;
+    text-align: center;
+    line-height: 50px;
+  }
+
+  .dashboard-container {
+    display: flex;
+    height: calc(100vh - 50px);
+    overflow-x: auto;
+    background-color: #f0f2f5;
+  }
+
+  .empresa-bloco {
+    flex: 1;
+    min-width: 16.66%;
+    padding: 0 16px 16px 16px;
+    background-color: #ffffff;
+    position: relative;
+    height: calc(100vh - 50px);
+    overflow: hidden;
+  }
+
+  .empresa-top-mask {
+    position: sticky;
+    top: 0;
+    height: 50px;
+    background-color: white;
+    z-index: 3;
+  }
+
+  .empresa-nome {
+    position: sticky;
+    top: 50px;
+    background-color: #e0f6f2;
+    color: black;
+    padding: 18px;
+    font-weight: bold;
+    z-index: 2;
+    text-align: center;
+    border-radius: 0 0 4px 4px;
+    margin-bottom: 10px;
+  }
+
+  .scroll-wrapper {
+    height: calc(100vh - 50px - 50px - 10px);
+    overflow: hidden;
+    position: relative;
+  }
+
+  .scroll-content {
+    will-change: transform;
+  }
+
+  .conta-item {
+    margin: 12px 0;
+    padding: 10px;
+    background-color: #f3f0f0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    border-radius: 4px;
+    line-height: 1.6;
+  }
+
+  .status-atualizacao {
+    font-weight: normal;
+    color: #244c80;
+  }
+
+  .ultima-hora {
+    position: absolute;
+    right: 20px;
+  }
+
+  .titulo-dashboard {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 20px;
+  }
+
+</style>
+</head>
+<body>
+
+  <div class="atualizacao-info">
+    <span class="titulo-dashboard">CONCILIAÇÕES BANCÁRIAS - FINANCEIRO</span>
+    <span class="ultima-hora" id="ultima-atualizacao">Última vez atualizado: --:--</span>
+  </div>
+  
+
+  <div class="dashboard-container">
+    {% for empresa in empresas %}
+    <div class="empresa-bloco" data-empresa="{{ empresa.nome }}">
+      <div class="empresa-top-mask"></div>
+      <div class="empresa-nome">{{ empresa.nome }}</div>
+
+      <div class="scroll-wrapper">
+        <div class="scroll-content">
+          {% for conta in empresa.contas %}
+          <div class="conta-item">
+            <b>{{ conta.numero }}</b><br>
+            {{ conta.responsavel }}<br>
+            <b class="status-atualizacao" data-timestamp="{{ conta['data_ultima_atualizacao'] }}" data-conciliada="{{ conta['data_conciliada_iso'] }}">
+              {{ conta.data_conciliada }}
+            </b>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const velocidade = 0.5; // pixels por frame
+
+  document.querySelectorAll('.empresa-bloco').forEach(bloco => {
+    const wrapper = bloco.querySelector('.scroll-wrapper');
+    const content = wrapper.querySelector('.scroll-content');
+    const contas = Array.from(content.children);
+
+    // DUPLICAR TRÊS VEZES → 4 blocos no total
+    for (let i = 0; i < 4; i++) {
+      contas.forEach(conta => {
+        const clone = conta.cloneNode(true);
+        content.appendChild(clone);
+      });
+    }
+
+    const alturaTotalOriginal = content.scrollHeight / 5; // 4 blocos: original + 3 cópias
+    let translateY = 0;
+
+    function loopScroll() {
+      translateY -= velocidade;
+      if (-translateY >= alturaTotalOriginal) {
+        translateY = 0;
+      }
+      content.style.transform = `translateY(${translateY}px)`;
+      requestAnimationFrame(loopScroll);
+    }
+
+    requestAnimationFrame(loopScroll);
+  });
+
+  function verificaAtualizacao() {
+    const elementos = document.querySelectorAll('.status-atualizacao');
+    const agora = Date.now();
+
+    elementos.forEach(elem => {
+      const tsStr = elem.getAttribute('data-timestamp');
+      const conciliadaStr = elem.getAttribute('data-conciliada');
+
+      if (!tsStr) return;
+
+      const ts = new Date(tsStr).getTime();
+      if (isNaN(ts)) return;
+
+      const cincoDiasMs = 5 * 24 * 60 * 60 * 1000;
+
+      // Verifica se está desatualizado (mais de 7 dias)
+      if (agora - ts > 604800000) {
+        elem.textContent = 'DESATUALIZADO';
+        elem.style.color = '#d73f3f';
+        elem.style.fontWeight = 'bold';
+      } else {
+        // Mantém o texto original da data de conciliação
+        elem.style.fontWeight = 'normal';
+
+        if (conciliadaStr) {
+          const conciliada = new Date(conciliadaStr);
+
+          // Se data de conciliação > 5 dias atrás, pinta de vermelho
+          if (agora - conciliada.getTime() > cincoDiasMs) {
+            elem.style.color = '#d73f3f';
+            elem.style.fontWeight = 'bold';
+          } else {
+            elem.style.color = '#0a91d3';
+            elem.style.fontWeight = 'bold';
+
+          }
+        }
+      }
+    });
+  }
+
+  verificaAtualizacao();
+  setInterval(verificaAtualizacao, 10000);
+});
+
+  function formatarHoraAgora() {
+    const agora = new Date();
+    const horas = agora.getHours().toString().padStart(2, '0');
+    const minutos = agora.getMinutes().toString().padStart(2, '0');
+    return `${horas}:${minutos}`;
+  }
+
+  function atualizarTextoHora() {
+    const span = document.getElementById('ultima-atualizacao');
+    if (span) {
+      span.textContent = `Última vez atualizado: ${formatarHoraAgora()}`;
+    }
+  }
+
+  setInterval(atualizarTextoHora, 60000); // Atualiza a hora visual a cada minuto
+  document.addEventListener("DOMContentLoaded", atualizarTextoHora);
+  setTimeout(() => location.reload(), 3600000); // Recarrega a página a cada 1h
+</script>
+
+</body>
+</html>

@@ -12,10 +12,8 @@ from selenium import webdriver
 from tkinter import messagebox
 import tkinter as tk
 import pandas as pd
-import numpy as np
 import pyperclip
 import time
-import cv2
 import sys
 import os
 
