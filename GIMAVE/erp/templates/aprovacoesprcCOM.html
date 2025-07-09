@@ -1,8 +1,8 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<h2 style="margin-left: 2%; margin-top: 20px;">PROPOSTAS PENDENTES (PARCERIAS)</h2>
-<div id="lista-aprovacoes" style="margin-left: 2%; margin-top: 20px"></div>
+<h2 style="margin-left: 3%; margin-top: 20px;">PROPOSTAS PENDENTES (PARCERIAS)</h2>
+<div id="lista-aprovacoes" style="margin-left: 3%; margin-top: 20px"></div>
 {% endblock %}
 
 {% block scripts %}
@@ -52,7 +52,7 @@
                         </div>
                         <div style="margin-bottom: 10px; line-height: 1.6;">
                             <p><strong>Qtd. Cartões:</strong> ${p.qtde_cartoes}</p>
-                            <p><strong>Valor Crédito:</strong> ${formatarMoeda(p.valor_credito)}</p>
+                            <p><strong>Valor Crédito:</strong> ${p.valor_credito}</p>
                             <p><strong>Meses:</strong> ${p.meses}</p>
                             <p><strong>Receita Total:</strong> ${formatarMoeda(p.total_receitas)}</p>
                             <p><strong>Despesa Total:</strong> ${formatarMoeda(p.total_despesas)}</p>
