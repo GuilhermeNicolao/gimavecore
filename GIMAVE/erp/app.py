@@ -121,7 +121,7 @@ def login():
                         cursor.execute("SELECT modulo FROM modulos WHERE user_id = %s", (user_id,))
                         modulos = [row[0] for row in cursor.fetchall()]
                     else:
-                        modulos = ['COMPRAS', 'COMERCIALGESTOR' , 'COMERCIAL']
+                        modulos = ['COMPRAS', 'COMERCIALGESTOR' , 'COMERCIAL', 'FINANCEIRO'] #ACESSO ADMIN!!
 
                     session['modulos'] = modulos
                     flash('Login realizado com sucesso!', 'success')
@@ -164,6 +164,7 @@ def reg_usuarios():
     if request.method == 'POST':
         nome = request.form['nome']
         username = request.form['username']
+        email = request.form['email']
         senha = request.form['senha']
         nivel = request.form['nivel']
 
@@ -172,8 +173,8 @@ def reg_usuarios():
         try:
             conexao = mysql.connector.connect(**db_config)
             cursor = conexao.cursor()
-            cursor.execute("INSERT INTO usuarios (nome, username, senha_hash, nivel) VALUES (%s, %s, %s, %s)",
-                           (nome, username, senha_hash, nivel))
+            cursor.execute("INSERT INTO usuarios (nome, username, email, senha_hash, nivel) VALUES (%s, %s, %s, %s, %s)",
+                           (nome, username, email, senha_hash, nivel))
             conexao.commit()
             flash('Usuário cadastrado com sucesso.', 'success')
         except mysql.connector.IntegrityError:
@@ -185,7 +186,7 @@ def reg_usuarios():
     # Listar todos os usuários
     conexao = mysql.connector.connect(**db_config)
     cursor = conexao.cursor()
-    cursor.execute("SELECT user_id, nome, username, nivel FROM usuarios")
+    cursor.execute("SELECT user_id, nome, username, email, nivel FROM usuarios")
     usuarios = cursor.fetchall()
     cursor.close()
     conexao.close()
@@ -213,12 +214,12 @@ def excluir_usuario(user_id):
 def listar_usuarios_acessos():
     if session.get('nivel') != 'ADMIN':
         flash('Você não tem permissão para acessar esta página.', 'danger')
-        return redirect(url_for('menu_principal'))  # Redireciona para a home comercial
+        return redirect(url_for('menu_principal')) 
     
     try:
         conexao = mysql.connector.connect(**db_config)
         cursor = conexao.cursor(dictionary=True)
-        cursor.execute("SELECT user_id, nome, username, nivel FROM usuarios")
+        cursor.execute("SELECT user_id, nome, username, email, nivel FROM usuarios")
         usuarios = cursor.fetchall()
     finally:
         cursor.close()
@@ -233,7 +234,7 @@ def gerenciar_modulos(user_id):
         flash('Você não tem permissão para acessar esta página.', 'danger')
         return redirect(url_for('menu_principal'))  
 
-    modulos_disponiveis = ['COMPRAS', 'COMERCIALGESTOR' , 'COMERCIAL']
+    modulos_disponiveis = ['COMPRAS', 'COMERCIALGESTOR' , 'COMERCIAL', 'FINANCEIRO']
 
     try:
         conexao = mysql.connector.connect(**db_config)
@@ -2145,6 +2146,7 @@ def gravar_propostaprcCOM():
 #Rotas de aprovação / reprovação de simulações com status 'PENDENTE'
 propostas_pendentes_prc = [] # Lista temporária de propostas pendentes (em memória)
 
+
 @app.route('/aprovacoesprcCOM')
 @modulo_requerido('COMERCIALGESTOR')
 def aprovacoesprcCOM():
@@ -2230,8 +2232,149 @@ def confirmar_selecao_parceiro():
     data = request.get_json()
     session['parceiro_confirmado'] = data.get('id_parceiro')
     return jsonify({'status': 'ok'})
-
 #------------------------------------------------------------------#
+
+
+
+
+#-----------ROTAS FINANCEIRO---------------------------------------#
+@app.route('/formularioconciliacaoFIN', methods=['GET'])
+@modulo_requerido('FINANCEIRO')
+def conciliacao_formFIN():
+    logged_user_id = session.get('user_id')
+
+    if not logged_user_id:
+        flash('Sessão de usuário não encontrada. Faça o login novamente.', 'warning')
+        return redirect(url_for('login')) 
+    
+    contas = []
+
+    try:
+        with mysql.connector.connect(**db_config) as conn:
+            with conn.cursor(dictionary=True) as cursor:
+                query = """
+                    SELECT 
+                        id_conciliacao AS id,       
+                        numero AS nome_conta,       
+                        data_conciliada,
+                        data_ultima_atualizacao
+                    FROM 
+                        dashcontas_fin 
+                    WHERE 
+                        user_id = %s                
+                    ORDER BY 
+                        numero
+                """
+                cursor.execute(query, (int(logged_user_id),))
+                contas = cursor.fetchall()
+    except mysql.connector.Error as err:
+        flash(f'Erro ao buscar dados: {err}', 'erro')
+
+    return render_template('formularioconciliacaoFIN.html', contas=contas)
+
+@app.route('/atualizarconciliacaoFIN', methods=['POST'])
+@modulo_requerido('FINANCEIRO')
+def atualizarconciliacaoFIN():
+    conn = None
+    cursor = None
+    try:
+        # Pega os dados enviados pelo formulário
+        conta_id = request.form.get('conta_id')
+        data_conciliada = request.form.get('data_conciliada')
+
+        # Validação simples
+        if not conta_id or not data_conciliada:
+            flash('Selecione a conta e a data para continuar.', 'erro')
+            return redirect(url_for('conciliacao_formFIN'))
+
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
+
+        # Atualiza a data na tabela do banco
+        query = "UPDATE dashcontas_fin SET data_conciliada = %s WHERE id_conciliacao = %s"
+        cursor.execute(query, (data_conciliada, conta_id))
+        conn.commit()
+
+        flash('Data de conciliação atualizada com sucesso!', 'sucesso')
+        return redirect(url_for('conciliacao_formFIN'))
+
+    except mysql.connector.Error as err:
+        flash(f'Erro ao atualizar o banco de dados: {err}', 'erro')
+        return redirect(url_for('conciliacao_formFIN'))
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+@app.route('/dashboardconciliacaoFIN')
+@modulo_requerido('FINANCEIRO')
+def dashboardconciliacaoFIN():
+    try:
+        with mysql.connector.connect(**db_config) as conn:
+            with conn.cursor(dictionary=True) as cursor:
+                cursor.execute("""
+                    SELECT 
+                        d.id_conciliacao,
+                        d.numero,
+                        d.data_conciliada,
+                        u.nome AS responsavel,
+                        d.data_ultima_atualizacao
+                    FROM dashcontas_fin d
+                    LEFT JOIN usuarios u ON d.user_id = u.user_id
+                """)
+                contas = cursor.fetchall()
+
+        # Mapeamento das empresas para ids de contas
+        empresa_map = {
+            'ANGELS CAPITAL': [1,3,6,9,20,28,32],
+            'ANGELS SECURITIZADORA': [7,18,24],
+            'EU MAIS SAÚDE': [16,34],
+            'GIMAVE ': [2,4,10,11,12,13,15,17,19,21,22,23,25,29,33,35,36,37,38,39,40,41],
+            'PENSEAPP': [5,31],
+            'VT PASSA FÁCIL': [8,14,26,27,30]
+        }
+
+        # Inicializa dicionário com listas vazias
+        empresas = {nome: [] for nome in empresa_map}
+
+        for conta in contas:
+            # Formata data_conciliada para dd/mm/yyyy para mostrar no front
+            data = conta.get('data_conciliada')
+            if data:
+                try:
+                    dt_obj = datetime.strptime(str(data), '%Y-%m-%d')
+                    conta['data_conciliada'] = dt_obj.strftime('%d/%m/%Y')
+                    conta['data_conciliada_iso'] = dt_obj.isoformat()
+                except ValueError:
+                    conta['data_conciliada_iso'] = ''
+                    conta['data_conciliada'] = str(data)
+            else:
+                conta['data_conciliada_iso'] = ''
+                conta['data_conciliada'] = ''
+
+            # Converte data_ultima_atualizacao para iso string para JS
+            dt_upd = conta.get('data_ultima_atualizacao')
+            if dt_upd and hasattr(dt_upd, 'isoformat'):
+                conta['data_ultima_atualizacao'] = dt_upd.isoformat()
+            else:
+                conta['data_ultima_atualizacao'] = ''
+
+            id_conc = conta['id_conciliacao']
+            for empresa, ids in empresa_map.items():
+                if id_conc in ids:
+                    empresas[empresa].append(conta)
+                    break
+
+        lista_empresas = [{'nome': k, 'contas': v} for k, v in empresas.items()]
+
+        return render_template('dashboardconciliacaoFIN.html', empresas=lista_empresas)
+
+    except mysql.connector.Error as err:
+        flash(f'Erro ao carregar dados: {err}', 'erro')
+        return render_template('dashboardconciliacaoFIN.html', empresas=[])
+#------------------------------------------------------------------#
+
 
 if __name__ == '__main__':
     app.run(debug=True) 
