@@ -123,6 +123,52 @@
         <!-- Home -->
         <a href="{{ url_for('menu_principal') }}">Home</a>
 
+        <!-- Comercial -->
+        {% if 'COMERCIAL' in session['modulos'] or 'COMERCIALGESTOR' in session['modulos'] %}
+        <div class="dropdown">
+            <div class="dropdown-btn">Comercial (3)</div>
+            <div class="dropdown-container">
+
+                <!--Cartões Elo-->
+                <div class="dropdown">
+                    <div class="dropdown-btn"><b>Cartões Elo</b></div>
+                    <div class="dropdown-container">
+                        <a href="{{ url_for('simulacaoCOM') }}">Simulação Elo</a>
+
+                        {% if 'COMERCIALGESTOR' in session['modulos'] %}
+                        <a href="{{ url_for('parametrosCOM') }}">Parâmetros Comerciais</a>
+                        <a href="{{ url_for('aprovacoesCOM') }}">Aprovar Simulações</a>
+                    {% endif %}
+                    </div>                    
+                    
+                    
+                    <!-- Cartões Elo Parcerias-->
+                    <div class="dropdown">
+                        <div class="dropdown-btn"><b>Cartões Elo Parcerias</b></div>
+                        <div class="dropdown-container">
+                            <a href="{{ url_for('parceriasCOM') }}">Simulação Parcerias</a>
+                            
+                            {% if 'COMERCIALGESTOR' in session['modulos'] %}
+                        <a href="{{ url_for('parametrosprcCOM') }}">Parâmetros Comerciais</a>
+                        <a href="{{ url_for('aprovacoesprcCOM') }}">Aprovar Simulações</a>
+                    {% endif %}
+                    </div>
+                 
+
+                <!--Relatórios-->
+                <div class="dropdown">
+                    <div class="dropdown-btn"><b>Relatórios</b></div>
+                    <div class="dropdown-container">
+                        <a href="{{ url_for('relatorio1COM') }}">Analítico por Usuário</a>
+                        <a href="{{ url_for('relatorio2COM') }}">Analítico por Simulação</a>
+                    </div>
+                </div>
+                </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Compras -->
         {% if 'COMPRAS' in session['modulos'] %}
         <div class="dropdown">
@@ -147,49 +193,21 @@
                 </div>
             </div>
         </div>
-    </div>
+        </div>
         {% endif %}
 
-        <!-- Comercial -->
-        {% if 'COMERCIAL' in session['modulos'] or 'COMERCIALGESTOR' in session['modulos'] %}
+        <!-- Financeiro -->
+        {% if 'FINANCEIRO' in session['modulos'] %}
         <div class="dropdown">
-            <div class="dropdown-btn">Comercial (3)</div>
+            <div class="dropdown-btn">Financeiro (2)</div>
             <div class="dropdown-container">
 
-                <!--Cartões Elo-->
                 <div class="dropdown">
-                    <div class="dropdown-btn"><b>Cartões Elo</b></div>
+                    <div class="dropdown-btn"><b>Conciliação</b></div>
                     <div class="dropdown-container">
-                        <a href="{{ url_for('simulacaoCOM') }}">Simulação Elo</a>
-
-                        {% if 'COMERCIALGESTOR' in session['modulos'] %}
-                        <a href="{{ url_for('parametrosCOM') }}">Parâmetros Comerciais</a>
-                        <a href="{{ url_for('aprovacoesCOM') }}">Aprovar Simulações</a>
-                    </div>                    
-                    {% endif %}
-                    
-                    <!-- Cartões Elo Parcerias-->
-                    <div class="dropdown">
-                        <div class="dropdown-btn"><b>Cartões Elo Parcerias</b></div>
-                        <div class="dropdown-container">
-                            <a href="{{ url_for('parceriasCOM') }}">Simulação Parcerias</a>
-                            
-                            {% if 'COMERCIALGESTOR' in session['modulos'] %}
-                        <a href="{{ url_for('parametrosprcCOM') }}">Parâmetros Comerciais</a>
-                        <a href="{{ url_for('aprovacoesprcCOM') }}">Aprovar Simulações</a>
-                    {% endif %}
+                        <a href="{{ url_for('conciliacao_formFIN') }}">Formulário Dashboard</a>
+                        <a href="{{ url_for('dashboardconciliacaoFIN') }}">Dashboard Conciliação</a>
                     </div>
-                 
-
-                <!--Relatórios-->
-                <div class="dropdown">
-                    <div class="dropdown-btn"><b>Relatórios</b></div>
-                    <div class="dropdown-container">
-                        <a href="{{ url_for('relatorio1COM') }}">Analítico por Usuário</a>
-                        <a href="{{ url_for('relatorio2COM') }}">Analítico por Simulação</a>
-                    </div>
-                </div>
-                </div>
                 </div>
             </div>
         </div>
