@@ -245,12 +245,12 @@
 <script>
     // Extrai o id_parceiro da URL e armazena em um campo oculto
     const urlParams = new URLSearchParams(window.location.search);
-    const idParceiro = urlParams.get('id_parceiro');
-    if (idParceiro) {
+    const codigoParceiro = urlParams.get('id_parceiro');
+    if (codigoParceiro) {
         const inputHidden = document.createElement('input');
         inputHidden.type = 'hidden';
         inputHidden.id = 'id_parceiro';
-        inputHidden.value = idParceiro;
+        inputHidden.value = codigoParceiro;
         document.getElementById('form-simulacao').appendChild(inputHidden);
     }
 
@@ -322,6 +322,7 @@
         window.volumeMensal = data.volumeMensal;
         window.volumeAnual = data.volumeAnual;
         window.volumeContrato = data.volumeContrato;
+        window.payback = data.payback;
         window.comissao = data.comissao;
         
         const rentabilidadeIdeal = data.rentabilidadeIdeal;
@@ -415,27 +416,12 @@
                 volumeMensal: window.volumeMensal,
                 volumeAnual: window.volumeAnual,
                 volumeContrato: window.volumeContrato,
+                payback: window.payback,
                 comissao: window.comissao
             };
 
             if (window.rentabilidadeAtual >= window.statusPendente && window.rentabilidadeAtual < window.statusAprovado) {
-                // Enviar para aprovação
-                fetch("/enviar_para_aprovacaoprcCOM", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(dadosFormulario)
-                })
-                .then(res => res.json())
-                .then(data => {
-                    alert("Proposta enviada para aprovação do gestor!");
-                    location.reload();
-                })
-                .catch(error => {
-                    console.error("Erro ao enviar para aprovação:", error);
-                });
-
-            } else {
-                // Gravar direto no banco
+                dadosFormulario.status = "PENDENTE";
                 fetch("/gravar_propostaprcCOM", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -443,11 +429,20 @@
                 })
                 .then(res => res.json())
                 .then(data => {
-                    alert(data.message || "Proposta gravada com sucesso!");
+                    alert("Proposta registrada como pendente.");
                     location.reload();
+                });
+            } else if (window.rentabilidadeAtual >= window.statusAprovado) {
+                dadosFormulario.status = "APROVADO";
+                fetch("/gravar_propostaprcCOM", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(dadosFormulario)
                 })
-                .catch(error => {
-                    console.error("Erro ao gravar proposta:", error);
+                .then(res => res.json())
+                .then(data => {
+                    alert("Proposta aprovada e gravada.");
+                    location.reload();
                 });
             }
         }
