@@ -13,7 +13,6 @@ from io import BytesIO
 import mysql.connector
 import locale
 import bcrypt
-import uuid
 import os
 import re
 
@@ -1209,6 +1208,7 @@ def calcular_simulacao():
     lucroOperacao = resultReceitas - resultDespesas
     lucroOperacaoMensal = lucroOperacao / qtde_meses
     rentabilidadeAtual = (lucroOperacao / volumeContrato) * 100
+    payback = resultDespesas / totalReceitasPrevistasMensal 
 
     resultado = {
         "volumeMensal": volumeMensal,
@@ -1249,7 +1249,8 @@ def calcular_simulacao():
         "statusPendente": statusPendente,
         "lucroOperacao": lucroOperacao,
         "lucroOperacaoMensal": lucroOperacaoMensal,
-        "rentabilidadeAtual": rentabilidadeAtual     
+        "rentabilidadeAtual": rentabilidadeAtual,
+        "payback": payback     
     }
 
     return jsonify(resultado)
@@ -1263,6 +1264,7 @@ def gravar_propostaCOM():
 
     data = request.get_json()
     user_id = session.get('user_id')
+    status = data.get("status","PENDENTE")
 
     try:
         conn = mysql.connector.connect(**db_config)
@@ -1300,8 +1302,10 @@ def gravar_propostaCOM():
             float(data['rentabilidadeAtual']),
             float(data['volumeMensal']),      
             float(data['volumeAnual']),       
-            float(data['volumeContrato']),    
-            user_id
+            float(data['volumeContrato']),
+            float(data['payback']),
+            user_id,
+            status
         )
 
         sql = """
@@ -1314,12 +1318,12 @@ def gravar_propostaCOM():
                 despesaeus_epharma, despesaeus_telemedicina, despesaeus_enviounico,
                 investimento_cartao, negociacao_aprovada, negociacao_pendente, rentabilidade_ideal,
                 total_receitas, total_despesas, lucro_operacao, lucro_operacao_mensal, rentabilidade_atual,
-                volume_mensal, volume_anual, volume_contrato, user_id
+                volume_mensal, volume_anual, volume_contrato, payback, user_id, status
             ) VALUES (
                 %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s,
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, %s, %s, %s, %s
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
             )
         """
         
@@ -1338,7 +1342,111 @@ def gravar_propostaCOM():
 
 
 
-#Rotas dos relatórios
+@app.route('/aprovacoesCOM')
+@modulo_requerido('COMERCIALGESTOR')
+def aprovacoesCOM():
+    return render_template('aprovacoesCOM.html')
+
+@app.route('/enviar_para_aprovacaoCOM', methods=['POST'])
+@modulo_requerido('COMERCIALGESTOR')
+def enviar_para_aprovacaoCOM():
+    if 'username' not in session:
+        return jsonify({"message": "Usuário não autenticado."}), 401
+
+    data = request.get_json()
+    id_proposta = data.get("id")
+
+    if not id_proposta:
+        return jsonify({"message": "ID da proposta é obrigatório."}), 400
+
+    try:
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
+        cursor.execute("UPDATE simulacao_com SET status = 'APROVADO' WHERE id = %s", (id_proposta,))
+        conn.commit()
+        return jsonify({"message": "Status da proposta atualizado para APROVADO."})
+    except Exception as e:
+        return jsonify({"message": f"Erro: {str(e)}"}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route('/listar_aprovacoesCOM', methods=['GET'])
+@modulo_requerido('COMERCIALGESTOR')
+def listar_aprovacoesCOM():
+    if 'username' not in session:
+        return jsonify([])
+
+    conn = None
+    cursor = None
+
+    try:
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor(dictionary=True)
+
+        query = """
+            SELECT s.id, s.qtde_cartoes, s.valor_credito, s.qtde_meses, s.rentabilidade_atual, s.user_id, u.nome AS usuario
+            FROM simulacao_com s
+            LEFT JOIN usuarios u ON u.user_id = s.user_id
+            WHERE s.status = 'PENDENTE'
+            ORDER BY s.id DESC
+        """
+        cursor.execute(query)
+        propostas = cursor.fetchall()
+        return jsonify(propostas)
+
+    except Exception as e:
+        print(f"Erro ao listar pendentes: {e}")
+        return jsonify({"message": f"Erro ao listar pendentes: {str(e)}"}), 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+@app.route("/reprovar_propostaCOM", methods=["POST"])
+@modulo_requerido('COMERCIALGESTOR')
+def reprovar_propostaCOM():
+    if 'username' not in session:
+        return jsonify({"message": "Usuário não autenticado."}), 401
+
+    data = request.get_json()
+    proposta_id = data.get("id")
+
+    if not proposta_id:
+        return jsonify({"message": "ID da proposta não informado."}), 400
+
+    try:
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
+
+        # Deleta a proposta do banco
+        cursor.execute("DELETE FROM simulacao_com WHERE id = %s AND status = 'PENDENTE'", (proposta_id,))
+        conn.commit()
+
+        if cursor.rowcount == 0:
+            return jsonify({"message": "Proposta não encontrada ou já foi aprovada/reprovada."}), 404
+
+        return jsonify({"message": "Proposta reprovada e removida com sucesso."})
+
+    except Exception as e:
+        return jsonify({"message": f"Erro ao reprovar proposta: {str(e)}"}), 500
+
+    finally:
+        cursor.close()
+        conn.close()
+#------------------------------------------------------------------#
+
+
+
+
+#Rotas dos relatórios Elo
+@app.route('/relatoriosCOM')
+@modulo_requerido('COMERCIALGESTOR')
+def relatoriosCOM():
+    return render_template('relatoriosCOM.html')
+
 @app.route('/relatorio1COM', methods=['GET', 'POST'])
 @modulo_requerido('COMERCIALGESTOR')
 def relatorio1COM():
@@ -1549,7 +1657,7 @@ def relatorio2COM():
         y -= 10
 
         for sim in simulacoes:
-            if y < 80:
+            if y < 130:
                 pdf.showPage()
                 pdf.setFont("Helvetica", 8)
                 y = height - 50
@@ -1571,6 +1679,10 @@ def relatorio2COM():
             pdf.drawString(margem_esquerda, y, f"Lucro Operação p/ Mês: {locale.currency(sim['lucro_operacao_mensal'], grouping=True)}")
             y -= 12
             pdf.drawString(margem_esquerda, y, f"Rentabilidade Atual: {sim['rentabilidade_atual']}%")
+            y -= 12
+            pdf.drawString(margem_esquerda, y, f"Payback (Meses): {sim['payback']}")
+            y -= 12
+            pdf.drawString(margem_esquerda, y, f"Status Simulação: {sim['status']}")
             y -= 12
             pdf.drawString(margem_esquerda, y, f"Data Criação: {sim['criado_em'].strftime('%d/%m/%Y %H:%M')}")
             y -= 20  # Espaço entre blocos
@@ -1594,76 +1706,269 @@ def relatorio2COM():
     conn.close()
     return render_template('relatoriosimulacoes2COM.html', simulacao_com=simulacao_com)
 
-
-
-#Rotas de aprovação / reprovação de simulações com status 'PENDENTE'
-propostas_pendentes = [] # Lista temporária de propostas pendentes (em memória)
-
-@app.route('/aprovacoesCOM')
+@app.route('/relatoriosprcCOM')
 @modulo_requerido('COMERCIALGESTOR')
-def aprovacoesCOM():
-    return render_template('aprovacoesCOM.html')
+def relatoriosprcCOM():
+    return render_template('relatoriosprcCOM.html')
 
-@app.route('/enviar_para_aprovacaoCOM', methods=['POST'])
-def enviar_para_aprovacaoCOM():
+@app.route('/relatorioprc1COM', methods=['GET', 'POST'])
+@modulo_requerido('COMERCIALGESTOR')
+def relatorioprc1COM():
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
 
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor(dictionary=True)
 
-    dados = request.get_json()
-    usuario = session.get('username')
-    dados["id"] = dados.get("id") or str(uuid.uuid4())
-    dados['usuario'] = usuario
+    if request.method == 'POST':
+        user_id = request.form['user_id']
+        data_inicial = request.form['data_inicial']
+        data_final = request.form['data_final']
 
-    propostas_pendentes.append(dados)
-    return jsonify({"message": "Proposta enviada para aprovação do gestor."})
+        query = """
+            SELECT * FROM simulacaoprc_com
+            WHERE criado_em BETWEEN %s AND %s
+        """
+        params = [data_inicial, data_final]
 
-@app.route('/listar_aprovacoesCOM', methods=['GET'])
-def listar_aprovacoesCOM():
-    return jsonify(propostas_pendentes)
+        if user_id != 'todos' and user_id != '':
+            query += " AND user_id = %s"
+            params.append(user_id)
 
-@app.route("/reprovar_propostaCOM", methods=["POST"])
+        query += " ORDER BY criado_em"
+        cursor.execute(query, tuple(params))
+        simulacoes = cursor.fetchall()
+
+        user_ids = list(set(sim['user_id'] for sim in simulacoes))
+        if user_ids:
+            format_strings = ','.join(['%s'] * len(user_ids))
+            cursor.execute(f"""
+                SELECT u.user_id, u.username
+                FROM usuarios u
+                JOIN modulos m ON u.user_id = m.user_id
+                WHERE u.user_id IN ({format_strings})
+                AND m.modulo IN ('COMERCIAL', 'COMERCIALGESTOR')
+            """, tuple(user_ids))
+            nomes_usuarios = {u['user_id']: u['username'] for u in cursor.fetchall()}
+        else:
+            nomes_usuarios = {}
+
+
+        # Criar PDF com ReportLab
+        buffer = BytesIO()
+        pdf = canvas.Canvas(buffer, pagesize=landscape(A4))
+        width, height = landscape(A4)
+
+        # Cabeçalho
+        pdf.setFont("Helvetica-Bold", 16)
+        pdf.drawString(180, height - 40, "Relatório analítico por usuário")
+
+        pdf.setFont("Helvetica", 10)
+
+        # Converter as strings de data para objetos datetime e depois formatar
+        data_ini_formatada = datetime.strptime(data_inicial, "%Y-%m-%d").strftime("%d/%m/%Y")
+        data_fim_formatada = datetime.strptime(data_final, "%Y-%m-%d").strftime("%d/%m/%Y")
+        pdf.drawString(50, height - 80, f"Período: {data_ini_formatada} a {data_fim_formatada}")
+
+        pdf.drawString(50, height - 95, f"Total de simulações: {len(simulacoes)}")
+
+        # Definir colunas e pesos
+        colunas = [
+            ("Simulação", 1.5), ("Usuário", 2.5), ("Qtde Cartões", 2), ("Crédito", 1.5),
+            ("Meses", 1), ("Tx. Adm", 1), ("Venda Cartões", 2),
+            ("TAGs", 1), ("Rec. TAG", 1.5), ("Eu+ Saúde", 1.5),
+            ("Rec. Saúde", 1.5), ("Data Criação", 2)
+        ]
+
+        total_peso = sum(peso for _, peso in colunas)
+        margem_esquerda = 40
+        margem_direita = 20
+        usable_width = width - margem_esquerda - margem_direita
+
+        espacamento_colunas = []
+        x_atual = margem_esquerda
+        for _, peso in colunas:
+            largura_coluna = (peso / total_peso) * usable_width
+            espacamento_colunas.append(x_atual)
+            x_atual += largura_coluna
+
+        # Tabela - Cabeçalho
+        y = height - 130
+        pdf.setFont("Helvetica-Bold", 9)
+        pdf.line(margem_esquerda, y + 10, width - margem_direita, y + 10)
+        for (titulo, _), x in zip(colunas, espacamento_colunas):
+            pdf.drawString(x, y, titulo)
+
+        # Conteúdo
+        pdf.setFont("Helvetica", 8)
+        y -= 15
+        for sim in simulacoes:
+            if y < 50:
+                pdf.showPage()
+                y = height - 50
+                pdf.setFont("Helvetica-Bold", 9)
+                for (titulo, _), x in zip(colunas, espacamento_colunas):
+                    pdf.drawString(x, y, titulo)
+                    pdf.line(margem_esquerda, y + 10, width - margem_direita, y + 10)
+                pdf.setFont("Helvetica", 8)
+                y -= 15
+
+            #Linhas Zebradas
+            if simulacoes.index(sim) % 2 == 0:
+                pdf.setFillColor(lightgrey)
+                pdf.rect(margem_esquerda, y - 2, usable_width, 12, stroke=0, fill=1)
+                pdf.setFillColor("black")
+
+            dados = [
+                str(sim['id_simprc']),
+                nomes_usuarios.get(sim['user_id'], f"ID {sim['user_id']}"),
+                str(sim['qtde_cartoes']),
+                f"R$ {sim['valor_credito']:.2f}",
+                str(sim['qtde_meses']),
+                str(sim['taxa_adm']),
+                str(sim['venda_cartoes']),
+                str(sim['qtde_cartoes_tag']),
+                f"R$ {sim['rec_tags']:.2f}",
+                str(sim['qtde_cartoes_eus']),
+                f"R$ {sim['rec_saude']:.2f}",
+                sim['criado_em'].strftime("%d/%m/%Y %H:%M")
+            ]
+
+            for texto, x in zip(dados, espacamento_colunas):
+                pdf.drawString(x, y, texto)
+
+            y -= 12
+
+        pdf.setFont("Helvetica-Oblique", 7)
+        pdf.drawString(margem_esquerda, 20, f"Relatório gerado em {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+
+        pdf.save()
+        buffer.seek(0)
+
+        return send_file(buffer, download_name='relatorio_simulacoes.pdf', as_attachment=True)
+
+    # GET: renderizar formulário
+    cursor.execute("""
+        SELECT u.user_id AS id, u.username AS nome
+        FROM usuarios u
+        JOIN modulos m ON u.user_id = m.user_id
+        WHERE m.modulo IN ('COMERCIAL', 'COMERCIALGESTOR')
+    """)
+    usuarios = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return render_template('relatoriosimulacoesprcCOM.html', usuarios=usuarios)
+
+@app.route('/relatorioprc2COM', methods=['GET', 'POST'])
 @modulo_requerido('COMERCIALGESTOR')
-def reprovar_propostaCOM():
+def relatorioprc2COM():
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
 
-    data = request.get_json()
-    proposta_id = data.get("id")
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor(dictionary=True)
 
-    if not proposta_id:
-        return jsonify({"message": "ID da proposta não informado."}), 400
+    if request.method == 'POST':
+        id_sim = request.form['id_sim']
+        data_inicial = request.form['data_inicial']
+        data_final = request.form['data_final']
+        
+        query = """
+            SELECT * FROM simulacaoprc_com
+            WHERE criado_em BETWEEN %s AND %s
+        """
+        params = [data_inicial, data_final]
 
-    try:
-        # Remover a proposta da lista em memória
-        for i, p in enumerate(propostas_pendentes):
-            if str(p.get("id")) == str(proposta_id):
-                propostas_pendentes.pop(i)
-                return jsonify({"message": "Proposta reprovada com sucesso."})
+        if id_sim != 'todos' and id_sim != '':
+            query += " AND id_simprc = %s"
+            params.append(id_sim)
 
-        return jsonify({"message": "Proposta não encontrada."}), 404
+        query += " ORDER BY criado_em"
+        cursor.execute(query, tuple(params))
+        simulacoes = cursor.fetchall()
 
-    except Exception as e:
-        return jsonify({"message": f"Erro ao reprovar proposta: {str(e)}"}), 500
+        # Criar PDF com ReportLab
+        buffer = BytesIO()
+        pdf = canvas.Canvas(buffer, pagesize=landscape(A4))
+        width, height = landscape(A4)
 
-@app.route('/remover_aprovacaoCOM', methods=['POST'])
-def remover_aprovacaoCOM():
-    data = request.get_json()
-    id_proposta = data.get("id")
+        # Cabeçalho
+        pdf.setFont("Helvetica-Bold", 16)
+        pdf.drawString(180, height - 40, "Relatório analítico por simulação")
 
-    try:
-        for i, p in enumerate(propostas_pendentes):
-            if str(p.get("id")) == str(id_proposta):
-                propostas_pendentes.pop(i)
-                return jsonify({"message": "Proposta removida da lista de pendentes."})
+        pdf.setFont("Helvetica", 10)
 
-        return jsonify({"message": "Proposta não encontrada."}), 404
+        # Converter as strings de data para objetos datetime e depois formatar
+        data_ini_formatada = datetime.strptime(data_inicial, "%Y-%m-%d").strftime("%d/%m/%Y")
+        data_fim_formatada = datetime.strptime(data_final, "%Y-%m-%d").strftime("%d/%m/%Y")
+        pdf.drawString(50, height - 80, f"Período: {data_ini_formatada} a {data_fim_formatada}")
 
-    except Exception as e:
-        return jsonify({"message": f"Erro ao remover proposta: {str(e)}"}), 500
-#------------------------------------------------------------------#
+        pdf.drawString(50, height - 95, f"Total de simulações: {len(simulacoes)}")
+
+
+        margem_esquerda = 40
+        margem_direita = 20
+
+        # Tabela - Cabeçalho
+        y = height - 130
+        pdf.setFont("Helvetica-Bold", 9)
+        pdf.line(margem_esquerda, y + 10, width - margem_direita, y + 10)
+
+        # Conteúdo
+        pdf.setFont("Helvetica", 8)
+        y -= 10
+
+        for sim in simulacoes:
+            if y < 130:
+                pdf.showPage()
+                pdf.setFont("Helvetica", 8)
+                y = height - 50
+
+            # Cabeçalho de cada simulação
+            pdf.setFont("Helvetica-Bold", 9)
+            pdf.drawString(margem_esquerda, y, f"Simulação ID: {sim['id_simprc']}")
+            y -= 12
+
+            pdf.setFont("Helvetica", 8)
+            pdf.drawString(margem_esquerda, y, f"Volume Mensal: {locale.currency(sim['volume_mensal'], grouping=True)}")
+            y -= 12
+            pdf.drawString(margem_esquerda, y, f"Volume Anual: {locale.currency(sim['volume_anual'], grouping=True)}")
+            y -= 12
+            pdf.drawString(margem_esquerda, y, f"Volume Contrato: {locale.currency(sim['volume_contrato'], grouping=True)}")
+            y -= 12
+            pdf.drawString(margem_esquerda, y, f"Lucro Operação: {locale.currency(sim['lucro_operacao'], grouping=True)}")
+            y -= 12
+            pdf.drawString(margem_esquerda, y, f"Lucro Operação p/ Mês: {locale.currency(sim['lucro_operacao_mensal'], grouping=True)}")
+            y -= 12
+            pdf.drawString(margem_esquerda, y, f"Rentabilidade Atual: {sim['rentabilidade_atual']}%")
+            y -= 12
+            pdf.drawString(margem_esquerda, y, f"Payback (Meses): {sim['payback']}")
+            y -= 12
+            pdf.drawString(margem_esquerda, y, f"Status Simulação: {sim['status']}")
+            y -= 12
+            pdf.drawString(margem_esquerda, y, f"Data Criação: {sim['criado_em'].strftime('%d/%m/%Y %H:%M')}")
+            y -= 20  # Espaço entre blocos
+
+        pdf.setFont("Helvetica-Oblique", 7)
+        pdf.drawString(margem_esquerda, 20, f"Relatório gerado em {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+
+        pdf.save()
+        buffer.seek(0)
+
+        return send_file(buffer, download_name='relatorio_simulacoes.pdf', as_attachment=True)
+
+    # GET: renderizar formulário
+    cursor.execute("""
+        SELECT id_simprc FROM simulacaoprc_com
+        ORDER BY criado_em DESC
+    """)
+    simulacaoprc_com = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+    return render_template('relatoriosimulacoesprc2COM.html', simulacaoprc_com=simulacaoprc_com)
 
 
 
@@ -2010,6 +2315,7 @@ def calcular_simulacaoprc():
     lucroOperacao = resultReceitas - resultDespesas
     lucroOperacaoMensal = lucroOperacao / qtde_meses
     rentabilidadeAtual = (lucroOperacao / volumeContrato) * 100
+    payback = resultDespesas / totalReceitasPrevistasMensal
 
     resultado = {
         "volumeMensal": volumeMensal,
@@ -2051,6 +2357,7 @@ def calcular_simulacaoprc():
         "statusPendente": statusPendente,
         "lucroOperacao": lucroOperacao,
         "lucroOperacaoMensal": lucroOperacaoMensal,
+        "payback": payback,
         "rentabilidadeAtual": rentabilidadeAtual     
     }
 
@@ -2066,6 +2373,7 @@ def gravar_propostaprcCOM():
     data = request.get_json()
     comissao = float(data['comissao'])
     user_id = session.get('user_id')
+    status = data.get("status","PENDENTE")
 
     try:
         conn = mysql.connector.connect(**db_config)
@@ -2097,7 +2405,7 @@ def gravar_propostaprcCOM():
             tratar_valor(data['rec_saude']),
             *parametros[:15], #até investimento_cartao
             comissao,
-            *parametros[15:18], #resto
+            *parametros[15:19], #resto
             int(data['total_receitas']),
             int(data['total_despesas']),
             float(data['lucroOperacao']),
@@ -2105,8 +2413,10 @@ def gravar_propostaprcCOM():
             float(data['rentabilidadeAtual']),
             float(data['volumeMensal']),      
             float(data['volumeAnual']),       
-            float(data['volumeContrato']),    
-            user_id
+            float(data['volumeContrato']),
+            float(data['payback']),   
+            user_id,
+            status
         )
 
         sql = """
@@ -2119,12 +2429,12 @@ def gravar_propostaprcCOM():
                 despesaeus_epharma, despesaeus_telemedicina, despesaeus_enviounico,
                 investimento_cartao, comissao, negociacao_aprovada, negociacao_pendente, rentabilidade_ideal,
                 total_receitas, total_despesas, lucro_operacao, lucro_operacao_mensal, rentabilidade_atual,
-                volume_mensal, volume_anual, volume_contrato, user_id
+                volume_mensal, volume_anual, volume_contrato, payback, user_id, status
             ) VALUES (
                 %s, %s, %s, %s, %s, %s, %s, %s, %s,
                 %s, %s, %s, %s, %s, %s, %s, %s,
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, %s, %s, %s, %s
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
             )
         """
         
@@ -2143,9 +2453,6 @@ def gravar_propostaprcCOM():
 
 
 
-#Rotas de aprovação / reprovação de simulações com status 'PENDENTE'
-propostas_pendentes_prc = [] # Lista temporária de propostas pendentes (em memória)
-
 
 @app.route('/aprovacoesprcCOM')
 @modulo_requerido('COMERCIALGESTOR')
@@ -2158,25 +2465,62 @@ def enviar_para_aprovacaoprcCOM():
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
 
+    data = request.get_json()
+    id_proposta = data.get("id")
 
-    dados = request.get_json()
-    usuario = session.get('username')
-    dados["id"] = dados.get("id") or str(uuid.uuid4())
-    dados['usuario'] = usuario
+    if not id_proposta:
+        return jsonify({"message": "ID da proposta é obrigatório."}), 400
 
-    propostas_pendentes_prc.append(dados)
-    return jsonify({"message": "Proposta enviada para aprovação do gestor."})
+    try:
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
+        cursor.execute("UPDATE simulacaoprc_com SET status = 'APROVADO' WHERE id_simprc = %s", (id_proposta,))
+        conn.commit()
+        return jsonify({"message": "Status da proposta atualizado para APROVADO."})
+    except Exception as e:
+        return jsonify({"message": f"Erro: {str(e)}"}), 500
+    finally:
+        cursor.close()
+        conn.close()
 
 @app.route('/listar_aprovacoesprcCOM', methods=['GET'])
 def listar_aprovacoesprcCOM():
-    return jsonify(propostas_pendentes_prc)
+    if 'username' not in session:
+        return jsonify([])
+
+    conn = None
+    cursor = None
+
+    try:
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor(dictionary=True)
+
+        query = """
+            SELECT s.id_simprc, s.qtde_cartoes, s.valor_credito, s.qtde_meses, s.rentabilidade_atual, s.user_id, u.nome AS usuario
+            FROM simulacaoprc_com s
+            LEFT JOIN usuarios u ON u.user_id = s.user_id
+            WHERE s.status = 'PENDENTE'
+            ORDER BY s.id_simprc DESC
+        """
+        cursor.execute(query)
+        propostas = cursor.fetchall()
+        return jsonify(propostas)
+
+    except Exception as e:
+        print(f"Erro ao listar pendentes: {e}")
+        return jsonify({"message": f"Erro ao listar pendentes: {str(e)}"}), 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 @app.route("/reprovar_propostaprcCOM", methods=["POST"])
 @modulo_requerido('COMERCIALGESTOR')
 def reprovar_propostaprcCOM():
     if 'username' not in session:
-        flash('Você precisa estar logado para acessar esta página.', 'warning')
-        return redirect(url_for('login'))
+        return jsonify({"message": "Usuário não autenticado."}), 401
 
     data = request.get_json()
     proposta_id = data.get("id")
@@ -2185,32 +2529,24 @@ def reprovar_propostaprcCOM():
         return jsonify({"message": "ID da proposta não informado."}), 400
 
     try:
-        # Remover a proposta da lista em memória
-        for i, p in enumerate(propostas_pendentes_prc):
-            if str(p.get("id")) == str(proposta_id):
-                propostas_pendentes_prc.pop(i)
-                return jsonify({"message": "Proposta reprovada com sucesso."})
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
 
-        return jsonify({"message": "Proposta não encontrada."}), 404
+        # Deleta a proposta do banco
+        cursor.execute("DELETE FROM simulacaoprc_com WHERE id_simprc = %s AND status = 'PENDENTE'", (proposta_id,))
+        conn.commit()
+
+        if cursor.rowcount == 0:
+            return jsonify({"message": "Proposta não encontrada ou já foi aprovada/reprovada."}), 404
+
+        return jsonify({"message": "Proposta reprovada e removida com sucesso."})
 
     except Exception as e:
         return jsonify({"message": f"Erro ao reprovar proposta: {str(e)}"}), 500
 
-@app.route('/remover_aprovacaoprcCOM', methods=['POST'])
-def remover_aprovacaoprcCOM():
-    data = request.get_json()
-    id_proposta = data.get("id")
-
-    try:
-        for i, p in enumerate(propostas_pendentes_prc):
-            if str(p.get("id")) == str(id_proposta):
-                propostas_pendentes_prc.pop(i)
-                return jsonify({"message": "Proposta removida da lista de pendentes."})
-
-        return jsonify({"message": "Proposta não encontrada."}), 404
-
-    except Exception as e:
-        return jsonify({"message": f"Erro ao remover proposta: {str(e)}"}), 500
+    finally:
+        cursor.close()
+        conn.close()
 
 @app.route('/parceriasCOM_sugestoes')
 @modulo_requerido('COMERCIAL','COMERCIALGESTOR')
@@ -2238,6 +2574,7 @@ def confirmar_selecao_parceiro():
 
 
 #-----------ROTAS FINANCEIRO---------------------------------------#
+#Dashboard Conciliação Financeiro
 @app.route('/formularioconciliacaoFIN', methods=['GET'])
 @modulo_requerido('FINANCEIRO')
 def conciliacao_formFIN():
