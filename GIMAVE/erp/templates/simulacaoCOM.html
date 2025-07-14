@@ -218,14 +218,6 @@
 
 {% block scripts %}
 <script>
-    // Função para esconder o alert após 3 segundos
-    setTimeout(function() {
-        var alertMessage = document.querySelector('.alert'); // Seleciona o primeiro alert
-        if (alertMessage) {
-            alertMessage.classList.add('fade-out'); // Adiciona a classe para fazer o fade out
-        }
-    }, 3000); // O tempo está configurado para 3000ms (3 segundos)
-
     // Máscara R$
     const camposFormatar = ['valor_credito','rec_tags','rec_saude','venda_cartoes']
     camposFormatar.forEach(id => {
@@ -285,11 +277,12 @@
         window.volumeMensal = data.volumeMensal;
         window.volumeAnual = data.volumeAnual;
         window.volumeContrato = data.volumeContrato;
+        window.payback = data.payback;
         
         const rentabilidadeIdeal = data.rentabilidadeIdeal;
         const rentabilidadeAtual = data.rentabilidadeAtual;
         const statusPendente = data.statusPendente;  
-        const statusAprovado = data.statusAprovado;       
+        const statusAprovado = data.statusAprovado;
 
         // Condições de negociação
         let mensagemNegociacao = '';
@@ -375,27 +368,12 @@
                 rentabilidadeAtual: window.rentabilidadeAtual,
                 volumeMensal: window.volumeMensal,
                 volumeAnual: window.volumeAnual,
-                volumeContrato: window.volumeContrato
+                volumeContrato: window.volumeContrato,
+                payback: window.payback
             };
 
             if (window.rentabilidadeAtual >= window.statusPendente && window.rentabilidadeAtual < window.statusAprovado) {
-                // Enviar para aprovação
-                fetch("/enviar_para_aprovacaoCOM", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(dadosFormulario)
-                })
-                .then(res => res.json())
-                .then(data => {
-                    alert("Proposta enviada para aprovação do gestor!");
-                    location.reload();
-                })
-                .catch(error => {
-                    console.error("Erro ao enviar para aprovação:", error);
-                });
-
-            } else {
-                // Gravar direto no banco
+                dadosFormulario.status = "PENDENTE";
                 fetch("/gravar_propostaCOM", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -403,11 +381,20 @@
                 })
                 .then(res => res.json())
                 .then(data => {
-                    alert(data.message || "Proposta gravada com sucesso!");
+                    alert("Proposta registrada como pendente.");
                     location.reload();
+                });
+            } else if (window.rentabilidadeAtual >= window.statusAprovado) {
+                dadosFormulario.status = "APROVADO";
+                fetch("/gravar_propostaCOM", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(dadosFormulario)
                 })
-                .catch(error => {
-                    console.error("Erro ao gravar proposta:", error);
+                .then(res => res.json())
+                .then(data => {
+                    alert("Proposta aprovada e gravada.");
+                    location.reload();
                 });
             }
         }
