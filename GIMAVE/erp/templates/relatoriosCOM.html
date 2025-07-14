@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+  .relatorio-wrapper {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 30px;
+      background-color: #f2f2f2;
+      border-radius: 8px;
+      font-family: "Calibri Light", Calibri, sans-serif;
+  }
+
+  .relatorio-wrapper h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #333;
+      font-family: "Calibri Light", Calibri, sans-serif;
+  }
+
+  .relatorio-wrapper form {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+  }
+
+  .relatorio-wrapper label {
+      font-weight: bold;
+      font-size: 16px;
+  }
+
+  .relatorio-wrapper select {
+      padding: 6px 10px;
+      border-radius: 4px;
+      border: 1px solid #aaa;
+      font-family: "Calibri Light", Calibri, sans-serif;
+      width: 100%;
+      max-width: 300px;
+  }
+
+</style>
+
+<div class="relatorio-wrapper">
+  <h2>Comercial Elo | Selecionar Tipo de Relatório</h2>
+
+  <form>
+    <div>
+      <select id="tipo_relatorio" onchange="redirectToParametros()">
+        <option value="" disabled selected>Selecione...</option>
+        <option value="/relatorio1COM">Relatório por Usuário</option>
+        <option value="/relatorio2COM">Relatório por Simulação</option>
+      </select>
+    </div>
+  </form>
+</div>
+
+<script>
+  function redirectToParametros() {
+    const rota = document.getElementById('tipo_relatorio').value;
+    if (rota) {
+      window.location.href = rota;
+    }
+  }
+</script>
+{% endblock %}
