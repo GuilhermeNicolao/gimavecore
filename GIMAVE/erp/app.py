@@ -1340,8 +1340,6 @@ def gravar_propostaCOM():
         cursor.close()
         conn.close()
 
-
-
 @app.route('/aprovacoesCOM')
 @modulo_requerido('COMERCIALGESTOR')
 def aprovacoesCOM():
@@ -1440,8 +1438,8 @@ def reprovar_propostaCOM():
 
 
 
-
-#Rotas dos relatórios Elo
+#------------------------------------------------------------------#
+#Rotas dos relatórios comerciais
 @app.route('/relatoriosCOM')
 @modulo_requerido('COMERCIALGESTOR')
 def relatoriosCOM():
@@ -1970,6 +1968,268 @@ def relatorioprc2COM():
     conn.close()
     return render_template('relatoriosimulacoesprc2COM.html', simulacaoprc_com=simulacaoprc_com)
 
+@app.route('/relatorioseucCOM')
+@modulo_requerido('COMERCIALGESTOR')
+def relatorioseucCOM():
+    return render_template('relatorioseucCOM.html')
+
+@app.route('/relatorioeuc1COM', methods=['GET', 'POST'])
+@modulo_requerido('COMERCIALGESTOR')
+def relatorioeuc1COM():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor(dictionary=True)
+
+    if request.method == 'POST':
+        user_id = request.form['user_id']
+        data_inicial = request.form['data_inicial']
+        data_final = request.form['data_final']
+
+        query = """
+            SELECT * FROM simulacaoeuc_com
+            WHERE criado_em BETWEEN %s AND %s
+        """
+        params = [data_inicial, data_final]
+
+        if user_id != 'todos' and user_id != '':
+            query += " AND user_id = %s"
+            params.append(user_id)
+
+        query += " ORDER BY criado_em"
+        cursor.execute(query, tuple(params))
+        simulacoes = cursor.fetchall()
+
+        user_ids = list(set(sim['user_id'] for sim in simulacoes))
+        if user_ids:
+            format_strings = ','.join(['%s'] * len(user_ids))
+            cursor.execute(f"""
+                SELECT u.user_id, u.username
+                FROM usuarios u
+                JOIN modulos m ON u.user_id = m.user_id
+                WHERE u.user_id IN ({format_strings})
+                AND m.modulo IN ('COMERCIAL', 'COMERCIALGESTOR')
+            """, tuple(user_ids))
+            nomes_usuarios = {u['user_id']: u['username'] for u in cursor.fetchall()}
+        else:
+            nomes_usuarios = {}
+
+
+        # Criar PDF com ReportLab
+        buffer = BytesIO()
+        pdf = canvas.Canvas(buffer, pagesize=landscape(A4))
+        width, height = landscape(A4)
+
+        # Cabeçalho
+        pdf.setFont("Helvetica-Bold", 16)
+        pdf.drawString(180, height - 40, "Relatório analítico por usuário")
+
+        pdf.setFont("Helvetica", 10)
+
+        # Converter as strings de data para objetos datetime e depois formatar
+        data_ini_formatada = datetime.strptime(data_inicial, "%Y-%m-%d").strftime("%d/%m/%Y")
+        data_fim_formatada = datetime.strptime(data_final, "%Y-%m-%d").strftime("%d/%m/%Y")
+        pdf.drawString(50, height - 80, f"Período: {data_ini_formatada} a {data_fim_formatada}")
+
+        pdf.drawString(50, height - 95, f"Total de simulações: {len(simulacoes)}")
+
+        # Definir colunas e pesos
+        colunas = [
+            ("Simulação", 1.5), ("Usuário", 2.5), ("Qtde Cartões", 2), ("Crédito", 1.5),
+            ("Meses", 1), ("Tx. Adm", 1), ("TAGs", 1), ("Rec. TAG", 1.5), ("Eu+ Saúde", 1.5),
+            ("Rec. Saúde", 1.5), ("Data Criação", 2)
+        ]
+
+        total_peso = sum(peso for _, peso in colunas)
+        margem_esquerda = 40
+        margem_direita = 20
+        usable_width = width - margem_esquerda - margem_direita
+
+        espacamento_colunas = []
+        x_atual = margem_esquerda
+        for _, peso in colunas:
+            largura_coluna = (peso / total_peso) * usable_width
+            espacamento_colunas.append(x_atual)
+            x_atual += largura_coluna
+
+        # Tabela - Cabeçalho
+        y = height - 130
+        pdf.setFont("Helvetica-Bold", 9)
+        pdf.line(margem_esquerda, y + 10, width - margem_direita, y + 10)
+        for (titulo, _), x in zip(colunas, espacamento_colunas):
+            pdf.drawString(x, y, titulo)
+
+        # Conteúdo
+        pdf.setFont("Helvetica", 8)
+        y -= 15
+        for sim in simulacoes:
+            if y < 50:
+                pdf.showPage()
+                y = height - 50
+                pdf.setFont("Helvetica-Bold", 9)
+                for (titulo, _), x in zip(colunas, espacamento_colunas):
+                    pdf.drawString(x, y, titulo)
+                    pdf.line(margem_esquerda, y + 10, width - margem_direita, y + 10)
+                pdf.setFont("Helvetica", 8)
+                y -= 15
+
+            #Linhas Zebradas
+            if simulacoes.index(sim) % 2 == 0:
+                pdf.setFillColor(lightgrey)
+                pdf.rect(margem_esquerda, y - 2, usable_width, 12, stroke=0, fill=1)
+                pdf.setFillColor("black")
+
+            dados = [
+                str(sim['id_simeuc']),
+                nomes_usuarios.get(sim['user_id'], f"ID {sim['user_id']}"),
+                str(sim['qtde_cartoes']),
+                f"R$ {sim['valor_credito']:.2f}",
+                str(sim['qtde_meses']),
+                str(sim['taxa_adm']),
+                str(sim['qtde_cartoes_tag']),
+                f"R$ {sim['rec_tags']:.2f}",
+                str(sim['qtde_cartoes_eus']),
+                f"R$ {sim['rec_saude']:.2f}",
+                sim['criado_em'].strftime("%d/%m/%Y %H:%M")
+            ]
+
+            for texto, x in zip(dados, espacamento_colunas):
+                pdf.drawString(x, y, texto)
+
+            y -= 12
+
+        pdf.setFont("Helvetica-Oblique", 7)
+        pdf.drawString(margem_esquerda, 20, f"Relatório gerado em {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+
+        pdf.save()
+        buffer.seek(0)
+
+        return send_file(buffer, download_name='relatorio_simulacoes.pdf', as_attachment=True)
+
+    # GET: renderizar formulário
+    cursor.execute("""
+        SELECT u.user_id AS id, u.username AS nome
+        FROM usuarios u
+        JOIN modulos m ON u.user_id = m.user_id
+        WHERE m.modulo IN ('COMERCIAL', 'COMERCIALGESTOR')
+    """)
+    usuarios = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return render_template('relatoriosimulacoeseucCOM.html', usuarios=usuarios)
+
+@app.route('/relatorioeuc2COM', methods=['GET', 'POST'])
+@modulo_requerido('COMERCIALGESTOR')
+def relatorioeuc2COM():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor(dictionary=True)
+
+    if request.method == 'POST':
+        id_sim = request.form['id_sim']
+        data_inicial = request.form['data_inicial']
+        data_final = request.form['data_final']
+        
+        query = """
+            SELECT * FROM simulacaoeuc_com
+            WHERE criado_em BETWEEN %s AND %s
+        """
+        params = [data_inicial, data_final]
+
+        if id_sim != 'todos' and id_sim != '':
+            query += " AND id_simeuc = %s"
+            params.append(id_sim)
+
+        query += " ORDER BY criado_em"
+        cursor.execute(query, tuple(params))
+        simulacoes = cursor.fetchall()
+
+        # Criar PDF com ReportLab
+        buffer = BytesIO()
+        pdf = canvas.Canvas(buffer, pagesize=landscape(A4))
+        width, height = landscape(A4)
+
+        # Cabeçalho
+        pdf.setFont("Helvetica-Bold", 16)
+        pdf.drawString(180, height - 40, "Relatório analítico por simulação")
+
+        pdf.setFont("Helvetica", 10)
+
+        # Converter as strings de data para objetos datetime e depois formatar
+        data_ini_formatada = datetime.strptime(data_inicial, "%Y-%m-%d").strftime("%d/%m/%Y")
+        data_fim_formatada = datetime.strptime(data_final, "%Y-%m-%d").strftime("%d/%m/%Y")
+        pdf.drawString(50, height - 80, f"Período: {data_ini_formatada} a {data_fim_formatada}")
+
+        pdf.drawString(50, height - 95, f"Total de simulações: {len(simulacoes)}")
+
+
+        margem_esquerda = 40
+        margem_direita = 20
+
+        # Tabela - Cabeçalho
+        y = height - 130
+        pdf.setFont("Helvetica-Bold", 9)
+        pdf.line(margem_esquerda, y + 10, width - margem_direita, y + 10)
+
+        # Conteúdo
+        pdf.setFont("Helvetica", 8)
+        y -= 10
+
+        for sim in simulacoes:
+            if y < 130:
+                pdf.showPage()
+                pdf.setFont("Helvetica", 8)
+                y = height - 50
+
+            # Cabeçalho de cada simulação
+            pdf.setFont("Helvetica-Bold", 9)
+            pdf.drawString(margem_esquerda, y, f"Simulação ID: {sim['id_simeuc']}")
+            y -= 12
+
+            pdf.setFont("Helvetica", 8)
+            pdf.drawString(margem_esquerda, y, f"Volume Mensal: {locale.currency(sim['volume_mensal'], grouping=True)}")
+            y -= 12
+            pdf.drawString(margem_esquerda, y, f"Volume Anual: {locale.currency(sim['volume_anual'], grouping=True)}")
+            y -= 12
+            pdf.drawString(margem_esquerda, y, f"Volume Contrato: {locale.currency(sim['volume_contrato'], grouping=True)}")
+            y -= 12
+            pdf.drawString(margem_esquerda, y, f"Lucro Operação: {locale.currency(sim['lucro_operacao'], grouping=True)}")
+            y -= 12
+            pdf.drawString(margem_esquerda, y, f"Lucro Operação p/ Mês: {locale.currency(sim['lucro_operacao_mensal'], grouping=True)}")
+            y -= 12
+            pdf.drawString(margem_esquerda, y, f"Rentabilidade Atual: {sim['rentabilidade_atual']}%")
+            y -= 12
+            pdf.drawString(margem_esquerda, y, f"Payback (Meses): {sim['payback']}")
+            y -= 12
+            pdf.drawString(margem_esquerda, y, f"Status Simulação: {sim['status']}")
+            y -= 12
+            pdf.drawString(margem_esquerda, y, f"Data Criação: {sim['criado_em'].strftime('%d/%m/%Y %H:%M')}")
+            y -= 20  # Espaço entre blocos
+
+        pdf.setFont("Helvetica-Oblique", 7)
+        pdf.drawString(margem_esquerda, 20, f"Relatório gerado em {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+
+        pdf.save()
+        buffer.seek(0)
+
+        return send_file(buffer, download_name='relatorio_simulacoes.pdf', as_attachment=True)
+
+    # GET: renderizar formulário
+    cursor.execute("""
+        SELECT id_simeuc FROM simulacaoeuc_com
+        ORDER BY criado_em DESC
+    """)
+    simulacaoeuc_com = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+    return render_template('relatoriosimulacoeseuc2COM.html', simulacaoeuc_com=simulacaoeuc_com)
+#---------------------------------------------------------------------#
 
 
 
@@ -2451,9 +2711,6 @@ def gravar_propostaprcCOM():
         cursor.close()
         conn.close()
 
-
-
-
 @app.route('/aprovacoesprcCOM')
 @modulo_requerido('COMERCIALGESTOR')
 def aprovacoesprcCOM():
@@ -2710,7 +2967,468 @@ def dashboardconciliacaoFIN():
     except mysql.connector.Error as err:
         flash(f'Erro ao carregar dados: {err}', 'erro')
         return render_template('dashboardconciliacaoFIN.html', empresas=[])
-#------------------------------------------------------------------#
+#-------------------------------------------------------------------#
+
+
+
+
+#--------ROTAS EUCARD (PRÓPRIO)-------------------------------------#
+@app.route('/simulacaoeucCOM')
+@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
+def simulacaoeucCOM():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+    return render_template('simulacaoeucCOM.html')
+
+@app.route('/parametroseucCOM')
+@modulo_requerido('COMERCIALGESTOR')
+def parametroseucCOM():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+
+    return render_template('parametroseucCOM.html')
+
+@app.route('/get_parametroseuc')
+@modulo_requerido('COMERCIALGESTOR')
+def get_parametroseuc():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor(dictionary=True)
+
+
+    cursor.execute("SELECT * FROM parametroseuc_com LIMIT 1")
+    resultado = cursor.fetchone()
+
+    cursor.close()
+    conn.close()
+
+    return jsonify(resultado)
+
+@app.route('/salvar_parametroseuc', methods=['POST'])
+@modulo_requerido('COMERCIALGESTOR')
+def salvar_parametroseuc():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+    
+    dados = request.json
+
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor()
+
+    # Aqui você pode decidir se quer sobrescrever (DELETE e INSERT) ou usar UPDATE com WHERE
+    cursor.execute("DELETE FROM parametroseuc_com")  # Mantém só 1 registro
+    query = """
+        INSERT INTO parametroseuc_com (
+            consumo_credenciado, antecipacao_angels, apropriacao_credito, investimento,
+            confeccao_cartoes, confeccao_cartoes_qtde, segunda_via, segunda_via_qtde, 
+            custos_transacao, custos_transacao_qtde,
+            custos_cartaoativo, custos_cartaoativo_qtde,
+            custo_tag, custo_tag_qtde, custo_eus, custo_eus_qtde,
+            despesatag_envio, despesatag_tagfisica, despesatag_greenpass,
+            despesaeus_epharma, despesaeus_telemedicina, despesaeus_enviounico,
+            negociacao_aprovada, negociacao_pendente, rentabilidade_ideal
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+        %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    """
+    valores = (
+        dados['consumo_credenciado'],
+        dados['antecipacao_angels'],
+        dados['apropriacao_credito'],
+        dados['investimento'],
+        dados['confeccao_cartoes'],
+        dados['confeccao_cartoes_qtde'],
+        dados['segunda_via'],
+        dados['segunda_via_qtde'],
+        dados['custos_transacao'],
+        dados['custos_transacao_qtde'],
+        dados['custos_cartaoativo'],
+        dados['custos_cartaoativo_qtde'],
+        dados['custo_tag'],
+        dados['custo_tag_qtde'],
+        dados['custo_eus'],
+        dados['custo_eus_qtde'],
+        dados['despesatag_envio'],
+        dados['despesatag_tagfisica'],
+        dados['despesatag_greenpass'],
+        dados['despesaeus_epharma'],
+        dados['despesaeus_telemedicina'],
+        dados['despesaeus_enviounico'],
+        dados['negociacao_aprovada'],
+        dados['negociacao_pendente'],
+        dados['rentabilidade_ideal'],
+    )
+    cursor.execute(query, valores)
+    conn.commit()
+    cursor.close()
+
+    return jsonify({"status": "ok"})
+
+@app.route('/calcular_simulacaoeuc', methods=['POST'])
+@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
+def calcular_simulacaoeuc():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+
+    dados_form = request.json  # dicionário com os dados do formulário
+    parametros = get_parametros_calculos()  # dicionário com os parâmetros do banco
+
+    # Formulário
+    qtde_cartoes = float(dados_form.get('qtde_cartoes') or 0)
+    valor_credito = float(dados_form.get('valor_credito') or 0)
+    qtde_meses = int(dados_form.get('meses') or 0)
+    taxa_adm = float(dados_form.get('taxa_adm') or 0)
+    qtde_cartoes_tag = int(dados_form.get('qtde_cartoes_tag') or 0)
+    rec_tags = float(dados_form.get('rec_tags') or 0)
+    qtde_cartoes_eus = int(dados_form.get('qtde_cartoes_eus') or 0)
+    rec_saude = float(dados_form.get('rec_saude') or 0)
+
+    # Tabela de parâmetros - banco de dados
+    consumo_credenciado = float(parametros.get('consumo_credenciado', 0))
+    antecipacao_angels = float(parametros.get('antecipacao_angels', 0))
+    apropriacao_credito = float(parametros.get('apropriacao_credito', 0))
+    investimento = float(parametros.get('investimento', 0))
+    confeccao_cartoes = float(parametros.get('confeccao_cartoes', 0))
+    confeccao_cartoes_qtde = float(parametros.get('confeccao_cartoes_qtde', 0))
+    segunda_via = float(parametros.get('segunda_via', 0))
+    segunda_via_qtde = float(parametros.get('segunda_via_qtde', 0))
+    custos_transacao = float(parametros.get('custos_transacao', 0))
+    custos_transacao_qtde = float(parametros.get('custos_transacao_qtde', 0))
+    custos_cartaoativo = float(parametros.get('custos_cartaoativo', 0))
+    custos_cartaoativo_qtde = float(parametros.get('custos_cartaoativo_qtde', 0))
+    custo_tag = float(parametros.get('custo_tag', 0))
+    custo_tag_qtde = float(parametros.get('custo_tag_qtde', 0))
+    custo_eus = float(parametros.get('custo_eus', 0))
+    custo_eus_qtde = float(parametros.get('custo_eus_qtde', 0))
+    despesatag_envio = float(parametros.get('despesatag_envio', 0))
+    despesatag_tagfisica = float(parametros.get('despesatag_tagfisica', 0))
+    despesatag_greenpass = float(parametros.get('despesatag_greenpass', 0))
+    despesaeus_epharma = float(parametros.get('despesaeus_epharma', 0))
+    despesaeus_telemedicina = float(parametros.get('despesaeus_telemedicina', 0))
+    despesaeus_enviounico = float(parametros.get('despesaeus_enviounico', 0))
+    negociacao_aprovada = float(parametros.get('negociacao_aprovada', 0))
+    negociacao_pendente = float(parametros.get('negociacao_pendente', 0))
+    rentabilidade_ideal = float(parametros.get('rentabilidade_ideal', 0))
+
+    # Volumetria
+    volumeMensal = qtde_cartoes * valor_credito
+    volumeAnual = volumeMensal * 12
+    volumeContrato = volumeMensal * qtde_meses
+
+    # Receitas Previstas - Cartão Eucard
+    consumoCredenciadoMensal = volumeMensal * (consumo_credenciado / 100)
+    consumoCredenciadoAnual = volumeAnual * (consumo_credenciado / 100)
+    consumoCredenciadoContrato = volumeContrato * (consumo_credenciado / 100)
+
+    taxaAdmMensal = volumeMensal * (taxa_adm / 100)
+    taxaAdmAnual = volumeAnual * (taxa_adm / 100)
+    taxaAdmContrato = volumeContrato * (taxa_adm / 100)
+
+    antecipacaoAngelsMensal = volumeMensal * (antecipacao_angels / 100)
+    antecipacaoAngelsAnual = volumeAnual * (antecipacao_angels / 100)
+    antecipacaoAngelsContrato = volumeContrato * (antecipacao_angels / 100)
+
+    apropriacaoCreditoMensal = volumeMensal * (apropriacao_credito / 100)
+    apropriacaoCreditoAnual = volumeAnual * (apropriacao_credito / 100)
+    apropriacaoCreditoContrato = volumeContrato * (apropriacao_credito / 100)
+
+    investimentoMensal = volumeMensal * (investimento / 100)
+    investimentoAnual = volumeAnual * (investimento / 100)
+    investimentoContrato = volumeContrato * (investimento / 100)
+
+    totalReceitasPrevistasMensal = consumoCredenciadoMensal + taxaAdmMensal + antecipacaoAngelsMensal + apropriacaoCreditoMensal + investimentoMensal
+    totalReceitasPrevistasAnual = consumoCredenciadoAnual + taxaAdmAnual + antecipacaoAngelsAnual + apropriacaoCreditoAnual + investimentoAnual
+    totalReceitasPrevistasContrato = consumoCredenciadoContrato + taxaAdmContrato + antecipacaoAngelsContrato + apropriacaoCreditoContrato + investimentoContrato
+
+
+    # Despesas Previstas - Cartão Eucard
+    confeccaoCartoesContrato = confeccao_cartoes * confeccao_cartoes_qtde
+    confeccaoCartoesAnual = confeccaoCartoesContrato / (qtde_meses / 12)
+    confeccaoCartoesMensal = confeccaoCartoesAnual / 12
+
+    segundaViaContrato = segunda_via * segunda_via_qtde 
+    segundaViaAnual = segundaViaContrato / (qtde_meses / 12)
+    segundaViaMensal = segundaViaAnual / 12
+
+    custosTransacaoContrato = custos_transacao * custos_transacao_qtde
+    custosTransacaoAnual = custosTransacaoContrato / (qtde_meses / 12)
+    custosTransacaoMensal = custosTransacaoAnual / 12
+
+    custosCartaoAtivoContrato = custos_cartaoativo * custos_cartaoativo_qtde
+    custosCartaoAtivoAnual = custosCartaoAtivoContrato / (qtde_meses / 12)
+    custosCartaoAtivoMensal = custosCartaoAtivoAnual / 12
+
+    totalDespesasPrevistasMensal = confeccaoCartoesMensal + segundaViaMensal + custosTransacaoMensal + custosCartaoAtivoMensal
+    totalDespesasPrevistasAnual = confeccaoCartoesAnual + segundaViaAnual + custosTransacaoAnual + custosCartaoAtivoAnual
+    totalDespesasPrevistasContrato = confeccaoCartoesContrato + segundaViaContrato + custosTransacaoContrato + custosCartaoAtivoContrato    
+
+
+    # Outros Produtos
+    receitaTagContrato = rec_tags * qtde_cartoes_tag * qtde_meses
+    despesaTagEnvioContrato = despesatag_envio * qtde_cartoes_tag
+    despesaTagFisicaContrato = despesatag_tagfisica * qtde_cartoes_tag
+    despesaTagGreenpassContrato = (despesatag_greenpass * qtde_cartoes_tag) * qtde_meses
+    custoTagContrato = (custo_tag * custo_tag_qtde * qtde_cartoes) * qtde_meses
+    totalDespesasTagContrato = custoTagContrato + despesaTagGreenpassContrato + despesaTagFisicaContrato + despesaTagEnvioContrato
+
+    receitaEusContrato = rec_saude * qtde_cartoes_eus * qtde_meses
+    despesaEusEpharma = despesaeus_epharma * qtde_cartoes_eus * qtde_meses
+    despesaEusTelemedicina = despesaeus_telemedicina * qtde_cartoes_eus
+    despesaEusEnvio = despesaeus_enviounico * qtde_cartoes_eus
+    custoEusContrato = (custo_eus * custo_eus_qtde * qtde_cartoes) * qtde_meses
+    totalDespesasEusContrato = custoEusContrato + despesaEusEnvio + despesaEusTelemedicina + despesaEusEpharma
+
+    # Resultados
+    resultReceitas = totalReceitasPrevistasContrato + receitaTagContrato + receitaEusContrato
+    resultDespesas = totalDespesasPrevistasContrato + totalDespesasTagContrato + totalDespesasEusContrato
+    rentabilidadeIdeal = rentabilidade_ideal
+    statusAprovado = negociacao_aprovada
+    statusPendente = negociacao_pendente
+    lucroOperacao = resultReceitas - resultDespesas
+    lucroOperacaoMensal = lucroOperacao / qtde_meses
+    rentabilidadeAtual = (lucroOperacao / volumeContrato) * 100
+    payback = resultDespesas / totalReceitasPrevistasMensal 
+
+    resultado = {
+        "volumeMensal": volumeMensal,
+        "volumeAnual": volumeAnual,
+        "volumeContrato": volumeContrato,
+        "consumoCredenciadoMensal": consumoCredenciadoMensal,
+        "consumoCredenciadoAnual": consumoCredenciadoMensal,
+        "consumoCredenciadoContrato": consumoCredenciadoContrato,
+        "taxaAdmMensal": taxaAdmMensal,
+        "taxaAdmAnual": taxaAdmAnual,
+        "taxaAdmContrato": taxaAdmContrato,
+        "totalReceitasPrevistasMensal": totalReceitasPrevistasMensal,
+        "totalReceitasPrevistasAnual": totalReceitasPrevistasAnual,
+        "totalReceitasPrevistasContrato": totalReceitasPrevistasContrato,
+        "confeccaoCartoesContrato": confeccaoCartoesContrato,
+        "custoTagContrato": custoTagContrato,
+        "custoEusContrato": custoEusContrato,  
+        "totalDespesasPrevistasContrato": totalDespesasPrevistasContrato,
+        "receitaTagContrato": receitaTagContrato,
+        "despesaTagEnvioContrato": despesaTagEnvioContrato,
+        "despesaTagFisicaContrato": despesaTagFisicaContrato,
+        "despesaTagGreenpassContrato": despesaTagGreenpassContrato,
+        "totalDespesasTagContrato": totalDespesasTagContrato,
+        "receitaEusContrato": receitaEusContrato,
+        "despesaEusEpharma": despesaEusEpharma,
+        "despesaEusTelemedicina": despesaEusTelemedicina,
+        "despesaEusEnvio": despesaEusEnvio,
+        "totalDespesasEusContrato": totalDespesasEusContrato,
+        "resultReceitas": resultReceitas,
+        "resultDespesas": resultDespesas,
+        "rentabilidadeIdeal": rentabilidadeIdeal,
+        "statusAprovado": statusAprovado,
+        "statusPendente": statusPendente,
+        "lucroOperacao": lucroOperacao,
+        "lucroOperacaoMensal": lucroOperacaoMensal,
+        "rentabilidadeAtual": rentabilidadeAtual,
+        "payback": payback     
+    }
+
+    return jsonify(resultado)
+
+@app.route('/gravar_propostaeucCOM', methods=['POST'])
+@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
+def gravar_propostaeucCOM():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+
+    data = request.get_json()
+    user_id = session.get('user_id')
+    status = data.get("status","PENDENTE")
+
+    try:
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
+
+        # Buscar os parâmetros vigentes
+        cursor.execute("""
+            SELECT 
+                consumo_credenciado, antecipacao_angels, apropriacao_credito, investimento,
+                confeccao_cartoes, confeccao_cartoes_qtde, segunda_via, segunda_via_qtde,
+                custos_transacao, custos_transacao_qtde, custos_cartaoativo, custos_cartaoativo_qtde,
+                custo_tag, custo_tag_qtde, custo_eus, custo_eus_qtde,
+                despesatag_envio, despesatag_tagfisica, despesatag_greenpass,
+                despesaeus_epharma, despesaeus_telemedicina, despesaeus_enviounico,
+                negociacao_aprovada, negociacao_pendente, rentabilidade_ideal
+            FROM parametroseuc_com
+            ORDER BY id DESC LIMIT 1
+        """)
+        parametros = cursor.fetchone()
+
+
+        if not parametros:
+            return jsonify({"message": "Nenhum parâmetro cadastrado!"}), 400
+
+        parametros = list(parametros)  # Ignora o ID da linha
+
+        # Certifique-se de que os dados do formulário estejam no formato certo
+        def tratar_valor(valor):
+            return float(valor.replace("R$", "").replace(".", "").replace(",", ".").strip())
+
+        valores = (
+            int(data['qtde_cartoes']),
+            tratar_valor(data['valor_credito']),
+            int(data['meses']),
+            float(data['taxa_adm']),
+            int(data['qtde_cartoes_tag']),
+            tratar_valor(data['rec_tags']),
+            int(data['qtde_cartoes_eus']),
+            tratar_valor(data['rec_saude']),
+            *parametros,
+            float(data['lucroOperacao']),
+            float(data['lucroOperacaoMensal']),
+            float(data['rentabilidadeAtual']),
+            float(data['volumeMensal']),      
+            float(data['volumeAnual']),       
+            float(data['volumeContrato']),
+            float(data['payback']),
+            user_id,
+            status
+        )
+
+        sql = """
+            INSERT INTO simulacaoeuc_com (
+                qtde_cartoes, valor_credito, qtde_meses, taxa_adm,
+                qtde_cartoes_tag, rec_tags, qtde_cartoes_eus, rec_saude,
+                consumo_credenciado, antecipacao_angels, apropriacao_credito, investimento,
+                confeccao_cartoes, confeccao_cartoes_qtde, segunda_via, segunda_via_qtde,
+                custos_transacao, custos_transacao_qtde, custos_cartaoativo, custos_cartaoativo_qtde,
+                custo_tag, custo_tag_qtde, custo_eus, custo_eus_qtde,
+                despesatag_envio, despesatag_tagfisica, despesatag_greenpass,
+                despesaeus_epharma, despesaeus_telemedicina, despesaeus_enviounico,
+                negociacao_aprovada, negociacao_pendente, rentabilidade_ideal,
+                lucro_operacao, lucro_operacao_mensal, rentabilidade_atual,
+                volume_mensal, volume_anual, volume_contrato, payback,
+                user_id, status
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s
+            )
+        """
+        
+        cursor.execute(sql, valores)
+        conn.commit()
+
+        return jsonify({"message": "Proposta gravada com sucesso!"})
+
+    except Exception as e:
+        print("Erro ao gravar proposta:", e)
+        return jsonify({"message": "Erro ao gravar proposta."}), 500
+
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route('/aprovacoeseucCOM')
+@modulo_requerido('COMERCIALGESTOR')
+def aprovacoeseucCOM():
+    return render_template('aprovacoeseucCOM.html')
+
+@app.route('/enviar_para_aprovacaoeucCOM', methods=['POST'])
+@modulo_requerido('COMERCIALGESTOR')
+def enviar_para_aprovacaoeucCOM():
+    if 'username' not in session:
+        return jsonify({"message": "Usuário não autenticado."}), 401
+
+    data = request.get_json()
+    id_proposta = data.get("id")
+
+    if not id_proposta:
+        return jsonify({"message": "ID da proposta é obrigatório."}), 400
+
+    try:
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
+        cursor.execute("UPDATE simulacaoeuc_com SET status = 'APROVADO' WHERE id_simeuc = %s", (id_proposta,))
+        conn.commit()
+        return jsonify({"message": "Status da proposta atualizado para APROVADO."})
+    except Exception as e:
+        return jsonify({"message": f"Erro: {str(e)}"}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route('/listar_aprovacoeseucCOM', methods=['GET'])
+@modulo_requerido('COMERCIALGESTOR')
+def listar_aprovacoeseucCOM():
+    if 'username' not in session:
+        return jsonify([])
+
+    conn = None
+    cursor = None
+
+    try:
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor(dictionary=True)
+
+        query = """
+            SELECT s.id_simeuc, s.qtde_cartoes, s.valor_credito, s.qtde_meses, s.rentabilidade_atual, s.user_id, u.nome AS usuario
+            FROM simulacaoeuc_com s
+            LEFT JOIN usuarios u ON u.user_id = s.user_id
+            WHERE s.status = 'PENDENTE'
+            ORDER BY s.id_simeuc DESC
+        """
+        cursor.execute(query)
+        propostas = cursor.fetchall()
+        return jsonify(propostas)
+
+    except Exception as e:
+        print(f"Erro ao listar pendentes: {e}")
+        return jsonify({"message": f"Erro ao listar pendentes: {str(e)}"}), 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+@app.route("/reprovar_propostaeucCOM", methods=["POST"])
+@modulo_requerido('COMERCIALGESTOR')
+def reprovar_propostaeucCOM():
+    if 'username' not in session:
+        return jsonify({"message": "Usuário não autenticado."}), 401
+
+    data = request.get_json()
+    proposta_id = data.get("id")
+
+    if not proposta_id:
+        return jsonify({"message": "ID da proposta não informado."}), 400
+
+    try:
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
+
+        # Deleta a proposta do banco
+        cursor.execute("DELETE FROM simulacaoeuc_com WHERE id_simeuc = %s AND status = 'PENDENTE'", (proposta_id,))
+        conn.commit()
+
+        if cursor.rowcount == 0:
+            return jsonify({"message": "Proposta não encontrada ou já foi aprovada/reprovada."}), 404
+
+        return jsonify({"message": "Proposta reprovada e removida com sucesso."})
+
+    except Exception as e:
+        return jsonify({"message": f"Erro ao reprovar proposta: {str(e)}"}), 500
+
+    finally:
+        cursor.close()
+        conn.close()
+
+
+
 
 
 if __name__ == '__main__':
