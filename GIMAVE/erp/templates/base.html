@@ -126,7 +126,7 @@
         <!-- Comercial -->
         {% if 'COMERCIAL' in session['modulos'] or 'COMERCIALGESTOR' in session['modulos'] %}
         <div class="dropdown">
-            <div class="dropdown-btn">Comercial (3)</div>
+            <div class="dropdown-btn">Comercial (4)</div>
             <div class="dropdown-container">
 
                 <!--Cartões Elo-->
@@ -153,6 +153,19 @@
                         <a href="{{ url_for('aprovacoesprcCOM') }}">Aprovar Simulações</a>
                     {% endif %}
                     </div>
+
+
+                    <!-- Cartões Próprio (Eucard)-->
+                    <div class="dropdown">
+                        <div class="dropdown-btn"><b>Cartões Eucard</b></div>
+                        <div class="dropdown-container">
+                            <a href="{{url_for('simulacaoeucCOM')}}">Simulação Eucard</a>
+
+                            {% if 'COMERCIALGESTOR' in session['modulos'] %}
+                        <a href="{{url_for('parametroseucCOM')}}">Parâmetros Comerciais</a>
+                        <a href="{{url_for('aprovacoeseucCOM')}}">Aprova Simulações</a>
+                    {% endif %}
+                    </div>
                  
 
                 <!--Relatórios-->
@@ -161,7 +174,9 @@
                     <div class="dropdown-container">
                         <a href="{{ url_for('relatoriosCOM') }}">Cartões Elo</a>
                         <a href="{{ url_for('relatoriosprcCOM') }}">Cartões Elo Parceria</a>
+                        <a href="{{ url_for('relatorioseucCOM') }}">Cartões Eucard</a>
                     </div>
+                </div>
                 </div>
                 </div>
                 </div>
