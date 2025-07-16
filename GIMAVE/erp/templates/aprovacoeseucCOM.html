@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2 style="margin-left: 3%; margin-top: 20px;">PROPOSTAS PENDENTES (EUCARD)</h2>
+<div id="lista-aprovacoes" style="margin-left: 3%; margin-top: 20px"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Formatar R$XX.XXX,XX
+    function formatarMoeda(valor) {
+        if (valor === undefined || valor === null || isNaN(valor)) return 'R$ 0,00';
+        return new Intl.NumberFormat('pt-BR', {
+            style: 'currency',
+            currency: 'BRL'
+        }).format(valor);
+    }
+
+    // Aprovar | Reprovar
+    document.addEventListener("DOMContentLoaded", () => {
+        fetch("/listar_aprovacoeseucCOM")
+            .then(res => {
+                if (!res.ok) throw new Error(`Erro: ${res.status}`);
+                return res.json();
+            })
+            .then(propostas => {
+                const container = document.getElementById("lista-aprovacoes");
+
+                if (!propostas || propostas.length === 0) {
+                    container.innerHTML = "<p>Nenhuma proposta pendente.</p>";
+                    return;
+                }
+
+                propostas.forEach(p => {
+                    const div = document.createElement("div");
+                    div.className = "card-aprovacao";
+                    div.style = `
+                        width: 75%;
+                        margin-left: 2%;
+                        background-color: #fff;
+                        border: 1px solid #dee2e6;
+                        padding: 20px;
+                        margin-bottom: 20px;
+                        border-radius: 12px;
+                        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+                        transition: transform 0.2s ease;
+                    `;
+
+                    div.onmouseover = () => div.style.transform = 'scale(1.01)';
+                    div.onmouseout = () => div.style.transform = 'scale(1)';
+
+                    div.innerHTML = `
+                        <div style="margin-bottom: 10px;">
+                            <h4 style="margin: 0; color: #333;">Proposta de ${p.usuario}</h4>
+                        </div>
+                        <div style="margin-bottom: 10px; line-height: 1.6;">
+                            <p><strong>Id Simulação:</strong> ${p.id_simeuc}</p>
+                            <p><strong>Qtd. Cartões:</strong> ${p.qtde_cartoes}</p>
+                            <p><strong>Valor Crédito:</strong> ${p.valor_credito}</p>
+                            <p><strong>Meses:</strong> ${p.qtde_meses}</p>
+                            <p><strong>Rentabilidade Atual:</strong> 
+                                <span style="color: ${p.rentabilidade_atual >= 80 ? '#28a745' : (p.rentabilidade_atual >= 50 ? '#ffc107' : '#dc3545')};">
+                                    ${parseFloat(p.rentabilidade_atual).toFixed(2)}%
+                                </span>
+                            </p>
+                        </div>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn-aprovar" data-id="${p.id_simeuc}" style="background-color: #28a745; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">Aprovar</button>
+                            <button class="btn-reprovar" data-id="${p.id_simeuc}" style="background-color: #dc3545; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">Reprovar</button>
+                        </div>
+                    `;
+                    container.appendChild(div);
+                });
+
+                // Aprovar
+                document.querySelectorAll(".btn-aprovar").forEach(btn => {
+                    btn.addEventListener("click", () => {
+                        const id = btn.dataset.id;
+                        fetch("/enviar_para_aprovacaoeucCOM", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ id })
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            alert(data.message || "Proposta aprovada.");
+                            location.reload();
+                        });
+                    });
+                });
+
+                // Reprovar
+                document.querySelectorAll(".btn-reprovar").forEach(btn => {
+                    btn.addEventListener("click", () => {
+                        if (!confirm("Tem certeza que deseja reprovar esta proposta?")) return;
+
+                        const id = btn.dataset.id;
+                        fetch("/reprovar_propostaeucCOM", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ id })
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            alert(data.message || "Proposta reprovada.");
+                            location.reload();
+                        });
+                    });
+                });
+            });
+    });
+</script>
+{% endblock %}

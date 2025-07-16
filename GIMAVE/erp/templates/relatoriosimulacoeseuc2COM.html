@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .relatorio-wrapper table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        font-family: "Calibri Light", Calibri, sans-serif;
+        background-color: #f9f9f9;
+        table-layout: auto;
+    }
+
+    .relatorio-wrapper th, 
+    .relatorio-wrapper td {
+        padding: 10px;
+        border: 1px solid #ccc;
+        text-align: center;
+        font-family: "Calibri Light", Calibri, sans-serif;
+        white-space: nowrap;
+    }
+
+    .relatorio-wrapper th {
+        background-color: #dadada;
+        color: #333;
+    }
+
+    .relatorio-wrapper tbody tr:nth-child(odd) {
+        background-color: #f9f9f9;
+    }
+
+    .relatorio-wrapper tbody tr:nth-child(even) {
+        background-color: #f0f0f0;
+    }
+
+    .relatorio-wrapper form {
+        margin-bottom: 20px;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        font-family: "Calibri Light", Calibri, sans-serif;
+        background-color: #f2f2f2;
+        padding: 20px;
+        border-radius: 8px;
+    }
+
+    .relatorio-wrapper label {
+        font-weight: bold;
+        margin-right: 5px;
+    }
+
+    .relatorio-wrapper input[type="date"],
+    .relatorio-wrapper input[type="text"],
+    .relatorio-wrapper select,
+    .relatorio-wrapper form button {
+        padding: 6px 10px;
+        border-radius: 4px;
+        border: 1px solid #aaa;
+        font-family: "Calibri Light", Calibri, sans-serif;
+    }
+
+    .relatorio-wrapper form button {
+        background-color: #4CAF50;
+        color: white;
+        cursor: pointer;
+        border: none;
+    }
+
+    .relatorio-wrapper form button:hover {
+        background-color: #45a049;
+    }
+
+    .relatorio-wrapper h2 {
+        text-align: center;
+        margin-bottom: 20px;
+        color: #333;
+        font-family: "Calibri Light", Calibri, sans-serif;
+    }
+</style>
+
+<div class="relatorio-wrapper">
+  <h2 class="text-xl font-bold mb-4">RELATÓRIO ANALÍTICO POR SIMULAÇÃO</h2>
+
+  <form method="POST" action="/relatorioeuc2COM">
+    <div>
+      <label for="id_sim">ID Simulação:</label>
+      <select name="id_sim" id="id_sim" required>
+        <option value="" disabled selected>Selecione uma simulação</option>  
+        <option value="todos">Todos</option>           
+        {% for sim in simulacaoeuc_com %}
+          <option value="{{ sim.id_simeuc }}">{{ sim.id_simeuc }}</option>
+        {% endfor %}
+      </select>
+    </div> 
+
+    <div>
+      <label for="data_inicial">Data Inicial:</label>
+      <input type="date" name="data_inicial" required>
+    </div>
+
+    <div>
+      <label for="data_final">Data Final:</label>
+      <input type="date" name="data_final" required>
+    </div>
+
+    <div>
+      <button type="submit">Gerar PDF</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
