@@ -20,7 +20,6 @@ import re
 load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("SK")
-app.permanent_session_lifetime = timedelta(minutes=15) #Tempo máximo de inatividade
 locale.setlocale(locale.LC_ALL, '')
 try:
     db_config = {
@@ -87,9 +86,8 @@ def get_parametros_calculos():
 
     return parametros
 
-
-
-
+#Aqui pode-se registrar usuários que ficarão imunes ao timeout de inatividade
+immunity = {'DASH'} #Adicione os usernames aqui
 
 #---------------LOGIN E TELAS INICIAIS----------------#
 # Login
@@ -111,6 +109,12 @@ def login():
                 user_id, senha_hash, nivel = resultado
 
                 if bcrypt.checkpw(senha.encode('utf-8'), senha_hash.encode('utf-8') if isinstance(senha_hash, str) else senha_hash):
+                    
+                    if username in immunity:
+                        app.permanent_session_lifetime = timedelta(days=3650)
+                    else:
+                        app.permanent_session_lifetime = timedelta(minutes=15)
+                    
                     session.permanent = True
                     session['user_id'] = user_id
                     session['username'] = username
@@ -158,7 +162,7 @@ def logout():
 def reg_usuarios():
     if session.get('nivel') != 'ADMIN':
         flash('Você não tem permissão para acessar esta página.', 'danger')
-        return redirect(url_for('menu_principal'))  # Redireciona para a home comercial
+        return redirect(url_for('menu_principal'))
     
     if request.method == 'POST':
         nome = request.form['nome']
@@ -201,10 +205,13 @@ def excluir_usuario(user_id):
     
     conexao = mysql.connector.connect(**db_config)
     cursor = conexao.cursor()
+
     cursor.execute("DELETE FROM usuarios WHERE user_id = %s", (user_id,))
     conexao.commit()
+
     cursor.close()
     conexao.close()
+
     flash('Usuário excluído com sucesso.', 'success')
     return redirect(url_for('reg_usuarios'))
 
@@ -218,6 +225,7 @@ def listar_usuarios_acessos():
     try:
         conexao = mysql.connector.connect(**db_config)
         cursor = conexao.cursor(dictionary=True)
+
         cursor.execute("SELECT user_id, nome, username, email, nivel FROM usuarios")
         usuarios = cursor.fetchall()
     finally:
@@ -297,10 +305,13 @@ def listar_fornecedoresCMP():
     
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor(dictionary=True)
+
     cursor.execute("SELECT cnpj, razao_social FROM fornecedores_cmp ORDER BY razao_social")
     fornecedores = cursor.fetchall()
+
     cursor.close()
     conn.close()
+
     return jsonify(fornecedores)
 
 @app.route('/cadastrar_fornecedorCMP', methods=['POST'])
@@ -383,20 +394,27 @@ def editar_fornecedoresCMP(id):
         cursor.execute("UPDATE fornecedores_cmp SET razao_social = %s WHERE cnpj = %s", (novo_nome, id))
         conn.commit()
 
+        cursor.close()
+        conn.close()
+
         return jsonify({'sucesso': True})
 
     except mysql.connector.Error as err:
         return jsonify({'erro': str(err)}), 500
+    
 
 @app.route('/api/fornecedoresCMP/<int:id>', methods=['DELETE'])
 @modulo_requerido('COMPRAS')
 def excluir_fornecedoresCMP(id):
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor()
+
     cursor.execute("DELETE FROM fornecedores_cmp WHERE cnpj = %s", (id,))
     conn.commit()
+
     cursor.close()
     conn.close()
+
     return jsonify({'sucesso': True})
 
 @app.route('/fornecedoresCMP_sugestoes')
@@ -406,8 +424,10 @@ def fornecedoresCMP_sugestoes():
 
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor()
+
     cursor.execute("SELECT cnpj, razao_social FROM fornecedores_cmp WHERE razao_social LIKE %s LIMIT 10", (f'%{termo}%',))
     resultados = [{'cnpj': row[0], 'razao_social': row[1]} for row in cursor.fetchall()]
+
     cursor.close()
     conn.close()
 
@@ -482,10 +502,13 @@ def cadastrar_produtoCMP():
 def listar_produtosCMP():
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor(dictionary=True)
+
     cursor.execute("SELECT id_produto, nome FROM produtos_cmp ORDER BY nome")
     produtos = cursor.fetchall()
+
     cursor.close()
     conn.close()
+
     return jsonify(produtos)
 
 @app.route('/api/produtosCMP/<int:id>', methods=['PUT'])
@@ -525,6 +548,9 @@ def editar_produtosCMP(id):
         cursor.execute("UPDATE produtos_cmp SET nome = %s WHERE id_produto = %s", (novo_nome, id))
         conn.commit()
 
+        cursor.close()
+        conn.close()
+
         return jsonify({'sucesso': True})
 
     except mysql.connector.Error as err:
@@ -535,10 +561,13 @@ def editar_produtosCMP(id):
 def excluir_produtosCMP(id):
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor()
+
     cursor.execute("DELETE FROM produtos_cmp WHERE id_produto = %s", (id,))
     conn.commit()
+
     cursor.close()
     conn.close()
+
     return jsonify({'sucesso': True})
 
 @app.route('/produtosCMP_sugestoes')
@@ -548,6 +577,7 @@ def produtosCMP_sugestoes():
     
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor(dictionary=True)
+
     cursor.execute("""
         SELECT id_produto, nome FROM produtos_cmp
         WHERE nome LIKE %s
@@ -555,8 +585,10 @@ def produtosCMP_sugestoes():
         LIMIT 10
     """, (f"%{termo}%",))
     resultados = cursor.fetchall()
+
     cursor.close()
     conn.close()
+
     return jsonify(resultados)
 
 
@@ -599,6 +631,7 @@ def cadastrar_categoriaCMP():
         query = "INSERT INTO categorias_cmp (descricao) VALUES (%s)"
         cursor.execute(query, (descricao,))
         conn.commit()
+
         cursor.close()
         conn.close()
 
@@ -614,10 +647,13 @@ def cadastrar_categoriaCMP():
 def listar_categoriasCMP():
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor(dictionary=True)
+
     cursor.execute("SELECT id_categoria, descricao FROM categorias_cmp ORDER BY descricao")
     categorias = cursor.fetchall()
+
     cursor.close()
     conn.close()
+
     return jsonify(categorias)
 
 @app.route('/api/categoriasCMP/<int:id>', methods=['PUT'])
@@ -630,10 +666,13 @@ def editar_categoriaCMP(id):
 
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor()
+
     cursor.execute("UPDATE categorias_cmp SET descricao = %s WHERE id_categoria = %s", (nova_descricao, id))
     conn.commit()
+
     cursor.close()
     conn.close()
+
     return jsonify({'sucesso': True})
 
 @app.route('/api/categoriasCMP/<int:id>', methods=['DELETE'])
@@ -641,10 +680,13 @@ def editar_categoriaCMP(id):
 def excluir_categoriaCMP(id):
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor()
+
     cursor.execute("DELETE FROM categorias_cmp WHERE id_categoria = %s", (id,))
     conn.commit()
+
     cursor.close()
     conn.close()
+
     return jsonify({'sucesso': True})
 
 @app.route('/categoriasCMP_sugestoes')
@@ -654,8 +696,10 @@ def categoriasCMP_sugestoes():
 
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor()
+
     cursor.execute("SELECT id_categoria, descricao FROM categorias_cmp WHERE descricao LIKE %s LIMIT 10", (f'%{termo}%',))
     resultados = [{'id_categoria': row[0], 'descricao': row[1]} for row in cursor.fetchall()]
+
     cursor.close()
     conn.close()
 
@@ -726,6 +770,9 @@ def cadastrarCMP():
         cursor.execute(query, (data_formatada, vlr_formatado, observacao, produto_id, fornecedor_cnpj, user_id))
         conn.commit()
 
+        cursor.close()
+        conn.close()
+
         flash('Cadastro realizado com sucesso!', 'sucesso')
         return redirect('/cadastroCMP')
 
@@ -765,6 +812,7 @@ def validarCMP():
             flash('Orçamento excluído com sucesso', 'success')
 
         conn.commit()
+
         cursor.close()
         conn.close()
 
@@ -899,6 +947,7 @@ def editar_orcamentoCMP(cod):
     """, (produto, fornecedor, vlr_orcamento, observacao, dt_formatada, cod))
     
     conn.commit()
+
     cursor.close()
     conn.close()
 
@@ -1032,99 +1081,135 @@ def dashboardCMP():
 @app.route('/simulacaoCOM')
 @modulo_requerido('COMERCIAL','COMERCIALGESTOR')
 def simulacaoCOM():
+    #Verificação de sessão ativa
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
+    
+    #Renderização do template de Simulação
     return render_template('simulacaoCOM.html')
 
 @app.route('/parametrosCOM')
 @modulo_requerido('COMERCIALGESTOR')
 def parametrosCOM():
+    #Verificação de sessão ativa
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
 
+    #Renderização do template de parâmetros
     return render_template('parametrosCOM.html')
 
 @app.route('/get_parametros')
 @modulo_requerido('COMERCIALGESTOR')
 def get_parametros():
+    #Verificação de sessão ativa
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
 
-    conn = mysql.connector.connect(**db_config)
-    cursor = conn.cursor(dictionary=True)
+    #Funcionalidade
+    try:
+        #Abertura de conexão com o DB
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor(dictionary=True)
 
+        #Consulta
+        cursor.execute("SELECT * FROM parametros_com LIMIT 1")
+        resultado = cursor.fetchone()
+    
+        #Envia as informações para o frontend
+        return jsonify(resultado)
+    
+    #Tratamento de exceção
+    except Exception as e:
+        return jsonify({"message": "Erro ao consultar os parâmetros."}), 500
 
-    cursor.execute("SELECT * FROM parametros_com LIMIT 1")
-    resultado = cursor.fetchone()
-
-    cursor.close()
-    conn.close()
-
-    return jsonify(resultado)
+    #Fechar conexão com o DB
+    finally:
+        cursor.close()
+        conn.close()
 
 @app.route('/salvar_parametros', methods=['POST'])
 @modulo_requerido('COMERCIALGESTOR')
 def salvar_parametros():
+    #Verificação de sessão ativa
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
     
+    #Armazenamento dos dados gerados no frontend
     dados = request.json
 
-    conn = mysql.connector.connect(**db_config)
-    cursor = conn.cursor()
+    #Funcionalidade
+    try:
 
-    # Aqui você pode decidir se quer sobrescrever (DELETE e INSERT) ou usar UPDATE com WHERE
-    cursor.execute("DELETE FROM parametros_com")  # Mantém só 1 registro
-    query = """
-        INSERT INTO parametros_com (
-            consumo_credenciado, confeccao_cartoes, custos_operacionais, custos_operacionais_qtde,
-            custo_tag, custo_tag_qtde, custo_eus, custo_eus_qtde,
-            despesatag_envio, despesatag_tagfisica, despesatag_greenpass,
-            despesaeus_epharma, despesaeus_telemedicina, despesaeus_enviounico,
-            investimento_cartao, negociacao_aprovada, negociacao_pendente, rentabilidade_ideal
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-    """
-    valores = (
-        dados['consumo_credenciado'],
-        dados['confeccao_cartoes'],
-        dados['custos_operacionais'],
-        dados['custos_operacionais_qtde'],
-        dados['custo_tag'],
-        dados['custo_tag_qtde'],
-        dados['custo_eus'],
-        dados['custo_eus_qtde'],
-        dados['despesatag_envio'],
-        dados['despesatag_tagfisica'],
-        dados['despesatag_greenpass'],
-        dados['despesaeus_epharma'],
-        dados['despesaeus_telemedicina'],
-        dados['despesaeus_enviounico'],
-        dados['investimento_cartao'],
-        dados['negociacao_aprovada'],
-        dados['negociacao_pendente'],
-        dados['rentabilidade_ideal'],
-    )
-    cursor.execute(query, valores)
-    conn.commit()
-    cursor.close()
+        #Abertura de conexão com o DB
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
 
-    return jsonify({"status": "ok"})
+        #Deleta as informações que estão no DB e substitui pelas novas. UPDATE com WHERE incrementa ao invés de sobrescrever
+        cursor.execute("DELETE FROM parametros_com")
+        query = """
+            INSERT INTO parametros_com (
+                consumo_credenciado, confeccao_cartoes, custos_operacionais, 
+                custos_operacionais_qtde,custo_tag, custo_tag_qtde, custo_eus, 
+                custo_eus_qtde,despesatag_envio, despesatag_tagfisica, 
+                despesatag_greenpass,despesaeus_epharma, despesaeus_telemedicina, 
+                despesaeus_enviounico,investimento_cartao, negociacao_aprovada, 
+                negociacao_pendente, rentabilidade_ideal
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+
+        #Repassa os valores do JSON para inserção no DB
+        valores = (
+            dados['consumo_credenciado'],
+            dados['confeccao_cartoes'],
+            dados['custos_operacionais'],
+            dados['custos_operacionais_qtde'],
+            dados['custo_tag'],
+            dados['custo_tag_qtde'],
+            dados['custo_eus'],
+            dados['custo_eus_qtde'],
+            dados['despesatag_envio'],
+            dados['despesatag_tagfisica'],
+            dados['despesatag_greenpass'],
+            dados['despesaeus_epharma'],
+            dados['despesaeus_telemedicina'],
+            dados['despesaeus_enviounico'],
+            dados['investimento_cartao'],
+            dados['negociacao_aprovada'],
+            dados['negociacao_pendente'],
+            dados['rentabilidade_ideal'],
+        )
+        cursor.execute(query, valores)
+        conn.commit()
+
+        #Envia as informações para o frontend
+        return jsonify({"status": "ok"})
+    
+    #Tratamento de exceção
+    except Exception as e:
+        return jsonify({"message": "Erro ao salvar os parâmetros."}), 500
+
+    #Fechar conexão com o DB
+    finally:
+        cursor.close()
+        conn.close()
 
 @app.route('/calcular_simulacao', methods=['POST'])
 @modulo_requerido('COMERCIAL','COMERCIALGESTOR')
 def calcular_simulacao():
+    #Verificação de sessão ativa
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
 
+    #Dados que serão utilizados para os cálculos
     dados_form = request.json  # dicionário com os dados do formulário
     parametros = get_parametros_calculos()  # dicionário com os parâmetros do banco
 
-    # Formulário simulacaoCOM.html
+    #Formulário simulacaoCOM.html
     qtde_cartoes = float(dados_form.get('qtde_cartoes') or 0)
     valor_credito = float(dados_form.get('valor_credito') or 0)
     qtde_meses = int(dados_form.get('meses') or 0)
@@ -1155,10 +1240,14 @@ def calcular_simulacao():
     negociacao_pendente = float(parametros.get('negociacao_pendente', 0))
     rentabilidade_ideal = float(parametros.get('rentabilidade_ideal', 0))
 
+    #CÁLCULOS
+
     # Volumetria
     volumeMensal = qtde_cartoes * valor_credito
     volumeAnual = volumeMensal * 12
     volumeContrato = volumeMensal * qtde_meses
+
+
 
     # Receitas Previstas - Cartão Elo
     consumoCredenciadoMensal = volumeMensal * (consumo_credenciado / 100)
@@ -1177,6 +1266,8 @@ def calcular_simulacao():
     totalReceitasPrevistasAnual = vendaCartoesAnual + taxaAdmAnual + consumoCredenciadoAnual
     totalReceitasPrevistasContrato = vendaCartoesContrato + taxaAdmContrato + consumoCredenciadoContrato
 
+
+
     # Despesas Previstas - Cartão Elo
     confeccaoCartoesContrato = confeccao_cartoes * qtde_cartoes
     custosOperacionaisContrato = (custos_operacionais * custos_operacionais_qtde * qtde_cartoes) * qtde_meses
@@ -1185,6 +1276,8 @@ def calcular_simulacao():
     custoInvestimentoContrato = investimento_cartao * qtde_cartoes
     totalDespesasPrevistasContrato = custoInvestimentoContrato + custoEusContrato + custoTagContrato + custosOperacionaisContrato + confeccaoCartoesContrato
     
+
+
     # Outros Produtos
     receitaTagContrato = rec_tags * qtde_cartoes_tag * qtde_meses
     despesaTagEnvioContrato = despesatag_envio * qtde_cartoes_tag
@@ -1196,8 +1289,9 @@ def calcular_simulacao():
     despesaEusEpharma = despesaeus_epharma * qtde_cartoes_eus * qtde_meses
     despesaEusTelemedicina = despesaeus_telemedicina * qtde_cartoes_eus
     despesaEusEnvio = despesaeus_enviounico * qtde_cartoes_eus
-
     totalDespesasEusContrato = despesaEusEnvio + despesaEusTelemedicina + despesaEusEpharma
+
+
 
     # Resultados
     resultReceitas = totalReceitasPrevistasContrato + receitaTagContrato + receitaEusContrato
@@ -1210,6 +1304,9 @@ def calcular_simulacao():
     rentabilidadeAtual = (lucroOperacao / volumeContrato) * 100
     payback = resultDespesas / totalReceitasPrevistasMensal 
 
+
+
+    #JSON com os resultados que será enviado ao frontend
     resultado = {
         "volumeMensal": volumeMensal,
         "volumeAnual": volumeAnual,
@@ -1258,29 +1355,32 @@ def calcular_simulacao():
 @app.route('/gravar_propostaCOM', methods=['POST'])
 @modulo_requerido('COMERCIAL','COMERCIALGESTOR')
 def gravar_propostaCOM():
+    #Verificação de sessão ativa
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
 
+    #Dados enviados pelo front end, dados do usuário e status da simulação
     data = request.get_json()
     user_id = session.get('user_id')
     status = data.get("status","PENDENTE")
 
     try:
+        #Abertura de conexão com o DB
         conn = mysql.connector.connect(**db_config)
         cursor = conn.cursor()
 
-        # Buscar os parâmetros vigentes
+        # Buscar os parâmetros no DB
         cursor.execute("SELECT * FROM parametros_com ORDER BY id DESC LIMIT 1")
         parametros = cursor.fetchone()
 
-
+        #Tratamento de exceção: Parâmetros
         if not parametros:
             return jsonify({"message": "Nenhum parâmetro cadastrado!"}), 400
 
-        parametros = list(parametros)[1:]  # Ignora o ID da linha
+        parametros = list(parametros)[1:]  #Ignora o ID da tabela
 
-        # Certifique-se de que os dados do formulário estejam no formato certo
+        #Faz o tratamento dos valores antes de gravar no DB
         def tratar_valor(valor):
             return float(valor.replace("R$", "").replace(".", "").replace(",", ".").strip())
 
@@ -1308,6 +1408,7 @@ def gravar_propostaCOM():
             status
         )
 
+        #Insert
         sql = """
             INSERT INTO simulacao_com (
                 qtde_cartoes, valor_credito, qtde_meses, taxa_adm, venda_cartoes,
@@ -1343,28 +1444,44 @@ def gravar_propostaCOM():
 @app.route('/aprovacoesCOM')
 @modulo_requerido('COMERCIALGESTOR')
 def aprovacoesCOM():
+    #Verificação de sessão ativa
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+
+    #Renderização do template de aprovações
     return render_template('aprovacoesCOM.html')
 
 @app.route('/enviar_para_aprovacaoCOM', methods=['POST'])
 @modulo_requerido('COMERCIALGESTOR')
 def enviar_para_aprovacaoCOM():
+    #Verificação de sessão ativa
     if 'username' not in session:
         return jsonify({"message": "Usuário não autenticado."}), 401
 
     data = request.get_json()
     id_proposta = data.get("id")
 
+    #Tratamento de exceção: Id Proposta
     if not id_proposta:
         return jsonify({"message": "ID da proposta é obrigatório."}), 400
 
+    #Funcionalidade
     try:
+        #Abertura conexão com o DB
         conn = mysql.connector.connect(**db_config)
         cursor = conn.cursor()
+
         cursor.execute("UPDATE simulacao_com SET status = 'APROVADO' WHERE id = %s", (id_proposta,))
         conn.commit()
+
         return jsonify({"message": "Status da proposta atualizado para APROVADO."})
+    
+    #Tratamento de exceção
     except Exception as e:
         return jsonify({"message": f"Erro: {str(e)}"}), 500
+    
+    #Finaliza conexão
     finally:
         cursor.close()
         conn.close()
@@ -1372,16 +1489,16 @@ def enviar_para_aprovacaoCOM():
 @app.route('/listar_aprovacoesCOM', methods=['GET'])
 @modulo_requerido('COMERCIALGESTOR')
 def listar_aprovacoesCOM():
+    #Verificação de sessão ativa
     if 'username' not in session:
         return jsonify([])
 
-    conn = None
-    cursor = None
-
     try:
+        #Abertura de conexão com o DB
         conn = mysql.connector.connect(**db_config)
         cursor = conn.cursor(dictionary=True)
 
+        #Funcionalidade
         query = """
             SELECT s.id, s.qtde_cartoes, s.valor_credito, s.qtde_meses, s.rentabilidade_atual, s.user_id, u.nome AS usuario
             FROM simulacao_com s
@@ -1391,31 +1508,35 @@ def listar_aprovacoesCOM():
         """
         cursor.execute(query)
         propostas = cursor.fetchall()
+
+        #Envia o JSON para o frontend
         return jsonify(propostas)
 
+    #Tratamento de exceção
     except Exception as e:
-        print(f"Erro ao listar pendentes: {e}")
         return jsonify({"message": f"Erro ao listar pendentes: {str(e)}"}), 500
 
+    #Fecha conexão com o DB
     finally:
-        if cursor:
-            cursor.close()
-        if conn:
-            conn.close()
+        cursor.close()
+        conn.close()
 
 @app.route("/reprovar_propostaCOM", methods=["POST"])
 @modulo_requerido('COMERCIALGESTOR')
 def reprovar_propostaCOM():
+    #Verificação de sessão ativa
     if 'username' not in session:
         return jsonify({"message": "Usuário não autenticado."}), 401
 
     data = request.get_json()
     proposta_id = data.get("id")
 
+    #Tratamento de exceção: Id Proposta
     if not proposta_id:
         return jsonify({"message": "ID da proposta não informado."}), 400
 
     try:
+        #Abre a conexão com o DB
         conn = mysql.connector.connect(**db_config)
         cursor = conn.cursor()
 
@@ -1428,9 +1549,11 @@ def reprovar_propostaCOM():
 
         return jsonify({"message": "Proposta reprovada e removida com sucesso."})
 
+    #Tratamento de exceção
     except Exception as e:
         return jsonify({"message": f"Erro ao reprovar proposta: {str(e)}"}), 500
 
+    #Fecha a conexão com o DB
     finally:
         cursor.close()
         conn.close()
@@ -2235,151 +2358,17 @@ def relatorioeuc2COM():
 
 
 #-----------ROTAS VIABILIDADE COMERCIAL ELO (PARCERIAS)------------#
-#Rotas de cadastro de parcerias
-@app.route('/parceriasCOM')
-@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
-def parceriasCOM():
-    if 'username' not in session:
-        flash('Você precisa estar logado para acessar esta página.', 'warning')
-        return redirect(url_for('login'))
-    return render_template('cadastroparceiroCOM.html')
-
-@app.route('/api/parceriasCOM')
-@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
-def listar_parceriasCOM():
-    if 'username' not in session:
-        flash('Você precisa estar logado para acessar esta página.', 'warning')
-        return redirect(url_for('login'))
-    
-    conn = mysql.connector.connect(**db_config)
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT codigo_parceiro, nome, comissao FROM cadprc_com ORDER BY nome")
-    parcerias = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return jsonify(parcerias)
-
-@app.route('/cadastrar_parceriaCOM', methods=['POST'])
-@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
-def cadastrar_parceriaCOM():
-    if 'username' not in session:
-        flash('Você precisa estar logado para acessar esta página.', 'warning')
-        return redirect(url_for('login'))
-    
-    conn = None
-    cursor = None
-    
-    try:
-        # Coleta de dados do formulário (CORRIGIDO o nome da variável)
-        codigo_parceiro = ''.join(filter(str.isdigit, request.form['codigo_parceiro'].strip()))
-        nome = request.form['nome'].strip()
-        uf = request.form['uf'].strip()
-        comissao = request.form['comissao'].strip()
-
-        # Validação simples
-        if not codigo_parceiro or not nome or not uf or not comissao:
-            flash('Preencha todos os campos obrigatórios!', 'erro')
-            return redirect('/parceriasCOM')
-
-        conn = mysql.connector.connect(**db_config)
-        cursor = conn.cursor(dictionary=True)
-
-        # Verifica duplicidade de CNPJ
-        cursor.execute("SELECT COUNT(*) AS total FROM cadprc_com WHERE codigo_parceiro = %s", (codigo_parceiro,))
-        if int(cursor.fetchone()['total']) > 0:
-            flash("Já existe um parceiro com esse CNPJ.", "erro")
-            return redirect('/parceriasCOM')
-
-        # Verifica duplicidade de razão social
-        cursor.execute("SELECT COUNT(*) AS total FROM cadprc_com WHERE LOWER(TRIM(nome)) = LOWER(%s)", (nome,))
-        if cursor.fetchone()['total'] > 0:
-            flash("Já existe um parceiro com essa razão social.", "erro")
-            return redirect('/parceriasCOM')
-
-        # Inserção
-        query = """
-            INSERT INTO cadprc_com (codigo_parceiro, nome, uf, comissao)
-            VALUES (%s, %s, %s, %s)
-        """
-        cursor.execute(query, (codigo_parceiro, nome, uf, comissao))
-        conn.commit()
-
-        flash('Parceiro cadastrado com sucesso!', 'sucesso')
-        return redirect('/parceriasCOM')
-
-    except mysql.connector.Error as err:
-        flash(f'Erro ao inserir os dados: {err}', 'erro')
-        return redirect('/parceriasCOM')
-    
-    finally:
-        if cursor:
-            cursor.close()
-        if conn:
-            conn.close()
-
-@app.route('/api/parceriasCOM/<codigo>', methods=['PUT'])
-@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
-def atualizar_parceriaCOM(codigo):
-    if 'username' not in session:
-        return jsonify({'erro': 'Não autorizado'}), 401
-
-    dados = request.get_json()
-    novo_nome = dados.get('nome', '').strip()
-    nova_comissao = dados.get('comissao', '').strip()
-
-    if not novo_nome or not nova_comissao:
-        return jsonify({'erro': 'Nome e comissão são obrigatórios.'}), 400
-
-    try:
-        nova_comissao = nova_comissao.replace(',', '.')
-        nova_comissao_float = float(nova_comissao)
-    except ValueError:
-        return jsonify({'erro': 'Comissão inválida.'}), 400
-
-    conn = mysql.connector.connect(**db_config)
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        UPDATE cadprc_com 
-        SET nome = %s, comissao = %s 
-        WHERE codigo_parceiro = %s
-    """, (novo_nome, nova_comissao_float, codigo))
-    conn.commit()
-
-    cursor.close()
-    conn.close()
-
-    return jsonify({'mensagem': 'Parceria atualizada com sucesso'}), 200
-
-@app.route('/api/parceriasCOM/<codigo>', methods=['DELETE'])
-@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
-def excluir_parceriaCOM(codigo):
-    if 'username' not in session:
-        return jsonify({'erro': 'Não autorizado'}), 401
-
-    conn = mysql.connector.connect(**db_config)
-    cursor = conn.cursor()
-
-    cursor.execute("DELETE FROM cadprc_com WHERE codigo_parceiro = %s", (codigo,))
-    conn.commit()
-
-    cursor.close()
-    conn.close()
-
-    return jsonify({'mensagem': 'Parceria excluída com sucesso'}), 200
-
-
-
-#Rotas de parâmetros e simulações
 @app.route('/simulacaoprcCOM', methods=['GET'])
 @modulo_requerido('COMERCIAL','COMERCIALGESTOR')
-def simulacaoprcCOM():  
+def simulacaoprcCOM():
+    #Verificação de sessão ativa  
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
     
     id_parceiro = request.args.get('id_parceiro')
 
+    #Garante que a simulação conta com o id_parceiro
     if session.get('parceiro_confirmado') != id_parceiro:
         flash('Você precisa selecionar a parceria antes de continuar.')
         return redirect('/parceriasCOM')  # ou o nome correto
@@ -2397,96 +2386,139 @@ def simulacaoprcCOM():
 @app.route('/parametrosprcCOM')
 @modulo_requerido('COMERCIALGESTOR')
 def parametrosprcCOM():
+    #Verificação de sessão ativa
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
 
+    #Renderização do template de parâmetros
     return render_template('parametrosprcCOM.html')
 
 @app.route('/get_parametrosprc')
 @modulo_requerido('COMERCIALGESTOR')
 def get_parametrosprc():
+    #Verificação de sessão ativa
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
 
-    conn = mysql.connector.connect(**db_config)
-    cursor = conn.cursor(dictionary=True)
+    #Funcionalidade
+    try:
+        #Abertura de conexão com o DB
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor(dictionary=True)
 
-    cursor.execute("SELECT * FROM parametrosprc_com LIMIT 1")
-    resultado = cursor.fetchone()
+        #Consulta
+        cursor.execute("SELECT * FROM parametrosprc_com LIMIT 1")
+        resultado = cursor.fetchone()
 
-    cursor.close()
-    conn.close()
+        #Envia as informações para o frontend
+        return jsonify(resultado)
+    
+    #Tratamento de exceção
+    except Exception as e:
+        return jsonify({"message": "Erro ao consultar os parâmetros."}), 500
 
-    return jsonify(resultado)
+    #Fechar conexão com o DB
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route('/parceriasCOM')
+@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
+def parceriasCOM():
+    #Validação de usuário
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+    return render_template('cadastroparceiroCOM.html')
 
 @app.route('/salvar_parametrosprc', methods=['POST'])
 @modulo_requerido('COMERCIALGESTOR')
 def salvar_parametrosprc():
+    #Verificação de sessão ativa
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
     
+    #Armazenamento dos dados gerados no frontend
     dados = request.json
 
-    conn = mysql.connector.connect(**db_config)
-    cursor = conn.cursor()
+    #Funcionalidade
+    try:
 
-    # Aqui você pode decidir se quer sobrescrever (DELETE e INSERT) ou usar UPDATE com WHERE
-    cursor.execute("DELETE FROM parametrosprc_com")  # Mantém só 1 registro
-    query = """
-        INSERT INTO parametrosprc_com (
-            consumo_credenciado, confeccao_cartoes, custos_operacionais, custos_operacionais_qtde,
-            custo_tag, custo_tag_qtde, custo_eus, custo_eus_qtde,
-            despesatag_envio, despesatag_tagfisica, despesatag_greenpass,
-            despesaeus_epharma, despesaeus_telemedicina, despesaeus_enviounico,
-            investimento_cartao, negociacao_aprovada, negociacao_pendente, rentabilidade_ideal
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-    """
-    valores = (
-        dados['consumo_credenciado'],
-        dados['confeccao_cartoes'],
-        dados['custos_operacionais'],
-        dados['custos_operacionais_qtde'],
-        dados['custo_tag'],
-        dados['custo_tag_qtde'],
-        dados['custo_eus'],
-        dados['custo_eus_qtde'],
-        dados['despesatag_envio'],
-        dados['despesatag_tagfisica'],
-        dados['despesatag_greenpass'],
-        dados['despesaeus_epharma'],
-        dados['despesaeus_telemedicina'],
-        dados['despesaeus_enviounico'],
-        dados['investimento_cartao'],
-        dados['negociacao_aprovada'],
-        dados['negociacao_pendente'],
-        dados['rentabilidade_ideal'],
-    )
-    cursor.execute(query, valores)
-    conn.commit()
-    cursor.close()
+        #Abertura de conexão com o DB
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
+        
+        #Deleta as informações que estão no DB e substitui pelas novas. UPDATE com WHERE incrementa ao invés de sobrescrever
+        cursor.execute("DELETE FROM parametrosprc_com") 
+        query = """
+            INSERT INTO parametrosprc_com (
+                consumo_credenciado, confeccao_cartoes, custos_operacionais, custos_operacionais_qtde,
+                custo_tag, custo_tag_qtde, custo_eus, custo_eus_qtde,
+                despesatag_envio, despesatag_tagfisica, despesatag_greenpass,
+                despesaeus_epharma, despesaeus_telemedicina, despesaeus_enviounico,
+                investimento_cartao, negociacao_aprovada, negociacao_pendente, rentabilidade_ideal
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
 
-    return jsonify({"status": "ok"})
+        #Repassa os valores do JSON para inserção no DB
+        valores = (
+            dados['consumo_credenciado'],
+            dados['confeccao_cartoes'],
+            dados['custos_operacionais'],
+            dados['custos_operacionais_qtde'],
+            dados['custo_tag'],
+            dados['custo_tag_qtde'],
+            dados['custo_eus'],
+            dados['custo_eus_qtde'],
+            dados['despesatag_envio'],
+            dados['despesatag_tagfisica'],
+            dados['despesatag_greenpass'],
+            dados['despesaeus_epharma'],
+            dados['despesaeus_telemedicina'],
+            dados['despesaeus_enviounico'],
+            dados['investimento_cartao'],
+            dados['negociacao_aprovada'],
+            dados['negociacao_pendente'],
+            dados['rentabilidade_ideal'],
+        )
+        cursor.execute(query, valores)
+        conn.commit()
+
+        #Envia as informações para o frontend
+        return jsonify({"status": "ok"})
+    
+    #Tratamento de exceção
+    except Exception as e:
+        return jsonify({"message": "Erro ao salvar os parâmetros."}), 500
+
+    #Fechar conexão com o DB
+    finally:
+        cursor.close()
+        conn.close()
 
 @app.route('/calcular_simulacaoprc', methods=['POST'])
 @modulo_requerido('COMERCIAL','COMERCIALGESTOR')
 def calcular_simulacaoprc():
+    #Verificação de sessão ativa
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
 
-    #Capturar o id do parceiro enviado pelo formulário de cadastro
+    #Dados que serão utilizados para os cálculos
     dados_form = request.json  # dicionário com os dados do formulário
     parametros = get_parametros_calculos()  # dicionário com os parâmetros do banco
     id_parceiro = dados_form.get('id_parceiro')
 
+    #Selecionar o parceiro e armazenar em uma variável
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor()
     cursor.execute("SELECT nome, comissao FROM cadprc_com WHERE codigo_parceiro = %s", (id_parceiro,))
     parceiro = cursor.fetchone() #Nome e comissão do parceiro armazenados
-
+    cursor.close()
+    conn.close()
 
     # Formulário simulacaoprcCOM.html
     qtde_cartoes = float(dados_form.get('qtde_cartoes') or 0)
@@ -2519,10 +2551,14 @@ def calcular_simulacaoprc():
     negociacao_pendente = float(parametros.get('negociacao_pendente', 0))
     rentabilidade_ideal = float(parametros.get('rentabilidade_ideal', 0))
 
+    #CÁLCULOS
+
     # Volumetria
     volumeMensal = qtde_cartoes * valor_credito
     volumeAnual = volumeMensal * 12
     volumeContrato = volumeMensal * qtde_meses
+
+
 
     # Receitas Previstas - Cartão Elo
     consumoCredenciadoMensal = volumeMensal * (consumo_credenciado / 100)
@@ -2541,6 +2577,8 @@ def calcular_simulacaoprc():
     totalReceitasPrevistasAnual = vendaCartoesAnual + taxaAdmAnual + consumoCredenciadoAnual
     totalReceitasPrevistasContrato = vendaCartoesContrato + taxaAdmContrato + consumoCredenciadoContrato
 
+
+
     # Despesas Previstas - Cartão Elo
     confeccaoCartoesContrato = confeccao_cartoes * qtde_cartoes
     custosOperacionaisContrato = (custos_operacionais * custos_operacionais_qtde * qtde_cartoes) * qtde_meses
@@ -2549,6 +2587,8 @@ def calcular_simulacaoprc():
     custoInvestimentoContrato = investimento_cartao * qtde_cartoes
     totalDespesasPrevistasContrato = custoInvestimentoContrato + custoEusContrato + custoTagContrato + custosOperacionaisContrato + confeccaoCartoesContrato
     
+
+
     # Outros Produtos
     receitaTagContrato = rec_tags * qtde_cartoes_tag * qtde_meses
     despesaTagEnvioContrato = despesatag_envio * qtde_cartoes_tag
@@ -2560,10 +2600,8 @@ def calcular_simulacaoprc():
     despesaEusEpharma = despesaeus_epharma * qtde_cartoes_eus * qtde_meses
     despesaEusTelemedicina = despesaeus_telemedicina * qtde_cartoes_eus
     despesaEusEnvio = despesaeus_enviounico * qtde_cartoes_eus
-
     comissao_valor = float(parceiro[1])
     comissao = (comissao_valor / 100) * volumeContrato
-
     totalDespesasEusContrato = despesaEusEnvio + despesaEusTelemedicina + despesaEusEpharma + comissao
 
     # Resultados
@@ -2577,6 +2615,9 @@ def calcular_simulacaoprc():
     rentabilidadeAtual = (lucroOperacao / volumeContrato) * 100
     payback = resultDespesas / totalReceitasPrevistasMensal
 
+
+
+    #JSON com os resultados que será enviado ao frontend
     resultado = {
         "volumeMensal": volumeMensal,
         "volumeAnual": volumeAnual,
@@ -2626,30 +2667,33 @@ def calcular_simulacaoprc():
 @app.route('/gravar_propostaprcCOM', methods=['POST'])
 @modulo_requerido('COMERCIAL','COMERCIALGESTOR')
 def gravar_propostaprcCOM():
+    #Verificação de sessão ativa
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
 
+    #Dados enviados pelo front end, dados do usuário e status da simulação
     data = request.get_json()
     comissao = float(data['comissao'])
     user_id = session.get('user_id')
     status = data.get("status","PENDENTE")
 
     try:
+        #Abertura de conexão com o DB
         conn = mysql.connector.connect(**db_config)
         cursor = conn.cursor()
 
-        # Buscar os parâmetros vigentes
+        # Buscar os parâmetros no DB
         cursor.execute("SELECT * FROM parametrosprc_com ORDER BY id DESC LIMIT 1")
         parametros = cursor.fetchone()
 
-
+        #Tratamento de exceção: Parâmetros
         if not parametros:
             return jsonify({"message": "Nenhum parâmetro cadastrado!"}), 400
 
         parametros = list(parametros)[1:]  # Ignora o ID da linha
 
-        # Certifique-se de que os dados do formulário estejam no formato certo
+        #Faz o tratamento dos valores antes de gravar no DB
         def tratar_valor(valor):
             return float(valor.replace("R$", "").replace(".", "").replace(",", ".").strip())
 
@@ -2679,6 +2723,7 @@ def gravar_propostaprcCOM():
             status
         )
 
+        #Funcionalidade
         sql = """
             INSERT INTO simulacaoprc_com (
                 qtde_cartoes, valor_credito, qtde_meses, taxa_adm, venda_cartoes,
@@ -2714,10 +2759,17 @@ def gravar_propostaprcCOM():
 @app.route('/aprovacoesprcCOM')
 @modulo_requerido('COMERCIALGESTOR')
 def aprovacoesprcCOM():
+    #Verificação de sessão ativa
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+
+    #Renderização do template de aprovações
     return render_template('aprovacoesprcCOM.html')
 
 @app.route('/enviar_para_aprovacaoprcCOM', methods=['POST'])
 def enviar_para_aprovacaoprcCOM():
+    #Verificação de sessão ativa
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
@@ -2725,33 +2777,42 @@ def enviar_para_aprovacaoprcCOM():
     data = request.get_json()
     id_proposta = data.get("id")
 
+    #Tratamento de exceção: Id Proposta
     if not id_proposta:
         return jsonify({"message": "ID da proposta é obrigatório."}), 400
 
+    #Funcionalidade
     try:
+        #Abertura conexão com o DB
         conn = mysql.connector.connect(**db_config)
         cursor = conn.cursor()
+
         cursor.execute("UPDATE simulacaoprc_com SET status = 'APROVADO' WHERE id_simprc = %s", (id_proposta,))
         conn.commit()
+
         return jsonify({"message": "Status da proposta atualizado para APROVADO."})
+    
+    #Tratamento de exceção
     except Exception as e:
         return jsonify({"message": f"Erro: {str(e)}"}), 500
+    
+    #Finaliza conexão
     finally:
         cursor.close()
         conn.close()
 
 @app.route('/listar_aprovacoesprcCOM', methods=['GET'])
 def listar_aprovacoesprcCOM():
+    #Verificação de sessão ativa
     if 'username' not in session:
         return jsonify([])
 
-    conn = None
-    cursor = None
-
     try:
+        #Abertura de conexão com o DB
         conn = mysql.connector.connect(**db_config)
         cursor = conn.cursor(dictionary=True)
 
+        #Funcionalidade
         query = """
             SELECT s.id_simprc, s.qtde_cartoes, s.valor_credito, s.qtde_meses, s.rentabilidade_atual, s.user_id, u.nome AS usuario
             FROM simulacaoprc_com s
@@ -2761,35 +2822,39 @@ def listar_aprovacoesprcCOM():
         """
         cursor.execute(query)
         propostas = cursor.fetchall()
+        
+        #Envia o JSON para o frontend
         return jsonify(propostas)
 
+    #Tratamento de exceção
     except Exception as e:
         print(f"Erro ao listar pendentes: {e}")
         return jsonify({"message": f"Erro ao listar pendentes: {str(e)}"}), 500
 
+    #Fecha conexão com o DB
     finally:
-        if cursor:
-            cursor.close()
-        if conn:
-            conn.close()
+        cursor.close()
+        conn.close()
 
 @app.route("/reprovar_propostaprcCOM", methods=["POST"])
 @modulo_requerido('COMERCIALGESTOR')
 def reprovar_propostaprcCOM():
+    #Verificação de sessão ativa
     if 'username' not in session:
         return jsonify({"message": "Usuário não autenticado."}), 401
 
     data = request.get_json()
     proposta_id = data.get("id")
 
+    #Tratamento de exceção: Id Proposta
     if not proposta_id:
         return jsonify({"message": "ID da proposta não informado."}), 400
 
     try:
+        #Abre a conexão com o DB
         conn = mysql.connector.connect(**db_config)
         cursor = conn.cursor()
 
-        # Deleta a proposta do banco
         cursor.execute("DELETE FROM simulacaoprc_com WHERE id_simprc = %s AND status = 'PENDENTE'", (proposta_id,))
         conn.commit()
 
@@ -2798,12 +2863,165 @@ def reprovar_propostaprcCOM():
 
         return jsonify({"message": "Proposta reprovada e removida com sucesso."})
 
+    #Tratamento de exceção
     except Exception as e:
         return jsonify({"message": f"Erro ao reprovar proposta: {str(e)}"}), 500
 
+    #Fecha a conexão com o DB
     finally:
         cursor.close()
         conn.close()
+
+
+
+
+
+
+@app.route('/api/parceriasCOM')
+@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
+def listar_parceriasCOM():
+    #Verificação de sessão ativa
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+    
+    #Funcionalidade
+    try:
+        #Abre conexão com o DB
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor(dictionary=True)
+
+        #Consulta
+        cursor.execute("SELECT codigo_parceiro, nome, comissao FROM cadprc_com ORDER BY nome")
+        parcerias = cursor.fetchall()
+
+        #Envia as informações para o frontend
+        return jsonify(parcerias)
+    
+    #Tratamento de exceção
+    except Exception as e:
+        return jsonify({"message": "Erro ao consultar as parcerias."}), 500
+    
+    #Fechar a conexão com o DB
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route('/cadastrar_parceriaCOM', methods=['POST'])
+@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
+def cadastrar_parceriaCOM():
+    #Verificação de sessão ativa
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+    
+    #Funcionalidade
+    try:
+        # Coleta de dados do formulário
+        codigo_parceiro = ''.join(filter(str.isdigit, request.form['codigo_parceiro'].strip()))
+        nome = request.form['nome'].strip()
+        uf = request.form['uf'].strip()
+        comissao = request.form['comissao'].strip()
+
+        #Abertura de conexão com o DB
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor(dictionary=True)
+
+        #Verifica duplicidade de CNPJ
+        cursor.execute("SELECT COUNT(*) AS total FROM cadprc_com WHERE codigo_parceiro = %s", (codigo_parceiro,))
+        if int(cursor.fetchone()['total']) > 0:
+            flash("Já existe um parceiro com esse CNPJ.", "erro")
+            return redirect('/parceriasCOM')
+
+        #Verifica duplicidade de razão social
+        cursor.execute("SELECT COUNT(*) AS total FROM cadprc_com WHERE LOWER(TRIM(nome)) = LOWER(%s)", (nome,))
+        if cursor.fetchone()['total'] > 0:
+            flash("Já existe um parceiro com essa razão social.", "erro")
+            return redirect('/parceriasCOM')
+
+        #Inserção
+        query = """
+            INSERT INTO cadprc_com (codigo_parceiro, nome, uf, comissao)
+            VALUES (%s, %s, %s, %s)
+        """
+        cursor.execute(query, (codigo_parceiro, nome, uf, comissao))
+        conn.commit()
+
+        #Retorno frontend
+        flash('Parceiro cadastrado com sucesso!', 'sucesso')
+        return redirect('/parceriasCOM')
+
+    #Tratamento de exceção
+    except mysql.connector.Error as err:
+        flash(f'Erro ao inserir os dados: {err}', 'erro')
+        return redirect('/parceriasCOM')
+    
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route('/api/parceriasCOM/<codigo>', methods=['PUT'])
+@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
+def atualizar_parceriaCOM(codigo):
+    #Verificação de sessão ativa
+    if 'username' not in session:
+        return jsonify({'erro': 'Não autorizado'}), 401
+
+    #Armazena os dados do formulário
+    dados = request.get_json()
+    novo_nome = dados.get('nome', '').strip()
+    nova_comissao = dados.get('comissao', '').strip()
+
+    #Tratamento do campo 'comissao'
+    try:
+        nova_comissao = nova_comissao.replace(',', '.')
+        nova_comissao_float = float(nova_comissao)
+    except ValueError:
+        return jsonify({'erro': 'Comissão inválida.'}), 400
+
+    #Abertura de conexão com o DB
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor()
+
+    #Update
+    cursor.execute("""
+        UPDATE cadprc_com 
+        SET nome = %s, comissao = %s 
+        WHERE codigo_parceiro = %s
+    """, (novo_nome, nova_comissao_float, codigo))
+    conn.commit()
+
+    #Fechar conexão com o DB
+    cursor.close()
+    conn.close()
+
+    #Retorno ao frontend
+    return jsonify({'mensagem': 'Parceria atualizada com sucesso'}), 200
+
+@app.route('/api/parceriasCOM/<codigo>', methods=['DELETE'])
+@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
+def excluir_parceriaCOM(codigo):
+    #Verificação de sessão ativa
+    if 'username' not in session:
+        return jsonify({'erro': 'Não autorizado'}), 401
+
+    #Abertura de conexão com o DB
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor()
+
+    #Delete
+    cursor.execute("DELETE FROM cadprc_com WHERE codigo_parceiro = %s", (codigo,))
+    conn.commit()
+
+    #Fechar conexão com o DB
+    cursor.close()
+    conn.close()
+
+    #Retorno ao frontend
+    return jsonify({'mensagem': 'Parceria excluída com sucesso'}), 200
+
+
+
 
 @app.route('/parceriasCOM_sugestoes')
 @modulo_requerido('COMERCIAL','COMERCIALGESTOR')
@@ -2885,7 +3103,13 @@ def atualizarconciliacaoFIN():
         cursor = conn.cursor()
 
         # Atualiza a data na tabela do banco
-        query = "UPDATE dashcontas_fin SET data_conciliada = %s WHERE id_conciliacao = %s"
+        query = """
+            UPDATE dashcontas_fin 
+            SET 
+                data_conciliada = %s,
+                user_id = user_id  -- força o update sem mudar nada perceptível
+            WHERE id_conciliacao = %s
+        """
         cursor.execute(query, (data_conciliada, conta_id))
         conn.commit()
 
@@ -2976,110 +3200,146 @@ def dashboardconciliacaoFIN():
 @app.route('/simulacaoeucCOM')
 @modulo_requerido('COMERCIAL','COMERCIALGESTOR')
 def simulacaoeucCOM():
+    #Verificaçãi de sessão ativa
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
+    
+    #Renderização do template de Simulação
     return render_template('simulacaoeucCOM.html')
 
 @app.route('/parametroseucCOM')
 @modulo_requerido('COMERCIALGESTOR')
 def parametroseucCOM():
+    #Verificação de sessão ativa
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
 
+    #Renderização do template de parâmetros
     return render_template('parametroseucCOM.html')
 
 @app.route('/get_parametroseuc')
 @modulo_requerido('COMERCIALGESTOR')
 def get_parametroseuc():
+    #Verificação de sessão ativa
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
 
-    conn = mysql.connector.connect(**db_config)
-    cursor = conn.cursor(dictionary=True)
+    #Funcionalidade
+    try:
+        #Abertura de conexão com o DB
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor(dictionary=True)
 
+        #Consulta
+        cursor.execute("SELECT * FROM parametroseuc_com LIMIT 1")
+        resultado = cursor.fetchone()
 
-    cursor.execute("SELECT * FROM parametroseuc_com LIMIT 1")
-    resultado = cursor.fetchone()
-
-    cursor.close()
-    conn.close()
-
-    return jsonify(resultado)
+        #Envia as informações para o frontend
+        return jsonify(resultado)
+    
+    #Tratamento de exeção
+    except Exception as e:
+        return jsonify({"message": "Erro ao consultar os parâmetros."}), 500
+    
+    #Fechar conexão com o DB
+    finally:
+        cursor.close()
+        conn.close()
 
 @app.route('/salvar_parametroseuc', methods=['POST'])
 @modulo_requerido('COMERCIALGESTOR')
 def salvar_parametroseuc():
+    #Vericação de sessão ativa
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
     
+    #Armazenamento dos dados gerados no frontend
     dados = request.json
 
-    conn = mysql.connector.connect(**db_config)
-    cursor = conn.cursor()
+    #Funcionalidade
+    try:
+    
+        #Abertura de conexão com o DB
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
 
-    # Aqui você pode decidir se quer sobrescrever (DELETE e INSERT) ou usar UPDATE com WHERE
-    cursor.execute("DELETE FROM parametroseuc_com")  # Mantém só 1 registro
-    query = """
-        INSERT INTO parametroseuc_com (
-            consumo_credenciado, antecipacao_angels, apropriacao_credito, investimento,
-            confeccao_cartoes, confeccao_cartoes_qtde, segunda_via, segunda_via_qtde, 
-            custos_transacao, custos_transacao_qtde,
-            custos_cartaoativo, custos_cartaoativo_qtde,
-            custo_tag, custo_tag_qtde, custo_eus, custo_eus_qtde,
-            despesatag_envio, despesatag_tagfisica, despesatag_greenpass,
-            despesaeus_epharma, despesaeus_telemedicina, despesaeus_enviounico,
-            negociacao_aprovada, negociacao_pendente, rentabilidade_ideal
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-        %s, %s, %s, %s, %s, %s, %s, %s, %s)
-    """
-    valores = (
-        dados['consumo_credenciado'],
-        dados['antecipacao_angels'],
-        dados['apropriacao_credito'],
-        dados['investimento'],
-        dados['confeccao_cartoes'],
-        dados['confeccao_cartoes_qtde'],
-        dados['segunda_via'],
-        dados['segunda_via_qtde'],
-        dados['custos_transacao'],
-        dados['custos_transacao_qtde'],
-        dados['custos_cartaoativo'],
-        dados['custos_cartaoativo_qtde'],
-        dados['custo_tag'],
-        dados['custo_tag_qtde'],
-        dados['custo_eus'],
-        dados['custo_eus_qtde'],
-        dados['despesatag_envio'],
-        dados['despesatag_tagfisica'],
-        dados['despesatag_greenpass'],
-        dados['despesaeus_epharma'],
-        dados['despesaeus_telemedicina'],
-        dados['despesaeus_enviounico'],
-        dados['negociacao_aprovada'],
-        dados['negociacao_pendente'],
-        dados['rentabilidade_ideal'],
-    )
-    cursor.execute(query, valores)
-    conn.commit()
-    cursor.close()
+        #Deleta as informações que estão no DB e substitui pelas novas. UPDATE com WHERE incrementa ao invés de sobrescrever
+        cursor.execute("DELETE FROM parametroseuc_com")  # Mantém só 1 registro
+        query = """
+            INSERT INTO parametroseuc_com (
+                consumo_credenciado, antecipacao_angels, apropriacao_credito, investimento,
+                confeccao_cartoes, confeccao_cartoes_qtde, segunda_via, segunda_via_qtde, 
+                custos_transacao, custos_transacao_qtde,
+                custos_cartaoativo, custos_cartaoativo_qtde,
+                custo_tag, custo_tag_qtde, custo_eus, custo_eus_qtde,
+                despesatag_envio, despesatag_tagfisica, despesatag_greenpass,
+                despesaeus_epharma, despesaeus_telemedicina, despesaeus_enviounico,
+                negociacao_aprovada, negociacao_pendente, rentabilidade_ideal
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+            %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
 
-    return jsonify({"status": "ok"})
+        #Repassa os valores do JSON para inserção no DB
+        valores = (
+            dados['consumo_credenciado'],
+            dados['antecipacao_angels'],
+            dados['apropriacao_credito'],
+            dados['investimento'],
+            dados['confeccao_cartoes'],
+            dados['confeccao_cartoes_qtde'],
+            dados['segunda_via'],
+            dados['segunda_via_qtde'],
+            dados['custos_transacao'],
+            dados['custos_transacao_qtde'],
+            dados['custos_cartaoativo'],
+            dados['custos_cartaoativo_qtde'],
+            dados['custo_tag'],
+            dados['custo_tag_qtde'],
+            dados['custo_eus'],
+            dados['custo_eus_qtde'],
+            dados['despesatag_envio'],
+            dados['despesatag_tagfisica'],
+            dados['despesatag_greenpass'],
+            dados['despesaeus_epharma'],
+            dados['despesaeus_telemedicina'],
+            dados['despesaeus_enviounico'],
+            dados['negociacao_aprovada'],
+            dados['negociacao_pendente'],
+            dados['rentabilidade_ideal'],
+        )
+        cursor.execute(query, valores)
+        conn.commit()
+        cursor.close()
+
+        #Envia as informações para o frontend
+        return jsonify({"status": "ok"})
+    
+    #Tratamento de exceção
+    except Exception as e:
+        return jsonify({"message": "Erro ao salvar os parâmetros."}), 500
+
+    #Fechar conexão com o DB
+    finally:
+        cursor.close()
+        conn.close()
 
 @app.route('/calcular_simulacaoeuc', methods=['POST'])
 @modulo_requerido('COMERCIAL','COMERCIALGESTOR')
 def calcular_simulacaoeuc():
+    #Verificação de sessão ativa
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
 
+    #Dados que serão utilizados para os cálculos
     dados_form = request.json  # dicionário com os dados do formulário
     parametros = get_parametros_calculos()  # dicionário com os parâmetros do banco
 
-    # Formulário
+    # Formulário simulacaoeucCOM.html
     qtde_cartoes = float(dados_form.get('qtde_cartoes') or 0)
     valor_credito = float(dados_form.get('valor_credito') or 0)
     qtde_meses = int(dados_form.get('meses') or 0)
@@ -3089,7 +3349,7 @@ def calcular_simulacaoeuc():
     qtde_cartoes_eus = int(dados_form.get('qtde_cartoes_eus') or 0)
     rec_saude = float(dados_form.get('rec_saude') or 0)
 
-    # Tabela de parâmetros - banco de dados
+    # Tabela banco de dados
     consumo_credenciado = float(parametros.get('consumo_credenciado', 0))
     antecipacao_angels = float(parametros.get('antecipacao_angels', 0))
     apropriacao_credito = float(parametros.get('apropriacao_credito', 0))
@@ -3115,6 +3375,8 @@ def calcular_simulacaoeuc():
     negociacao_aprovada = float(parametros.get('negociacao_aprovada', 0))
     negociacao_pendente = float(parametros.get('negociacao_pendente', 0))
     rentabilidade_ideal = float(parametros.get('rentabilidade_ideal', 0))
+
+    #CÁLCULOS
 
     # Volumetria
     volumeMensal = qtde_cartoes * valor_credito
@@ -3147,6 +3409,8 @@ def calcular_simulacaoeuc():
     totalReceitasPrevistasContrato = consumoCredenciadoContrato + taxaAdmContrato + antecipacaoAngelsContrato + apropriacaoCreditoContrato + investimentoContrato
 
 
+
+
     # Despesas Previstas - Cartão Eucard
     confeccaoCartoesContrato = confeccao_cartoes * confeccao_cartoes_qtde
     confeccaoCartoesAnual = confeccaoCartoesContrato / (qtde_meses / 12)
@@ -3169,6 +3433,7 @@ def calcular_simulacaoeuc():
     totalDespesasPrevistasContrato = confeccaoCartoesContrato + segundaViaContrato + custosTransacaoContrato + custosCartaoAtivoContrato    
 
 
+
     # Outros Produtos
     receitaTagContrato = rec_tags * qtde_cartoes_tag * qtde_meses
     despesaTagEnvioContrato = despesatag_envio * qtde_cartoes_tag
@@ -3184,6 +3449,9 @@ def calcular_simulacaoeuc():
     custoEusContrato = (custo_eus * custo_eus_qtde * qtde_cartoes) * qtde_meses
     totalDespesasEusContrato = custoEusContrato + despesaEusEnvio + despesaEusTelemedicina + despesaEusEpharma
 
+
+
+
     # Resultados
     resultReceitas = totalReceitasPrevistasContrato + receitaTagContrato + receitaEusContrato
     resultDespesas = totalDespesasPrevistasContrato + totalDespesasTagContrato + totalDespesasEusContrato
@@ -3195,6 +3463,8 @@ def calcular_simulacaoeuc():
     rentabilidadeAtual = (lucroOperacao / volumeContrato) * 100
     payback = resultDespesas / totalReceitasPrevistasMensal 
 
+
+    #JSON com os resultados que será enviado ao frontend
     resultado = {
         "volumeMensal": volumeMensal,
         "volumeAnual": volumeAnual,
@@ -3238,19 +3508,22 @@ def calcular_simulacaoeuc():
 @app.route('/gravar_propostaeucCOM', methods=['POST'])
 @modulo_requerido('COMERCIAL','COMERCIALGESTOR')
 def gravar_propostaeucCOM():
+    #Verificação de sessão ativa
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
 
+    #Dados enviados pelo front end, dados do usuário e status da simulação
     data = request.get_json()
     user_id = session.get('user_id')
     status = data.get("status","PENDENTE")
 
     try:
+        #Abertura de conexão com o DB
         conn = mysql.connector.connect(**db_config)
         cursor = conn.cursor()
 
-        # Buscar os parâmetros vigentes
+        # Buscar os parâmetros no DB
         cursor.execute("""
             SELECT 
                 consumo_credenciado, antecipacao_angels, apropriacao_credito, investimento,
@@ -3265,13 +3538,13 @@ def gravar_propostaeucCOM():
         """)
         parametros = cursor.fetchone()
 
-
+        #Tratamento de exceção: Parâmetros
         if not parametros:
             return jsonify({"message": "Nenhum parâmetro cadastrado!"}), 400
 
         parametros = list(parametros)  # Ignora o ID da linha
 
-        # Certifique-se de que os dados do formulário estejam no formato certo
+        #Faz o tratamento dos valores antes de gravar no DB
         def tratar_valor(valor):
             return float(valor.replace("R$", "").replace(".", "").replace(",", ".").strip())
 
@@ -3296,6 +3569,7 @@ def gravar_propostaeucCOM():
             status
         )
 
+        #Insert
         sql = """
             INSERT INTO simulacaoeuc_com (
                 qtde_cartoes, valor_credito, qtde_meses, taxa_adm,
@@ -3335,28 +3609,45 @@ def gravar_propostaeucCOM():
 @app.route('/aprovacoeseucCOM')
 @modulo_requerido('COMERCIALGESTOR')
 def aprovacoeseucCOM():
+    #Verificação de sessão ativa
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+
+    #Renderização do template de aprovações
     return render_template('aprovacoeseucCOM.html')
 
 @app.route('/enviar_para_aprovacaoeucCOM', methods=['POST'])
 @modulo_requerido('COMERCIALGESTOR')
 def enviar_para_aprovacaoeucCOM():
+    #Verificação de sessão ativa
     if 'username' not in session:
         return jsonify({"message": "Usuário não autenticado."}), 401
 
     data = request.get_json()
     id_proposta = data.get("id")
 
+    #Tratamento de exceção: Id Proposta
     if not id_proposta:
         return jsonify({"message": "ID da proposta é obrigatório."}), 400
 
+    #Funcionalidade
     try:
+        #Abertura de conexão com o DB
         conn = mysql.connector.connect(**db_config)
         cursor = conn.cursor()
+
+        #Update
         cursor.execute("UPDATE simulacaoeuc_com SET status = 'APROVADO' WHERE id_simeuc = %s", (id_proposta,))
         conn.commit()
+        
         return jsonify({"message": "Status da proposta atualizado para APROVADO."})
+
+    #Tratamento de exceção
     except Exception as e:
         return jsonify({"message": f"Erro: {str(e)}"}), 500
+    
+    #Fechar conexão com o DB
     finally:
         cursor.close()
         conn.close()
@@ -3364,16 +3655,17 @@ def enviar_para_aprovacaoeucCOM():
 @app.route('/listar_aprovacoeseucCOM', methods=['GET'])
 @modulo_requerido('COMERCIALGESTOR')
 def listar_aprovacoeseucCOM():
+    #Verificação de sessão ativa
     if 'username' not in session:
         return jsonify([])
 
-    conn = None
-    cursor = None
 
     try:
+        #Abertura de conexão com o DB
         conn = mysql.connector.connect(**db_config)
         cursor = conn.cursor(dictionary=True)
 
+        #Funcionalidade
         query = """
             SELECT s.id_simeuc, s.qtde_cartoes, s.valor_credito, s.qtde_meses, s.rentabilidade_atual, s.user_id, u.nome AS usuario
             FROM simulacaoeuc_com s
@@ -3383,31 +3675,36 @@ def listar_aprovacoeseucCOM():
         """
         cursor.execute(query)
         propostas = cursor.fetchall()
+
+        #Envia o JSON para o frontend
         return jsonify(propostas)
 
+    #Tratamento de exceção
     except Exception as e:
         print(f"Erro ao listar pendentes: {e}")
         return jsonify({"message": f"Erro ao listar pendentes: {str(e)}"}), 500
 
+    #Fecha conexão com o DB
     finally:
-        if cursor:
-            cursor.close()
-        if conn:
-            conn.close()
+        cursor.close()
+        conn.close()
 
 @app.route("/reprovar_propostaeucCOM", methods=["POST"])
 @modulo_requerido('COMERCIALGESTOR')
 def reprovar_propostaeucCOM():
+    #Verificação de sessão ativa
     if 'username' not in session:
         return jsonify({"message": "Usuário não autenticado."}), 401
 
     data = request.get_json()
     proposta_id = data.get("id")
 
+    #Tratamento de exceção: Id Proposta
     if not proposta_id:
         return jsonify({"message": "ID da proposta não informado."}), 400
 
     try:
+        #Abre a conexão com o DB
         conn = mysql.connector.connect(**db_config)
         cursor = conn.cursor()
 
@@ -3420,15 +3717,14 @@ def reprovar_propostaeucCOM():
 
         return jsonify({"message": "Proposta reprovada e removida com sucesso."})
 
+    #Tratamento de exceção
     except Exception as e:
         return jsonify({"message": f"Erro ao reprovar proposta: {str(e)}"}), 500
 
+    #Fechar a conexão com o DB
     finally:
         cursor.close()
         conn.close()
-
-
-
 
 
 if __name__ == '__main__':
