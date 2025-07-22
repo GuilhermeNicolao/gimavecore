@@ -3146,10 +3146,10 @@ def dashboardconciliacaoFIN():
         # Mapeamento das empresas para ids de contas
         empresa_map = {
             'ANGELS CAPITAL': [1,3,6,9,20,28,32],
-            'ANGELS SECURITIZADORA': [7,18,24],
+            'ANGELS SECURITIZADORA': [7,18,24,42],
             'EU MAIS SAÚDE': [16,34],
             'GIMAVE ': [2,4,10,11,12,13,15,17,19,21,22,23,25,29,33,35,36,37,38,39,40,41],
-            'PENSEAPP': [5,31],
+            'PENSEAPP': [5,31,43],
             'VT PASSA FÁCIL': [8,14,26,27,30]
         }
 
@@ -3725,6 +3725,7 @@ def reprovar_propostaeucCOM():
     finally:
         cursor.close()
         conn.close()
+
 
 
 if __name__ == '__main__':
