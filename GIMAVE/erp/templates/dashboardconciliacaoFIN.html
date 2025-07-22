@@ -184,13 +184,13 @@ document.addEventListener("DOMContentLoaded", function () {
       const cincoDiasMs = 5 * 24 * 60 * 60 * 1000;
 
       // Verifica se está desatualizado (mais de 7 dias)
-      if (agora - ts > 604800000) {
+      /*if (agora - ts > 604800000) {
         elem.textContent = 'DESATUALIZADO';
         elem.style.color = '#d73f3f';
         elem.style.fontWeight = 'bold';
       } else {
         // Mantém o texto original da data de conciliação
-        elem.style.fontWeight = 'normal';
+        elem.style.fontWeight = 'normal';*/
 
         if (conciliadaStr) {
           const conciliada = new Date(conciliadaStr);
@@ -203,7 +203,6 @@ document.addEventListener("DOMContentLoaded", function () {
             elem.style.color = '#0a91d3';
             elem.style.fontWeight = 'bold';
 
-          }
         }
       }
     });
