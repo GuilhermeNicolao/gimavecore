@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, flash, jsonify, url_for, session, send_file
+from flask import Flask, render_template, request, redirect, flash, jsonify, abort, url_for, session, send_file
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.colors import lightgrey
 from collections import defaultdict
@@ -18,6 +18,7 @@ import re
 
 # Load nas credenciais, parâmetros e no DB
 load_dotenv()
+DASH_TOKEN = 'gimavecore0011010000110101' #token exclusivo DASH
 app = Flask(__name__)
 app.secret_key = os.getenv("SK")
 locale.setlocale(locale.LC_ALL, '')
@@ -113,7 +114,7 @@ def login():
                     if username in immunity:
                         app.permanent_session_lifetime = timedelta(days=3650)
                     else:
-                        app.permanent_session_lifetime = timedelta(minutes=15)
+                        app.permanent_session_lifetime = timedelta(minutes=15) #Inatividade
                     
                     session.permanent = True
                     session['user_id'] = user_id
@@ -155,6 +156,44 @@ def logout():
     # Redirecionar para a página de login
     return redirect(url_for('login'))
 
+# Login Dash (Contorna o controle de inatividade)
+@app.route('/dash_login')
+def dash_login():
+    token = request.args.get('token')
+
+    if token != DASH_TOKEN:
+        abort(403)  # Bloqueia acessos sem token válido
+
+    try:
+        conexao = mysql.connector.connect(**db_config)
+        cursor = conexao.cursor()
+
+        cursor.execute("SELECT user_id, nivel FROM usuarios WHERE username = %s", ('DASH',))
+        resultado = cursor.fetchone()
+
+        if resultado:
+            user_id, nivel = resultado
+
+            session.permanent = True
+            app.permanent_session_lifetime = timedelta(days=3650)
+
+            session['user_id'] = user_id
+            session['username'] = 'DASH'
+            session['nivel'] = nivel
+            session['modulos'] = ['FINANCEIRO']  # ou os módulos certos pro DASH
+
+            return redirect(url_for('menu_principal'))
+
+    except mysql.connector.Error as err:
+        return f"Erro no login automático: {err}", 500
+
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
+        if 'conexao' in locals():
+            conexao.close()
+
+    return "Usuário DASH não encontrado", 404
 
 
 # Registrar novos usuários
@@ -400,8 +439,7 @@ def editar_fornecedoresCMP(id):
         return jsonify({'sucesso': True})
 
     except mysql.connector.Error as err:
-        return jsonify({'erro': str(err)}), 500
-    
+        return jsonify({'erro': str(err)}), 500    
 
 @app.route('/api/fornecedoresCMP/<int:id>', methods=['DELETE'])
 @modulo_requerido('COMPRAS')
@@ -970,6 +1008,8 @@ def remover_orcamentoCMP(cod):
     flash('Orçamento removido com sucesso!', 'success')
     return redirect(url_for('visualizar'))
 
+
+#Dash Compras
 @app.route('/dashboardCMP')
 @modulo_requerido('COMPRAS')
 def dashboardCMP():
@@ -2873,10 +2913,6 @@ def reprovar_propostaprcCOM():
         conn.close()
 
 
-
-
-
-
 @app.route('/api/parceriasCOM')
 @modulo_requerido('COMERCIAL','COMERCIALGESTOR')
 def listar_parceriasCOM():
@@ -3021,8 +3057,6 @@ def excluir_parceriaCOM(codigo):
     return jsonify({'mensagem': 'Parceria excluída com sucesso'}), 200
 
 
-
-
 @app.route('/parceriasCOM_sugestoes')
 @modulo_requerido('COMERCIAL','COMERCIALGESTOR')
 def parceriasCOM_sugestoes():
@@ -3146,10 +3180,10 @@ def dashboardconciliacaoFIN():
         # Mapeamento das empresas para ids de contas
         empresa_map = {
             'ANGELS CAPITAL': [1,3,6,9,20,28,32],
-            'ANGELS SECURITIZADORA': [7,18,24,42],
+            'ANGELS SECURITIZADORA': [7,18,24],
             'EU MAIS SAÚDE': [16,34],
             'GIMAVE ': [2,4,10,11,12,13,15,17,19,21,22,23,25,29,33,35,36,37,38,39,40,41],
-            'PENSEAPP': [5,31,43],
+            'PENSEAPP': [5,31],
             'VT PASSA FÁCIL': [8,14,26,27,30]
         }
 
@@ -3725,7 +3759,6 @@ def reprovar_propostaeucCOM():
     finally:
         cursor.close()
         conn.close()
-
 
 
 if __name__ == '__main__':
