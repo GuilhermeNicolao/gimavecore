@@ -223,10 +223,20 @@
                         <a href="{{ url_for('conciliacao_formFIN') }}">Formulário Dashboard</a>
                         <a href="{{ url_for('dashboardconciliacaoFIN') }}">Dashboard Conciliação</a>
                     </div>
+        {% endif %}
+
+                {% if 'CONTASAPAGAR' in session['modulos'] %}
+                <div class="dropdown">
+                    <div class="dropdown-btn"><b>Contas a Pagar</b></div>
+                    <div class="dropdown-container">
+                        <a href="{{ url_for('uploadcredenciadocpgFIN') }}">Upload Credenciados</a>
+                        <a href="{{ url_for('credenciadosapagarcpgFIN') }}">Credenciados a Pagar</a>
                 </div>
             </div>
-        </div>
         {% endif %}
+        </div>
+        </div>
+        </div>
 
         <!-- Admin -->
         {% if session['nivel'] == 'ADMIN' %}
