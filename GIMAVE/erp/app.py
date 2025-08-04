@@ -9,8 +9,10 @@ from dotenv import load_dotenv
 from datetime import datetime
 from decimal import Decimal
 from functools import wraps
+from datetime import date
 from io import BytesIO
 import mysql.connector
+import pandas as pd
 import locale
 import bcrypt
 import os
@@ -125,7 +127,7 @@ def login():
                         cursor.execute("SELECT modulo FROM modulos WHERE user_id = %s", (user_id,))
                         modulos = [row[0] for row in cursor.fetchall()]
                     else:
-                        modulos = ['COMPRAS', 'COMERCIALGESTOR' , 'COMERCIAL', 'FINANCEIRO'] #ACESSO ADMIN!!
+                        modulos = ['COMPRAS', 'COMERCIALGESTOR' , 'COMERCIAL', 'FINANCEIRO', 'CONTASAPAGAR'] #ACESSO ADMIN!!
 
                     session['modulos'] = modulos
                     flash('Login realizado com sucesso!', 'success')
@@ -155,6 +157,12 @@ def logout():
 
     # Redirecionar para a página de login
     return redirect(url_for('login'))
+
+# Renovar sessão
+@app.before_request
+def renovar_sessao():
+    session.permanent = True  # Garante que a sessão seja tratada como permanente
+    session.modified = True   # Reinicia o tempo de expiração a cada requisição
 
 # Login Dash (Contorna o controle de inatividade)
 @app.route('/dash_login')
@@ -280,7 +288,7 @@ def gerenciar_modulos(user_id):
         flash('Você não tem permissão para acessar esta página.', 'danger')
         return redirect(url_for('menu_principal'))  
 
-    modulos_disponiveis = ['COMPRAS', 'COMERCIALGESTOR' , 'COMERCIAL', 'FINANCEIRO']
+    modulos_disponiveis = ['COMPRAS', 'COMERCIALGESTOR' , 'COMERCIAL', 'FINANCEIRO', 'CONTASAPAGAR']
 
     try:
         conexao = mysql.connector.connect(**db_config)
@@ -3225,6 +3233,887 @@ def dashboardconciliacaoFIN():
     except mysql.connector.Error as err:
         flash(f'Erro ao carregar dados: {err}', 'erro')
         return render_template('dashboardconciliacaoFIN.html', empresas=[])
+
+
+#Credenciados a Pagar
+@app.route('/uploadcredenciadocpgFIN', methods=['GET', 'POST'])
+@modulo_requerido('CONTASAPAGAR')
+def uploadcredenciadocpgFIN():
+    #Verificação de sessão ativa
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+    
+    #Verificação do arquivo
+    if request.method == 'POST':
+        arquivo = request.files.get('arquivo_excel')
+        if not arquivo:
+            flash('Nenhum arquivo enviado.', 'erro')
+            return redirect(url_for('uploadcredenciadocpgFIN'))
+        
+        #Tratamento das informações
+        try:
+            df = pd.read_excel(arquivo, engine='openpyxl')
+
+            # Verifica se a coluna Z existe (índice 25)
+            if len(df.columns) <= 25:
+                flash('O arquivo não possui a formatação esperada!', 'erro')
+                return redirect(url_for('uploadcredenciadocpgFIN'))
+
+            coluna_z = df.iloc[:, 25]
+
+            # Verifica se há algum valor diferente de 'INTEGRADO'
+            if any(str(valor).strip().upper() != 'INTEGRADO' for valor in coluna_z if pd.notna(valor)):
+                flash('O arquivo possui credenciados em preparação. Gere outro arquivo ou tente mais tarde.', 'erro')
+                return redirect(url_for('uploadcredenciadocpgFIN'))
+            
+            # Índices das colunas a serem excluídas (E,F,G,H,I,J,K,L,N,P,R,S,U,V,W,Y,Z,AA,AB,AC, respectivamente)
+            indices_para_excluir = [4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 18, 20, 21, 22, 24, 25, 26, 27, 28]
+
+            # Garante que só remove colunas que existem
+            indices_existentes = [i for i in indices_para_excluir if i < df.shape[1]]
+            df_filtrado = df.drop(df.columns[indices_existentes], axis=1)
+
+
+            # ================================
+            # EXTRAÇÃO: REGISTROS J. A. GOMES
+            # ================================
+
+            registros_jagomes = []
+            sgcjagomes = {8380,8379,8382,8381,13232,15448,66}
+
+            for _, row in df_filtrado.iterrows():
+                valor_col_a = int(row.iloc[0]) if pd.notna(row.iloc[0]) else None #Cód Credenciado                
+
+                if valor_col_a in sgcjagomes:
+                    registro = {
+                        "id_reembolsocred":row.iloc[5],
+                        "codsgc": row.iloc[0],
+                        "credenciado": row.iloc[2],
+                        "valor": row.iloc[8],
+                        "grupo": "JAGOMES",
+                        "status": "A",
+                        "vencimento": pd.to_datetime(row.iloc[4]).date() if pd.notna(row.iloc[4]) else None
+                    }
+                    registros_jagomes.append(registro)
+
+
+            # ==========================
+            # INSERÇÃO NO DB: J. A. GOMES
+            # ==========================
+
+            if registros_jagomes:
+                try:
+                    #Abertura de conexão com o DB
+                    conn = mysql.connector.connect(**db_config) 
+                    cursor = conn.cursor(dictionary=True)
+
+                    #Inserção
+                    query = """
+                            INSERT INTO reembolsoscredcpg_fin 
+                            (id_reembolsocred,codsgc, credenciado, valor, grupo, vencimento)
+                            VALUES (%s,%s, %s, %s, %s, %s)
+                        """
+
+                    cursor.executemany(query, [
+                            (
+                                reg['id_reembolsocred'],
+                                reg['codsgc'],
+                                reg['credenciado'],
+                                reg['valor'],
+                                reg['grupo'],
+                                reg['vencimento']
+                            )
+                            for reg in registros_jagomes
+                        ])
+
+                    conn.commit()
+                    flash(f"{cursor.rowcount} Reembolso(s) do credenciado J A GOMES inserido(s) com sucesso!.", "sucesso")
+
+                #Tratamento de erro
+                except Error as db_error:
+                    flash(f"Erro ao inserir o(s) dado(s) do credenciado J A GOMES ao banco de dados: {db_error}", "erro")            
+
+                #Fecha conexão com o DB
+                finally:
+                    cursor.close()
+                    conn.close()
+
+            else:
+                flash('Nenhum reembolso encontrado para J A GOMES.', 'info')
+
+            registros_jagomes.clear() #Limpar lista
+
+
+            
+            # ================================
+            # EXTRAÇÃO: REGISTROS RUFINIO
+            # ================================
+
+            registros_rufino = []
+            sgcrufino ={1515,1511,1510,1514,1513,1512,4825,13837,13313,4867,24347,23448}
+
+            for _, row in df_filtrado.iterrows():
+                valor_col_a = int(row.iloc[0]) if pd.notna(row.iloc[0]) else None #Cód Credenciado                
+
+                if valor_col_a in sgcrufino:
+                    registro = {
+                        "id_reembolsocred":row.iloc[5],
+                        "codsgc": row.iloc[0],
+                        "credenciado": row.iloc[2],
+                        "valor": row.iloc[8],
+                        "grupo": "RUFINO",
+                        "vencimento": pd.to_datetime(row.iloc[4]).date() if pd.notna(row.iloc[4]) else None
+                    }
+                    registros_rufino.append(registro)
+
+
+            # ==========================
+            # INSERÇÃO NO DB: RUFINO
+            # ==========================
+
+            if registros_rufino:
+                try:
+                    #Abertura de conexão com o DB
+                    conn = mysql.connector.connect(**db_config) 
+                    cursor = conn.cursor(dictionary=True)
+
+                    #Inserção
+                    query = """
+                            INSERT INTO reembolsoscredcpg_fin 
+                            (id_reembolsocred,codsgc, credenciado, valor, grupo, vencimento)
+                            VALUES (%s,%s, %s, %s, %s, %s)
+                        """
+
+                    cursor.executemany(query, [
+                            (
+                                reg['id_reembolsocred'],
+                                reg['codsgc'],
+                                reg['credenciado'],
+                                reg['valor'],
+                                reg['grupo'],
+                                reg['vencimento']
+                            )
+                            for reg in registros_rufino
+                        ])
+
+                    conn.commit()
+                    flash(f"{cursor.rowcount} Reembolso(s) do credenciado RUFINO inserido(s) com sucesso!.", "sucesso")
+
+                #Tratamento de erro
+                except Error as db_error:
+                    flash(f"Erro ao inserir o(s) dado(s) do credenciado RUFINO ao banco de dados: {db_error}", "erro")            
+
+                #Fecha conexão com o DB
+                finally:
+                    cursor.close()
+                    conn.close()
+
+            else:
+                flash('Nenhum reembolso encontrado para RUFINO.', 'info')
+
+            registros_rufino.clear() #Limpar lista
+
+
+            # ================================
+            # EXTRAÇÃO: REGISTROS AM (REPASSE)
+            # ================================
+
+            registros_amr = []
+
+            for _, row in df_filtrado.iterrows():
+                # pegar valores nas colunas relevantes usando iloc
+                valor_col_h = row.iloc[7] #Valor de antecipação
+                valor_col_d = str(row.iloc[3]).strip().upper() if pd.notna(row.iloc[3]) else '' #UF
+                valor_col_a = int(row.iloc[0]) if pd.notna(row.iloc[0]) else None #Cód Credenciado                
+
+
+                if pd.notna(valor_col_h) and valor_col_h == 0 and valor_col_d == "AM" and valor_col_a not in sgcjagomes and valor_col_a not in sgcrufino: #Se valor de antecipação = '0' e UF = 'AM'
+                    registro = {
+                        "id_reembolsocred":row.iloc[5],
+                        "codsgc": int(row.iloc[0]) if pd.notna(row.iloc[0]) else None,
+                        "credenciado": row.iloc[2] if pd.notna(row.iloc[2]) else '',
+                        "valor": float(row.iloc[8]) if pd.notna(row.iloc[8]) else 0.00,
+                        "grupo": 'AMR',
+                        "vencimento": pd.to_datetime(row.iloc[4]).date() if pd.notna(row.iloc[4]) else None
+                    }
+                    registros_amr.append(registro)
+
+
+            # ==========================
+            # INSERÇÃO NO DB: AM (REPASSE)
+            # ==========================
+
+            if registros_amr:
+                try:
+                    #Abertura de conexão com o DB
+                    conn = mysql.connector.connect(**db_config) 
+                    cursor = conn.cursor(dictionary=True)
+
+                    #Inserção
+                    query = """
+                            INSERT INTO reembolsoscredcpg_fin 
+                            (id_reembolsocred, codsgc, credenciado, valor, grupo, vencimento)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                        """
+
+                    cursor.executemany(query, [
+                            (
+                                reg['id_reembolsocred'],
+                                reg['codsgc'],
+                                reg['credenciado'],
+                                reg['valor'],
+                                reg['grupo'],
+                                reg['vencimento']
+                            )
+                            for reg in registros_amr
+                        ])
+
+                    conn.commit()
+                    flash(f"{cursor.rowcount} Reembolso(s) dos credenciados AM - REPASSE inserido(s) com sucesso!.", "sucesso")
+
+                #Tratamento de erro
+                except Error as db_error:
+                    flash(f"Erro ao inserir o(s) dado(s) dos credenciados AM - REPASSE ao banco de dados: {db_error}", "erro")            
+
+                #Fecha conexão com o DB
+                finally:
+                    cursor.close()
+                    conn.close()
+
+            else:
+                flash('Nenhum reembolso encontrado para os credenciados AM - REPASSE.', 'info')
+
+            registros_amr.clear() #Limpar Lista 
+
+
+            # ================================
+            # EXTRAÇÃO: REGISTROS AM (ANTECIPAÇÃO)
+            # ================================
+
+            registros_ama = []
+
+            for _, row in df_filtrado.iterrows():
+                # pegar valores nas colunas relevantes usando iloc
+                valor_col_h = row.iloc[7] #Valor de antecipação
+                valor_col_d = str(row.iloc[3]).strip().upper() if pd.notna(row.iloc[3]) else '' #UF
+                nome = str(row.iloc[2]).upper() if pd.notna(row.iloc[2]) else '' #Nome do credenciado
+
+
+                if pd.notna(valor_col_h) and valor_col_h != 0 and valor_col_d == "AM" and valor_col_a not in sgcjagomes and valor_col_a not in sgcrufino: #Se valor de antecipação != '0' e UF = 'AM'
+                    registro = {
+                        "id_reembolsocred":row.iloc[5],
+                        "codsgc": int(row.iloc[0]) if pd.notna(row.iloc[0]) else None,
+                        "credenciado": row.iloc[2] if pd.notna(row.iloc[2]) else '',
+                        "valor": float(row.iloc[8]) if pd.notna(row.iloc[8]) else 0.00,
+                        "grupo": 'AMA',
+                        "vencimento": pd.to_datetime(row.iloc[4]).date() if pd.notna(row.iloc[4]) else None
+                    }
+                    registros_ama.append(registro)
+
+
+            # ==========================
+            # INSERÇÃO NO DB: AM (ANTECIPAÇÃO)
+            # ==========================
+
+            if registros_ama:
+                try:
+                    #Abertura de conexão com o DB
+                    conn = mysql.connector.connect(**db_config) 
+                    cursor = conn.cursor(dictionary=True)
+
+                    #Inserção
+                    query = """
+                            INSERT INTO reembolsoscredcpg_fin 
+                            (id_reembolsocred, codsgc, credenciado, valor, grupo, vencimento)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                        """
+
+                    cursor.executemany(query, [
+                            (
+                                reg['id_reembolsocred'],
+                                reg['codsgc'],
+                                reg['credenciado'],
+                                reg['valor'],
+                                reg['grupo'],
+                                reg['vencimento']
+                            )
+                            for reg in registros_ama
+                        ])
+
+                    conn.commit()
+                    flash(f"{cursor.rowcount} Reembolso(s) dos credenciados AM - ANTECIPAÇÃO inserido(s) com sucesso!.", "sucesso")
+
+                #Tratamento de erro
+                except Error as db_error:
+                    flash(f"Erro ao inserir o(s) dado(s) dos credenciados AM - ANTECIPAÇÃO ao banco de dados: {db_error}", "erro")            
+
+                #Fecha conexão com o DB
+                finally:
+                    cursor.close()
+                    conn.close()
+
+            else:
+                flash('Nenhum reembolso encontrado para os credenciados AM - ANTECIPAÇÃO.', 'info')
+
+            registros_ama.clear() #Limpar Lista 
+
+            
+            # ================================
+            # EXTRAÇÃO: REGISTROS PR (REPASSE)
+            # ================================
+
+            registros_prr = []
+
+            expurgo = { 
+                1845, 1901, 2179, 2221, 2255, 2366, 2367, 2369, 2370, 2450, #Códigos dos credenciados que não entram no pagamento
+                2635, 4519, 8580, 8977, 13633, 24281, 26142                 #Ex: Gimave, Rv, Vt, Tecban, etc...
+            }
+
+            for _, row in df_filtrado.iterrows():
+                # pegar valores nas colunas relevantes usando iloc
+                valor_col_h = row.iloc[7] #Valor de antecipação
+                valor_col_d = str(row.iloc[3]).strip().upper() if pd.notna(row.iloc[3]) else '' #UF
+                valor_col_a = int(row.iloc[0]) if pd.notna(row.iloc[0]) else None #Cód Credenciado                
+
+                if pd.notna(valor_col_h) and valor_col_h == 0 and valor_col_d != "AM" and valor_col_a not in expurgo: #Se valor de antecipação != '0' e UF != 'AM' e não for Expurgo
+                    registro = {
+                        "id_reembolsocred":row.iloc[5],
+                        "codsgc": int(row.iloc[0]) if pd.notna(row.iloc[0]) else None,
+                        "credenciado": row.iloc[2] if pd.notna(row.iloc[2]) else '',
+                        "valor": float(row.iloc[8]) if pd.notna(row.iloc[8]) else 0.00,
+                        "grupo": 'PRR',
+                        "vencimento": pd.to_datetime(row.iloc[4]).date() if pd.notna(row.iloc[4]) else None
+                    }
+                    registros_prr.append(registro)
+
+
+            # ==========================
+            # INSERÇÃO NO DB: PR (REPASSE)
+            # ==========================
+
+            if registros_prr:
+                try:
+                    #Abertura de conexão com o DB
+                    conn = mysql.connector.connect(**db_config) 
+                    cursor = conn.cursor(dictionary=True)
+
+                    #Inserção
+                    query = """
+                            INSERT INTO reembolsoscredcpg_fin 
+                            (id_reembolsocred, codsgc, credenciado, valor, grupo, vencimento)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                        """
+
+                    cursor.executemany(query, [
+                            (
+                                reg['id_reembolsocred'],
+                                reg['codsgc'],
+                                reg['credenciado'],
+                                reg['valor'],
+                                reg['grupo'],
+                                reg['vencimento']
+                            )
+                            for reg in registros_prr
+                        ])
+
+                    conn.commit()
+                    flash(f"{cursor.rowcount} Reembolso(s) dos credenciados PR - REPASSE inserido(s) com sucesso!.", "sucesso")
+
+                #Tratamento de erro
+                except Error as db_error:
+                    flash(f"Erro ao inserir o(s) dado(s) dos credenciados PR - REPASSE ao banco de dados: {db_error}", "erro")            
+
+                #Fecha conexão com o DB
+                finally:
+                    cursor.close()
+                    conn.close()
+
+            else:
+                flash('Nenhum reembolso encontrado para os credenciados PR - REPASSE.', 'info')
+
+            registros_prr.clear() #Limpar Lista 
+
+            
+
+            # ================================
+            # EXTRAÇÃO: REGISTROS PR (ANTECIPAÇÃO)
+            # ================================
+
+            registros_pra = []
+
+            for _, row in df_filtrado.iterrows():
+                # pegar valores nas colunas relevantes usando iloc
+                valor_col_h = row.iloc[7] #Valor de antecipação
+                valor_col_d = str(row.iloc[3]).strip().upper() if pd.notna(row.iloc[3]) else '' #UF
+                valor_col_a = int(row.iloc[0]) if pd.notna(row.iloc[0]) else None #Cód Credenciado                
+
+                if pd.notna(valor_col_h) and valor_col_h != 0 and valor_col_d != "AM" and valor_col_a not in expurgo: #Se valor de antecipação != '0' e UF != 'AM' e não for Expurgo
+                    registro = {
+                        "id_reembolsocred":row.iloc[5],
+                        "codsgc": int(row.iloc[0]) if pd.notna(row.iloc[0]) else None,
+                        "credenciado": row.iloc[2] if pd.notna(row.iloc[2]) else '',
+                        "valor": float(row.iloc[8]) if pd.notna(row.iloc[8]) else 0.00,
+                        "grupo": 'PRA',
+                        "vencimento": pd.to_datetime(row.iloc[4]).date() if pd.notna(row.iloc[4]) else None
+                    }
+                    registros_pra.append(registro)
+
+
+            # ==========================
+            # INSERÇÃO NO DB: PR (ANTECIPAÇÃO)
+            # ==========================
+
+            if registros_pra:
+                try:
+                    #Abertura de conexão com o DB
+                    conn = mysql.connector.connect(**db_config) 
+                    cursor = conn.cursor(dictionary=True)
+
+                    #Inserção
+                    query = """
+                            INSERT INTO reembolsoscredcpg_fin 
+                            (id_reembolsocred, codsgc, credenciado, valor, grupo, vencimento)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                        """
+
+                    cursor.executemany(query, [
+                            (
+                                reg['id_reembolsocred'],
+                                reg['codsgc'],
+                                reg['credenciado'],
+                                reg['valor'],
+                                reg['grupo'],
+                                reg['vencimento']
+                            )
+                            for reg in registros_pra
+                        ])
+
+                    conn.commit()
+                    flash(f"{cursor.rowcount} Reembolso(s) dos credenciados PR - ANTECIPAÇÃO inserido(s) com sucesso!.", "sucesso")
+
+                #Tratamento de erro
+                except Error as db_error:
+                    flash(f"Erro ao inserir o(s) dado(s) dos credenciados PR - ANTECIPAÇÃO ao banco de dados: {db_error}", "erro")            
+
+                #Fecha conexão com o DB
+                finally:
+                    cursor.close()
+                    conn.close()
+
+            else:
+                flash('Nenhum reembolso encontrado para os credenciados PR - ANTECIPAÇÃO.', 'info')
+
+            registros_pra.clear() #Limpar Lista 
+
+
+            # ================================
+            # EXTRAÇÃO: EXPURGOS
+            # ================================
+
+            registros_expurgo = []
+
+            for _, row in df_filtrado.iterrows():
+                # pegar valores nas colunas relevantes usando iloc
+                valor_col_a = int(row.iloc[0]) if pd.notna(row.iloc[0]) else None #Cód Credenciado                
+
+                if valor_col_a in expurgo: #Se o credenciado for Expurgo
+                    registro = {
+                        "id_reembolsocred":row.iloc[5],
+                        "codsgc": int(row.iloc[0]) if pd.notna(row.iloc[0]) else None,
+                        "credenciado": row.iloc[2] if pd.notna(row.iloc[2]) else '',
+                        "valor": float(row.iloc[8]) if pd.notna(row.iloc[8]) else 0.00,
+                        "grupo": 'EXPURGO',
+                        "vencimento": pd.to_datetime(row.iloc[4]).date() if pd.notna(row.iloc[4]) else None
+                    }
+                    registros_expurgo.append(registro)
+
+
+            # ==========================
+            # INSERÇÃO NO DB: EXPURGOS
+            # ==========================
+
+            if registros_expurgo:
+                try:
+                    #Abertura de conexão com o DB
+                    conn = mysql.connector.connect(**db_config) 
+                    cursor = conn.cursor(dictionary=True)
+
+                    #Inserção
+                    query = """
+                            INSERT INTO reembolsoscredcpg_fin 
+                            (id_reembolsocred, codsgc, credenciado, valor, grupo, vencimento)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                        """
+
+                    cursor.executemany(query, [
+                            (
+                                reg['id_reembolsocred'],
+                                reg['codsgc'],
+                                reg['credenciado'],
+                                reg['valor'],
+                                reg['grupo'],
+                                reg['vencimento']
+                            )
+                            for reg in registros_expurgo
+                        ])
+
+                    conn.commit()
+                    flash(f"{cursor.rowcount} Reembolso(s) dos credenciados EXPURGOS inserido(s) com sucesso!.", "sucesso")
+
+                #Tratamento de erro
+                except Error as db_error:
+                    flash(f"Erro ao inserir o(s) dado(s) dos credenciados EXPURGOS ao banco de dados: {db_error}", "erro")            
+
+                #Fecha conexão com o DB
+                finally:
+                    cursor.close()
+                    conn.close()
+
+            else:
+                flash('Nenhum reembolso encontrado para os credenciados EXPURGOS.', 'info')
+
+            registros_expurgo.clear() #Limpar Lista 
+
+
+            return redirect(url_for('uploadcredenciadocpgFIN'))
+        
+
+        except Exception as e:
+            flash(f'Erro ao processar o arquivo: {str(e)}', 'erro')
+            return redirect(url_for('uploadcredenciadocpgFIN'))
+
+    return render_template('uploadcredenciadocpgFIN.html')
+
+@app.route('/credenciadosapagarcpgFIN')
+@modulo_requerido('CONTASAPAGAR')
+def credenciadosapagarcpgFIN():
+    # Verificação de sessão ativa
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+    
+    data_selecionada = request.args.get('data')
+    data_obj = None  # Inicializa antes para evitar erro
+
+    try:
+        if data_selecionada:
+            try:
+                data_obj = datetime.strptime(data_selecionada, "%Y-%m-%d").date()
+            except ValueError:
+                flash("Data inválida.", "danger")
+                return redirect(url_for('credenciadosapagarcpgFIN'))
+
+        # Abre conexão com o DB
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor(dictionary=True)
+
+        # Atualiza os reembolsos vencidos
+        cursor.execute("""
+            UPDATE reembolsoscredcpg_fin
+            SET status = 'V'
+            WHERE status = 'A' AND vencimento < CURDATE()
+        """)
+        conn.commit()
+
+        # Query principal: apenas status A e P
+        query = """
+            SELECT id_reembolsocred, codsgc, credenciado, valor, grupo, vencimento, status, valor_pago_parcial, historico
+            FROM reembolsoscredcpg_fin
+            WHERE status IN ('A', 'P')
+        """
+        params = []
+
+        if data_obj:
+            query += " AND vencimento = %s"
+            params.append(data_obj)
+
+        query += " ORDER BY grupo, credenciado"
+        cursor.execute(query, params)
+        resultados = cursor.fetchall()
+
+        # Query dos vencidos
+        query_vencidos = """
+            SELECT id_reembolsocred, codsgc, credenciado, valor, grupo, vencimento, status, valor_pago_parcial, historico
+            FROM reembolsoscredcpg_fin
+            WHERE status = 'V' AND vencimento < %s
+        """
+
+        ontem = date.today() - timedelta(days=1)
+        params_v = [ontem]
+
+
+        query_vencidos += " ORDER BY vencimento, valor, credenciado"
+        cursor.execute(query_vencidos, params_v)
+        resultados_vencidos = cursor.fetchall()
+
+        # Query dos pagos em atraso
+        query_pagos_atraso = """
+            SELECT id_reembolsocred, codsgc, credenciado, valor, grupo, vencimento, status, valor_pago_parcial, historico
+            FROM reembolsoscredcpg_fin
+            WHERE status = 'PA' AND data_pagamento = %s
+            ORDER BY vencimento DESC, grupo, credenciado
+        """
+        
+        params_pagos = []
+        if data_obj:
+            params_pagos.append(data_obj)
+        else:
+            params_pagos.append(date.today())
+
+        cursor.execute(query_pagos_atraso, params_pagos)
+        resultados_pagos_atraso = cursor.fetchall()
+
+
+        # Grupos e nomes
+        grupos = ['JAGOMES', 'RUFINO', 'AMR', 'PRR', 'AMA', 'PRA', 'EXPURGO']
+        nomes_grupos = {
+            "JAGOMES": "J A GOMES",
+            "RUFINO": "RUFINO",
+            "AMA": "ANTECIPAÇÃO AM",
+            "PRA": "ANTECIPACAO PR",
+            "AMR": "REPASSE AM",
+            "PRR": "REPASSE PR",
+            "EXPURGO": "EXPURGOS"
+        }
+
+        # Agrupamento A e P
+        dados_por_grupo = {g: [] for g in grupos}
+        for row in resultados:
+            grupo = row['grupo']
+            row['nome_grupo'] = nomes_grupos.get(row['grupo'], row['grupo'])
+            if grupo in dados_por_grupo:
+                dados_por_grupo[grupo].append(row)
+
+        # Ordena cada grupo por vencimento e depois por valor
+        for grupo in dados_por_grupo:
+            dados_por_grupo[grupo] = sorted(
+                dados_por_grupo[grupo],
+                key=lambda r: (
+                    r['vencimento'] or date.max,
+                    float(r['valor']) if r['valor'] else 0
+                )
+            )
+
+        # Agrupamento vencidos
+        atrasados_por_data = defaultdict(list)
+        for row in resultados_vencidos:
+            row['nome_grupo'] = nomes_grupos.get(row['grupo'], row['grupo'])
+            venc = row['vencimento']
+            atrasados_por_data[venc].append(row)
+
+        # Ordenar por data de vencimento
+        atrasados_por_data = dict(sorted(atrasados_por_data.items(), key=lambda x: x[0] or date.max))
+
+
+        # Pagos em atraso
+        pagos_em_atraso_por_data = defaultdict(list)
+        for row in resultados_pagos_atraso:
+            row['nome_grupo'] = nomes_grupos.get(row['grupo'], row['grupo'])
+            venc = row['vencimento']
+            pagos_em_atraso_por_data[venc].append(row)
+
+        # Ordenar
+        pagos_em_atraso_por_data = dict(sorted(pagos_em_atraso_por_data.items(), key=lambda x: x[0] or date.max, reverse=True))
+
+        # Totalizadores
+        totais_por_grupo = {
+            grupo: sum([r['valor'] for r in registros])
+            for grupo, registros in dados_por_grupo.items() if registros
+        }
+
+        totais_atrasados_data = {
+            vencimento: sum([r['valor'] for r in registros])
+            for vencimento, registros in atrasados_por_data.items()
+        }
+
+        totais_pagos_em_atraso_data = {
+            vencimento: sum([r['valor'] for r in registros])
+            for vencimento, registros in pagos_em_atraso_por_data.items()
+        }
+        
+
+        return render_template(
+            'credenciadosapagarcpgFIN.html',
+            dados=dados_por_grupo,
+            nomes_grupos=nomes_grupos,
+            pagos_em_atraso_por_data=pagos_em_atraso_por_data,
+            totais_pagos_em_atraso_data=totais_pagos_em_atraso_data,
+            totais=totais_por_grupo,
+            atrasados_por_data=atrasados_por_data,  
+            totais_atrasados_data=totais_atrasados_data,
+            data_selecionada=data_selecionada or ""
+        )
+
+    except mysql.connector.Error as err:
+        flash(f'Erro ao acessar o banco de dados: {err}', 'erro')
+        # Garante que "atrasados" e outros dados existam mesmo no erro
+        return render_template(
+            'credenciadosapagarcpgFIN.html',
+            dados={},
+            nomes_grupos={},
+            totais={},
+            atrasados_por_data={},
+            totais_atrasados_data={},
+            data_selecionada=""
+        )
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route('/atualizarcredenciadocpgFIN', methods=['POST'])
+@modulo_requerido('CONTASAPAGAR')
+def atualizarcredenciadocpgFIN():
+    # Verificação de sessão ativa
+    if 'username' not in session:
+        return jsonify({"erro": "não autorizado"}), 403
+
+    # Dicionário de dados
+    dados = request.get_json()
+    ids = dados.get('ids', [])
+    novo_status = dados.get('status', '')
+    data_pagamento_str = dados.get('data_pagamento')
+
+    conn = None
+    cursor = None
+
+    # Tratamento de exceção
+    if not ids or novo_status not in ['A', 'P']:
+        return jsonify({"erro": "dados inválidos"}), 400
+
+    try:
+
+        # Converte string para objeto date
+        data_pagamento = datetime.strptime(data_pagamento_str, "%Y-%m-%d").date()
+
+        # Abre conexão com o DB
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor(dictionary=True)  # <-- Aqui está a correção
+
+        hoje = date.today()
+        
+        for id_reembolso in ids:
+            if novo_status == 'P':
+                cursor.execute(
+                    "SELECT vencimento FROM reembolsoscredcpg_fin WHERE id_reembolsocred = %s",
+                    (id_reembolso,)
+                )
+                resultado = cursor.fetchone()
+
+                if not resultado:
+                    continue
+
+                vencimento = resultado['vencimento']
+                if isinstance(vencimento, datetime):
+                    vencimento = vencimento.date()
+
+                if vencimento and vencimento < data_pagamento:
+                    # Pago em atraso
+                    cursor.execute("""
+                        UPDATE reembolsoscredcpg_fin
+                        SET status = %s, valor_pago_parcial = null, data_pagamento = %s
+                        WHERE id_reembolsocred = %s
+                    """, ('PA', data_pagamento, id_reembolso))
+                else:
+                    # Pago normal
+                    cursor.execute("""
+                        UPDATE reembolsoscredcpg_fin
+                        SET status = %s, valor_pago_parcial = null, data_pagamento = %s
+                        WHERE id_reembolsocred = %s
+                    """, ('P', data_pagamento, id_reembolso))
+            else:
+                # Quando novo_status é 'A'
+                cursor.execute("""
+                    UPDATE reembolsoscredcpg_fin
+                    SET status = %s
+                    WHERE id_reembolsocred = %s
+                """, (novo_status, id_reembolso))
+
+        conn.commit()
+        return jsonify({"sucesso": True})
+
+    except mysql.connector.Error as err:
+        return jsonify({"erro": str(err)}), 500
+
+    finally:
+        if cursor is not None:
+            cursor.close()
+        if conn is not None:
+            conn.close()
+
+
+@app.route('/credenciadoparcialcpgFIN', methods=['POST'])
+@modulo_requerido('CONTASAPAGAR')
+def credenciadoparcialcpgFIN():
+    #Verificação de sessão ativa
+    if 'username' not in session:
+        return jsonify({"erro": "não autorizado"}), 403
+    
+    #Dicionário de dados
+    data = request.get_json()
+    id_reembolso = data.get('id')
+    valor = data.get('valor')
+
+    #Tratamento de exceção
+    if not id_reembolso or valor is None:
+        return jsonify({"success": False, "message": "Dados incompletos"}), 400
+
+    try:
+        #Abrir conexão com o DB
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            UPDATE reembolsoscredcpg_fin
+            SET valor_pago_parcial = %s
+            WHERE id_reembolsocred = %s
+        """, (valor, id_reembolso))
+
+        conn.commit()
+        return jsonify({"success": True})
+    
+    except mysql.connector.Error as err:
+        return jsonify({"success": False, "message": str(err)}), 500
+    
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route("/registrarhistoricocpgFIN", methods=["POST"])
+@modulo_requerido('CONTASAPAGAR')
+def registrar_historico():
+    #Verificação de sessão ativa
+    if 'username' not in session:
+        return jsonify({"erro": "não autorizado"}), 403
+    
+
+    data = request.get_json()
+    id_reembolso = data.get("id")
+    historico = data.get("historico", "").strip()
+
+    if not historico:
+        return jsonify(success=False, erro="Histórico vazio.")
+
+    #Conexão com o banco
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            UPDATE reembolsoscredcpg_fin
+            SET historico = %s
+            WHERE id_reembolsocred = %s
+        """, (historico, id_reembolso))
+
+        conn.commit()
+        return jsonify(success=True)
+    
+    except Exception as e:
+        return jsonify(success=False, erro=str(e))
+    
+    finally:
+        cursor.close()
+        conn.close()
 #-------------------------------------------------------------------#
 
 
