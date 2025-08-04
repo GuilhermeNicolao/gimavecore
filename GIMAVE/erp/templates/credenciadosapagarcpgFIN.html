@@ -1,0 +1,672 @@
+{% extends "base.html" %}
+
+{% block head_extra %}
+<style>
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    padding: 20px;
+    background: #f0f2f5;
+    color: #333;
+  }
+
+  h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #333;
+    color: #333;
+  }
+
+  .container {
+    display: flex;
+    gap: 60px;
+    padding: 0;
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+
+  .group-list {
+    border-radius: 8px;
+    padding: 15px 20px;
+    width: 350px;
+    box-sizing: border-box;
+    background: #f6f7f9;
+    max-height: 900px;
+    overflow-y: auto;
+    transition: box-shadow 0.3s ease;
+  }
+
+  .group-list h3 {
+    margin-top: 0;
+    text-align: center;
+    color: #333;
+    font-size: 1.25rem;
+    margin-bottom: 15px;
+    font-weight: 450;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .group-list .total {
+    text-align: center;
+    font-weight: bold;
+    color: #333;
+    margin: -10px 0 15px;
+    font-size: 0.95rem;
+  }
+
+  .group-list::-webkit-scrollbar-thumb {
+    background-color: #dbdbdb; /* cor do scroll */
+    border-radius: 4px;
+    border: 2px solid #f0f0f0; /* cria espaçamento visual */
+  }
+
+  ul {
+    list-style: none;
+    padding-left: 0;
+    margin: 0;
+  }
+
+  li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    background: #f6f7f9;
+    padding: 10px 14px;
+    border-radius: 0;
+    box-shadow: none;
+    font-size: 0.95em;
+    color: #222;
+    transition: background-color 0.2s ease;
+    box-sizing: border-box;
+  }
+
+  li:hover {
+    background-color: #e6f0ff;
+  }
+
+  li span {
+    display: inline-block;
+    vertical-align: middle;
+  }
+
+  li span.valor {
+    font-weight: 700;
+    color: #089877;
+    margin-top: 0; /* Remova a margem superior */
+    white-space: nowrap; /* Impede quebra de linha entre R$ e valor */
+  }
+
+  .reembolso-item {
+    transition: background-color 0.2s;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    width: 100%;
+    box-sizing: border-box; /* garante que padding/margin não extrapolem */
+    border-radius: 0 !important;
+  }
+
+  .reembolso-item.com-historico {
+    border-left: 4px solid #333; /* Azul */
+    padding-left: 8px;
+  }
+
+  .reembolso-item.selected {
+    background-color: #dbdbdb;
+  }
+
+  .reembolso-item.pago {
+    background-color: #e6ffe6;
+    border-left: 4px solid green;
+    opacity: 0.9;
+  }
+
+  .reembolso-item.pago.selected {
+    background-color: #dbdbdb !important;
+    opacity: 1;
+  }
+
+  .reembolso-item.parcial {
+    background-color: #f9edff;
+    border-left: 4px solid rgb(140, 0, 255);
+  }
+
+  .reembolso-item.parcial.selected {
+    background-color: #dbdbdb !important;
+  }
+
+  .reembolso-item.pago.com-historico {
+    background-color: #ffe5cc; 
+    border-left: 4px solid #ff8000;
+    position: relative;
+  }
+
+  .notinha {
+    font-size: 0.75rem;
+    color: #aa6c00;
+    margin-top: 4px;
+    display: block;
+  }
+
+  .total-container {
+    background-color: #b5c4e9;
+    color: #000;
+    border-radius: 2px;
+    text-align: center;
+    margin-bottom: 15px;
+  }
+
+  .total {
+    margin: 0;
+    font-weight: bold;
+    font-size: 0.95rem;
+  }
+
+  /* Scrollbar personalizada */
+  .group-list::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .group-list::-webkit-scrollbar-track {
+    background: #f0f0f0;
+    border-radius: 4px;
+  }
+
+  #context-menu {
+    position: absolute;
+    z-index: 1000;
+    display: none;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  }
+
+  #context-menu button {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    border: none;
+    background: white;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  #context-menu button:hover {
+    background: #f0f0f0;
+  }
+
+  /* Container do tooltip */
+  .tooltip-container {
+    position: relative;
+    display: inline-block;
+  }
+
+  /* Tooltip em si */
+  .tooltip-container .tooltip-text {
+    visibility: hidden;
+    opacity: 0;
+    max-width: 220px;
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    padding: 6px 8px;
+    border-radius: 6px;
+    position: absolute;
+    z-index: 1000;
+    margin-top: 4px;
+    transition: opacity 0.3s;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+
+  /* Exibir tooltip ao passar o mouse */
+  .tooltip-container:hover .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+  }
+
+  #soma-selecionados {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #333;
+    color: white;
+    padding: 10px 15px;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: bold;
+    box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    display: none;
+    z-index: 9999;
+  }
+  .reembolso-item.selecionado {
+    background-color: #d0f0ff;
+  }
+
+  .date-picker {
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 0.95rem;
+    background: white;
+    color: #333;
+    box-shadow: 0 0 4px #ddd;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+
+  .date-picker:hover,
+  .date-picker:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 5px rgba(0, 123, 255, 0.4);
+    outline: none;
+  }
+
+  form#data-form {
+    display: flex;
+    align-items: center;
+  }
+
+  @media (max-width: 900px) {
+    .container {
+      justify-content: center;
+    }
+  }
+</style>
+
+{% endblock %}
+
+{% block content %}
+
+<h1 style="display: flex; align-items: center; justify-content: space-between;">
+  <span>Credenciados a Pagar - GIMAVE</span>
+  <!--Desta forma, ao digitar a data a página já carrega as informações, ao invés de realizar outra ação (como apertar um botão)-->
+  <form method="get" id="data-form">
+    <input
+      type="date"
+      name="data"
+      id="data"
+      value="{{ data_selecionada }}"
+      class="date-picker"
+    />
+  </form>
+</h1>
+
+<div id="context-menu">
+  <button onclick="atualizarStatusSelecionados('P')">Marcar como Pago</button>
+  <button onclick="atualizarStatusSelecionados('A')">Marcar como Aberto</button>
+  <button onclick="marcarPagamentoParcial()">Marcar como Pago Parcial</button>
+  <button onclick="registrarHistorico()">Registrar Histórico</button>
+</div>
+
+<div class="container">
+
+  <!-- Atrasados -->
+  {% if atrasados_por_data %}
+    <div class="group-list atrasados">
+      <h3 style="color: red;"><b>ATRASADOS</b></h3>
+
+      {% for vencimento, registros in atrasados_por_data.items() %}
+        <div class="subgroup">
+          <h4>
+            {{ vencimento.strftime('%d/%m/%Y') if vencimento else 'Sem vencimento' }}
+            | {{ registros[0].nome_grupo }}
+          </h4>
+          <div class="total-container">
+            <p class="total">
+              R$ {{ "{:,.2f}".format(totais_atrasados_data[vencimento]).replace(",", "X").replace(".", ",").replace("X", ".") }}
+            </p>
+          </div>
+
+          <ul>
+          {% for r in registros %}
+            <li class="reembolso-item 
+                {% if r.status == 'P' %}pago{% 
+                  elif r.valor_pago_parcial and r.valor_pago_parcial > 0 %}parcial{% endif %}
+                {% if r.historico %} com-historico{% endif %}" 
+                data-id="{{ r.id_reembolsocred }}">
+
+              {% if r.historico %}
+                <div class="tooltip-container">
+                  <span>{{ r.credenciado or '-' }}
+                  <b>//</b> {{ r.id_reembolsocred }}
+                  </span>
+                  <div class="tooltip-text">
+                    📌 {{ r.historico }}
+                  </div>
+                </div>
+              {% else %}
+                <span>
+                  {{ r.credenciado or '-' }} 
+                  <b>//</b> {{ r.id_reembolsocred }}
+                </span>
+              {% endif %}
+
+              <span class="valor" data-valor="{{ r.valor - (r.valor_pago_parcial or 0) }}">
+                R$ {{ "{:,.2f}".format(r.valor - (r.valor_pago_parcial or 0)).replace(",", "X").replace(".", ",").replace("X", ".") }}
+              </span>
+            </li>
+          {% endfor %}
+          </ul>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+
+  <!-- Grupos normais -->
+  {% for grupo, registros in dados.items() %}
+    {% if registros %}
+      <div class="group-list">
+        <h3>{{ nomes_grupos.get(grupo, grupo) }}</h3>
+        <ul>
+
+        <br>
+
+        <div class="total-container">
+          <p class="total">
+          R$ {{ "{:,.2f}".format(totais[grupo]).replace(",", "X").replace(".", ",").replace("X", ".") }}
+          </p>
+        </div>
+
+          {% for r in registros %}
+            <li class="reembolso-item 
+                {% if r.status == 'P' %}pago{% 
+                   elif r.valor_pago_parcial and r.valor_pago_parcial > 0 %}parcial{% endif %}
+                {% if r.historico %} com-historico{% endif %}" 
+                data-id="{{ r.id_reembolsocred }}">
+
+              {% if r.historico %}
+                <div class="tooltip-container">
+                  <span>{{ r.credenciado or '-' }}</span>
+                  <div class="tooltip-text">
+                  📌 {{ r.historico }}
+                  </div>
+                </div>
+              {% else %}
+                <span>
+                  {{ r.credenciado or '-' }} 
+                  <b>//</b> {{ r.id_reembolsocred }}
+                </span>
+              {% endif %}
+
+              <span class="valor" data-valor="{{ r.valor }}">
+                R$ {{ "{:,.2f}".format(r.valor).replace(",", "X").replace(".", ",").replace("X", ".") }}
+              </span>
+
+              {% if r.valor_pago_parcial and r.valor_pago_parcial > 0 %}
+                <div class="notinha">
+                  Pagamento Parcial: R$ {{ "{:,.2f}".format(r.valor_pago_parcial).replace(",", "X").replace(".", ",").replace("X", ".") }}
+                </div>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+  {% endfor %}
+  
+  <!-- Pagos em atraso -->
+  {% if pagos_em_atraso_por_data %}
+    <div class="group-list pagos-em-atraso">
+      <h3 style="color: rgb(255, 0, 200);"><b>Pago em atraso</b></h3>
+
+      {% for vencimento, registros in pagos_em_atraso_por_data.items() %}
+        <div class="subgroup">
+          <h4>{{ vencimento.strftime('%d/%m/%Y') if vencimento else 'Sem vencimento' }}</h4>
+          <div class="total-container">
+            <p class="total">
+              R$ {{ "{:,.2f}".format(totais_pagos_em_atraso_data[vencimento]).replace(",", "X").replace(".", ",").replace("X", ".") }}
+            </p>
+          </div>
+          <ul>
+            {% for r in registros %}
+              <li class="reembolso-item pago{% if r.historico %} com-historico{% endif %}" data-id="{{ r.id_reembolsocred }}">
+                <div class="tooltip-container">
+                  <span>
+                    {{ r.credenciado or '-' }} <b>//</b> {{ r.id_reembolsocred }}
+                  </span>
+                  {% if r.historico %}
+                    <div class="tooltip-text">📌 {{ r.historico }}</div>
+                  {% endif %}
+                </div>
+                <span class="valor" data-valor="{{ r.valor }}">
+                  R$ {{ "{:,.2f}".format(r.valor).replace(",", "X").replace(".", ",").replace("X", ".") }}
+                </span>
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+</div>
+
+
+<div id="soma-selecionados">R$ 0,00</div>
+
+<script>  
+  // Delay para carregar o input da data selecionada
+  let debounceTimer;
+  const dataInput = document.getElementById("data");
+
+  dataInput.addEventListener("input", function () {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      if (dataInput.value) {
+        document.getElementById("data-form").submit();
+      }
+    }, 800); // 800ms de espera após o último input
+  });
+
+  
+  // Interações com os reembolsos
+  let contextMenu = document.getElementById("context-menu");
+
+  // Mostrar o menu apenas ao clicar com botão direito em itens selecionados
+  document.addEventListener("contextmenu", function (e) {
+    const item = e.target.closest(".reembolso-item");
+
+    if (item && item.classList.contains("selected")) {
+      e.preventDefault();
+      contextMenu.style.top = `${e.pageY}px`;
+      contextMenu.style.left = `${e.pageX}px`;
+      contextMenu.style.display = "block";
+    } else {
+      contextMenu.style.display = "none";
+    }
+  });
+
+  // Esconder o menu ao clicar em qualquer outro lugar
+  document.addEventListener("click", function () {
+    contextMenu.style.display = "none";
+  });
+
+  // Atualizar status via fetch
+  function atualizarStatusSelecionados(novoStatus) {
+    const selecionados = getReembolsosSelecionados();
+
+    if (selecionados.length === 0) {
+      alert("Selecione pelo menos um item.");
+      return;
+    }
+
+    // Pega a data selecionada no input #data
+    const dataPagamento = document.getElementById('data').value;
+
+    fetch("/atualizarcredenciadocpgFIN", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ ids: selecionados, status: novoStatus, data_pagamento: dataPagamento })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.sucesso) {
+        alert("Status atualizado com sucesso.");
+        location.reload();
+      } else {
+        alert("Erro ao atualizar: " + (data.erro || ''));
+      }
+    });
+  }
+
+
+
+
+  // Retorna os IDs dos reembolsos selecionados
+  function getReembolsosSelecionados() {
+    return Array.from(document.querySelectorAll(".reembolso-item.selected"))
+                .map(el => el.dataset.id);
+  }
+
+
+
+  // Ativar pagamentos parciais
+  function marcarPagamentoParcial() {
+  const selecionados = getReembolsosSelecionados();
+
+  if (selecionados.length === 0) {
+    alert("Selecione pelo menos um item.");
+    return;
+  }
+
+  const valor = prompt("Digite o valor do pagamento parcial:");
+
+  if (!valor || isNaN(valor)) {
+    alert("Valor inválido.");
+    return;
+  }
+
+  Promise.all(selecionados.map(id => {
+    return fetch('/credenciadoparcialcpgFIN', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: id, valor: parseFloat(valor.replace(",", ".")) })
+    });
+  }))
+  .then(respostas => Promise.all(respostas.map(r => r.json())))
+  .then(resultados => {
+    const algumErro = resultados.some(r => !r.success);
+    if (algumErro) {
+      alert("Um ou mais pagamentos parciais não foram registrados.");
+    } else {
+      alert("Pagamento(s) parcial(is) registrado(s) com sucesso.");
+      location.reload();
+    }
+  })
+  .catch(err => {
+    console.error(err);
+    alert("Erro ao processar os pagamentos parciais.");
+  });
+}
+
+
+
+
+  function registrarHistorico() {
+    const selecionados = getReembolsosSelecionados();
+
+    if (selecionados.length === 0) {
+      alert("Selecione pelo menos um item.");
+      return;
+    }
+
+    const texto = prompt("Digite o histórico/observação:");
+
+    if (!texto || texto.trim() === "") {
+      alert("Histórico inválido.");
+      return;
+    }
+
+    Promise.all(selecionados.map(id => {
+      return fetch('/registrarhistoricocpgFIN', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, historico: texto })
+      });
+    }))
+    .then(resps => Promise.all(resps.map(r => r.json())))
+    .then(resultados => {
+      if (resultados.some(r => !r.success)) {
+        alert("Erro ao registrar o histórico.");
+      } else {
+        alert("Histórico registrado com sucesso.");
+        location.reload();
+      }
+    })
+    .catch(error => {
+      console.error(error);
+      alert("Erro ao processar a solicitação.");
+    });
+  }
+
+
+
+  //Totalizados dos reembolsos selecionados
+  document.addEventListener("DOMContentLoaded", () => {
+    const itens = Array.from(document.querySelectorAll(".reembolso-item"));
+    const somaDisplay = document.getElementById("soma-selecionados");
+    let lastSelectedIndex = null;
+
+    function formatar(valor) {
+      return valor.toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+      });
+    }
+
+    function atualizarSoma() {
+      let soma = 0;
+      document.querySelectorAll(".reembolso-item.selected .valor").forEach((el) => {
+        const valor = parseFloat(el.dataset.valor || 0);
+        soma += valor;
+      });
+
+      if (soma > 0) {
+        somaDisplay.style.display = "block";
+        somaDisplay.textContent = formatar(soma);
+      } else {
+        somaDisplay.style.display = "none";
+      }
+    }
+
+    itens.forEach((item, index) => {
+      item.addEventListener("click", (e) => {
+        if (e.shiftKey && lastSelectedIndex !== null) {
+          const currentIndex = index;
+          const [start, end] = [lastSelectedIndex, currentIndex].sort((a, b) => a - b);
+          for (let i = start; i <= end; i++) {
+            itens[i].classList.add("selected");
+          }
+        } else {
+          item.classList.toggle("selected");
+          lastSelectedIndex = index;
+        }
+
+        atualizarSoma();
+      });
+    });
+
+
+
+    // ESC para limpar seleção
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        document.querySelectorAll(".reembolso-item.selected").forEach(el => {
+          el.classList.remove("selected");
+        });
+        lastSelectedIndex = null;
+        atualizarSoma();
+      }
+    });
+
+  });
+</script>
+{% endblock %}
