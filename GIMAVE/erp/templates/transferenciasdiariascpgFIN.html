@@ -1,0 +1,643 @@
+{% extends "base.html" %}
+
+{% block head_extra %}
+<style>
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  padding: 20px;
+  background: #f0f2f5;
+  color: #333;
+}
+
+/* Cabeçalho principal */
+h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 3px solid #089877;
+  color: #089877;
+}
+
+/* Campo de data */
+.date-picker {
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+}
+.date-picker:hover {
+  border-color: #089877;
+}
+.date-picker:focus {
+  outline: none;
+  border-color: #089877;
+  box-shadow: 0 0 5px rgba(109, 94, 26, 0.4);
+}
+
+/* Botão remover */
+.btn-remover {
+  background: none;
+  border: none;
+  color: #c0392b;
+  cursor: pointer;
+  font-size: 1.1rem;
+  transition: color 0.3s ease;
+}
+.btn-remover:hover {
+  color: darkred;
+}
+
+/* Container principal */
+.container {
+  margin-top: 30px;
+}
+
+/* Blocos de empresa */
+.empresa-block {
+  background: #ffffff;
+  padding: 20px;
+  margin-bottom: 40px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.empresa-block:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+}
+
+.empresa-block h2 {
+  color: #089877;
+  margin-bottom: 10px;
+  font-weight: 700;
+  font-size: 1.5rem;
+  text-align: center;
+}
+
+/* Tabelas */
+.transfer-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+  font-size: 0.95rem;
+}
+
+.transfer-table th,
+.transfer-table td {
+  border: 1px solid #ccc;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.transfer-table th {
+  background: linear-gradient(to bottom, #61583b, #645a39);
+  font-weight: 600;
+  color: white;
+}
+
+.transfer-table tr:nth-child(even) td {
+  background-color: #f9fafb;
+}
+
+.transfer-table tr:hover td {
+  background-color: #f1f7fc;
+  transition: background-color 0.2s ease;
+}
+
+/* Botão adicionar */
+.register-button {
+  background: none;
+  border: none;
+  color: #089877;
+  font-size: 1.8rem;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 0;
+  width: 34px;
+  height: 34px;
+  line-height: 32px;
+  text-align: center;
+  border-radius: 50%;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+.register-button:hover {
+  background-color: #089877;
+  color: white;
+}
+
+
+
+/* Inputs inline */
+input[type="text"],
+input[type="number"],
+select {
+  width: 100%;
+  padding: 6px 8px;
+  box-sizing: border-box;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+input[type="text"]:focus,
+input[type="number"]:focus,
+select:focus {
+  border-color: #089877;
+  box-shadow: 0 0 4px rgba(109, 94, 26, 0.4);
+  outline: none;
+}
+
+
+</style>
+{% endblock %}
+
+{% block content %}
+
+
+<h1 style="display: flex; align-items: center; justify-content: space-between;">
+  <span>Transferências Diárias - Ecossistema GIMAVE</span>
+  <!--Desta forma, ao digitar a data a página já carrega as informações, ao invés de realizar outra ação (como apertar um botão)-->
+  <form method="get" id="data-form">
+    <input
+      type="date"
+      name="data"
+      id="data"
+      value="{{ data_selecionada }}"
+      class="date-picker"
+    />
+  </form>
+</h1>
+
+
+<div class="container">
+
+  {% set empresas = [
+    {"nome": "GIMAVE MEIOS DE PAGAMENTO", "id": 6},
+    {"nome": "ANGELS FOMENTO", "id": 13},
+    {"nome": "ANGELS SECURITIZADORA", "id": 54},
+    {"nome": "PENSE APP", "id": 52},
+    {"nome": "VT PASSA FÁCIL", "id": 55},
+    {"nome": "EUMAIS SAÚDE", "id": 999}
+  ] %}
+
+  {% for empresa in empresas %}
+    <div class="empresa-block" data-empresa="{{ empresa.nome }}" data-id-empresa="{{ empresa.id }}">
+      <h2>{{ empresa.nome }}</h2>
+      <button class="register-button">+</button>
+
+      <!-- Transferências salvas para esta empresa na data selecionada -->
+      <table class="transfer-table transferencias-salvas">
+        <thead>
+          <tr>
+            <th>HISTÓRICO</th>
+            <th>DÉBITO</th>
+            <th>CRÉDITO</th>
+            <th>VALOR (R$)</th>
+            <th>COMENTÁRIOS</th>
+            <th>1º OK</th>
+            <th>2º OK</th>
+            <th>AÇÕES</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% set has_transferencias = false %}
+          {% for t in transferencias %}
+          {% if t.id_empresa == empresa.id %}
+          {% set has_transferencias = true %}
+          <tr data-id-transferencia="{{ t.id_transferencia }}" data-id-empresa="{{ empresa.id }}">
+            <td class="campo-editavel" data-campo="id_historico">{{ t.historico_desc }}</td>
+            <td class="campo-editavel" data-campo="debito">{{ t.debito }}</td>
+            <td class="campo-editavel" data-campo="credito">{{ t.credito }}</td>
+            <td class="campo-editavel" data-campo="valor" style="background-color: {{ t.cor or '' }}">R$ {{ "{:,.2f}".format(t.valor).replace(",", "X").replace(".", ",").replace("X", ".") }}</td> <!--É um erro falso, ignora essa merda!-->
+            <td class="campo-editavel" data-campo="comentarios">{{ t.comentarios }}</td>
+            <td class="campo-editavel" data-campo="ok1">{{ t.ok1 }}</td>
+            <td class="campo-editavel" data-campo="ok2">{{ t.ok2 }}</td>
+              <td>
+                <button class="btn-remover" title="Remover transferência"><b>X</b></button>
+              </td>
+          </tr>
+            {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <table class="transfer-table">
+        <tbody>
+          <!-- Linhas para inserção nova serão adicionadas aqui -->
+        </tbody>
+      </table>
+
+
+    </div>
+  {% endfor %}
+
+</div>
+
+
+
+<script>  
+  // Delay para carregar o input da data selecionada
+  let debounceTimer;
+  const dataInput = document.getElementById("data");
+
+  dataInput.addEventListener("input", function () {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      if (dataInput.value) {
+        document.getElementById("data-form").submit();
+      }
+    }, 800); // 800ms de espera após o último input
+  });
+
+
+
+
+  document.querySelectorAll(".empresa-block").forEach(block => {
+  const btn = block.querySelector(".register-button");
+  const tbody = block.querySelector("tbody");
+
+  btn.addEventListener("click", () => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+        <td>
+        <select name="historico" class="campo-historico">
+            <option value="">Carregando...</option>
+        </select>
+        </td>
+        <td>
+        <select name="debito" class="campo-conta">
+            <option value="">Carregando...</option>
+        </select>
+        </td>
+        <td>
+            <input list="credito-list" name="credito" placeholder="Conta crédito" />
+            <datalist id="credito-list"></datalist>
+        </td>
+        <td><input type="number" name="valor" placeholder="0.00" step="0.01" /></td>
+        <td><input type="text" name="comentarios" placeholder="Comentário" /></td>
+        <td>
+        <select name="ok1">
+            <option value="">--</option>
+            <option value="ok">ok</option>
+        </select>
+        </td>
+        <td>
+        <select name="ok2">
+            <option value="">--</option>
+            <option value="ok">ok</option>
+        </select>
+        </td>
+    `;
+
+    tbody.appendChild(row);
+
+    // Função para fechar a linha se clicar fora
+    function fecharSeFora(event) {
+      const clicouFora = !row.contains(event.target) && !btn.contains(event.target);
+      if (clicouFora) {
+        const campos = row.querySelectorAll('input, select');
+        const temPreenchido = Array.from(campos).some(campo => campo.value.trim() !== '');
+        if (!temPreenchido) {
+          row.remove();
+          document.removeEventListener('click', fecharSeFora);
+        }
+      }
+    }
+
+    // Pequeno delay pra evitar fechar imediatamente após criar
+    setTimeout(() => {
+      document.addEventListener('click', fecharSeFora);
+    }, 0);
+
+    // Carregar dados
+    const selectHistorico = row.querySelector(".campo-historico");
+    const selectDebito = row.querySelector(".campo-conta");
+    const inputCredito = row.querySelector('input[name="credito"]');
+    const datalistCredito = row.querySelector('datalist');
+
+
+    fetch(`/listarcontascpgFIN`)
+      .then(response => response.json())
+      .then(data => {
+        selectHistorico.innerHTML = '<option value="">Selecione...</option>';
+        data.historicos.forEach(hist => {
+          const option = document.createElement("option");
+          option.value = hist.id_historico;
+          option.textContent = hist.descricao;
+          selectHistorico.appendChild(option);
+        });
+
+        selectDebito.innerHTML = '<option value="">Selecione...</option>';
+        data.contas.forEach(conta => {
+          const option = document.createElement("option");
+          option.value = conta.conta;
+          option.textContent = `${conta.conta} - ${conta.descricao}`;
+          selectDebito.appendChild(option);
+        });
+
+        datalistCredito.innerHTML = '';
+        data.contas.forEach(conta => {
+          const option = document.createElement("option");
+          option.value = `${conta.conta} - ${conta.descricao}`;
+          datalistCredito.appendChild(option);
+        });
+      })
+      .catch(error => console.error("Erro ao carregar dados:", error));
+  });
+});
+
+
+
+
+  //Salvar no banco de dados
+  document.addEventListener('change', function (e) {
+  if (e.target.matches('select[name="ok1"]')) {
+    const row = e.target.closest("tr");
+    const block = row.closest(".empresa-block"); // encontra o bloco da empresa
+    const id_empresa = block.getAttribute("data-id-empresa");
+
+    if (!row) return;
+
+    const id_historico = row.querySelector('select[name="id_historico"], .campo-historico')?.value;
+    const debito = row.querySelector('select[name="debito"]')?.value;
+    const credito = row.querySelector('input[name="credito"]')?.value;
+    const valor = row.querySelector('input[name="valor"]')?.value;
+    const comentarios = row.querySelector('input[name="comentarios"]')?.value;
+    const ok1 = e.target.value;
+    const ok2 = row.querySelector('select[name="ok2"]')?.value;
+    const dataSelecionada = document.getElementById('data')?.value;
+
+    // Só salva se todos obrigatórios estiverem preenchidos
+    if (id_historico && debito && credito && valor && ok1 !== "") {
+      const payload = [{
+        id_historico,
+        debito,
+        credito,
+        valor,
+        comentarios,
+        ok1,
+        ok2,
+        id_empresa,
+        data_registro: dataSelecionada
+      }];
+
+      fetch('/salvartransferenciacpgFIN', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.mensagem) {
+          row.setAttribute("data-id-transferencia", data.id_transferencia);
+          row.classList.add("salvo");
+          location.reload();
+
+          // Troca o select por texto simples, igual linhas antigas
+          const tdOk1 = row.querySelector('td:nth-child(6)');
+          tdOk1.classList.add("campo-editavel");
+          tdOk1.setAttribute("data-campo", "ok1");
+          tdOk1.innerText = ok1;
+
+          // Garante que todos os campos sigam lógica de edição inline
+          row.querySelectorAll("td").forEach(td => {
+            if (!td.classList.contains("btn-remover")) {
+              td.classList.add("campo-editavel");
+            }
+          });
+
+          // Adiciona botão de remover
+          let tdRemove = document.createElement("td");
+          tdRemove.innerHTML = '<button class="btn-remover" title="Remover transferência">🗑</button>';
+          row.appendChild(tdRemove);
+        } else {
+          row.classList.add("erro");
+        }
+      })
+      .catch(error => {
+        row.classList.add("erro");
+      });
+    }
+  }
+});
+
+
+
+
+document.querySelectorAll(".transferencias-salvas td.campo-editavel").forEach(td => {
+  td.addEventListener("click", async function () {
+    if (td.querySelector("input, select")) return; // já está editando
+
+    const campo = td.dataset.campo;
+    const tr = td.closest("tr");
+    const id = tr.dataset.idTransferencia;
+    const idEmpresa = tr.dataset.idEmpresa;
+    const valorAtual = td.textContent.trim();
+
+    // Fetch dos dados se for histórico ou conta
+    let options = [];
+    if (["id_historico", "debito", "ok1", "ok2"].includes(campo)) {
+      if (campo === "ok1" || campo === "ok2") {
+        options = [
+          { value: "", text: "--" },
+          { value: "ok", text: "ok" },
+        ];
+      } else {
+        const res = await fetch(`/consultastransferenciascpgFIN?id_empresa=${idEmpresa}`);
+        const data = await res.json();
+        if (campo === "id_historico") {
+          options = data.historicos.map(h => ({ value: h.id_historico, text: h.descricao }));
+        }
+        if (campo === "debito") {
+          options = data.contas.map(c => ({ value: c.conta, text: `${c.conta} - ${c.descricao}` }));
+        }
+      }
+
+      const select = document.createElement("select");
+      options.forEach(opt => {
+        const option = document.createElement("option");
+        option.value = opt.value;
+        option.textContent = opt.text;
+        if (valorAtual === opt.text) option.selected = true;
+        select.appendChild(option);
+      });
+
+      td.textContent = "";
+      td.appendChild(select);
+      select.focus();
+
+      select.addEventListener("blur", () => {
+        const valor = select.value;
+        salvarCampo(id, campo, valor, td);
+      });
+
+    } else {
+      const input = document.createElement("input");
+      input.type = campo === "valor" ? "number" : "text";
+      input.step = "0.01";
+      input.value = campo === "valor"
+        ? valorAtual.replace("R$", "").trim().replace(".", "").replace(",", ".")
+        : valorAtual;
+
+      td.textContent = "";
+      td.appendChild(input);
+      input.focus();
+
+      input.addEventListener("blur", () => {
+        let valor = input.value;
+        if (campo === "valor") {
+          valor = parseFloat(valor).toFixed(2);
+        }
+        salvarCampo(id, campo, valor, td);
+      });
+    }
+  });
+});
+
+
+// Função para salvar no backend
+function salvarCampo(id, campo, valor, td) {
+  fetch("/atualizartransferenciacpgFIN", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ id, campo, valor })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.mensagem) {
+      if (campo === "valor") {
+        const valorFormatado = parseFloat(valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        td.textContent = valorFormatado;
+      } 
+      else if (campo === "id_historico" || campo === "debito" || campo === "ok1" || campo === "ok2") {
+        const selectEl = td.querySelector("select");
+        td.textContent = selectEl ? selectEl.options[selectEl.selectedIndex].text : valor;
+      }
+      else {
+        td.textContent = valor;
+      }
+
+      td.classList.add("atualizado");
+      setTimeout(() => td.classList.remove("atualizado"), 800);
+    } else {
+      td.textContent = "Erro";
+      td.classList.add("erro");
+    }
+  })
+  .catch(() => {
+    td.textContent = "Erro";
+    td.classList.add("erro");
+  });
+}
+
+
+
+
+document.addEventListener("click", function(e) {
+  if (e.target.classList.contains("btn-remover")) {
+    const tr = e.target.closest("tr");
+    const id = tr.dataset.idTransferencia;
+
+    if (confirm("Tem certeza que deseja remover esta transferência?")) {
+      fetch("/removertransferenciacpgFIN", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.mensagem) {
+          tr.remove();
+        } else {
+          alert("Erro: " + (data.erro || "não foi possível remover"));
+        }
+      })
+      .catch(err => {
+        console.error("Erro na requisição:", err);
+        alert("Erro de conexão ao remover.");
+      });
+    }
+  }
+});
+
+
+
+
+// Cria o menu customizado para pintar cores
+const menuCores = document.createElement("div");
+menuCores.style.position = "absolute";
+menuCores.style.background = "#fff";
+menuCores.style.border = "1px solid #ccc";
+menuCores.style.padding = "5px";
+menuCores.style.display = "none";
+menuCores.style.zIndex = 1000;
+menuCores.style.boxShadow = "2px 2px 5px rgba(0,0,0,0.2)";
+menuCores.innerHTML = `
+  <div style="cursor:pointer; padding: 3px; display: flex; align-items: center;" data-cor="#fcf3d0">
+    <span style="width: 16px; height: 16px; background-color: #fcf3d0; border: 1px solid #ccc; margin-right: 8px;"></span>
+  </div>
+  <div style="cursor:pointer; padding: 3px; display: flex; align-items: center;" data-cor="#fffd01">
+    <span style="width: 16px; height: 16px; background-color: #fffd01; border: 1px solid #ccc; margin-right: 8px;"></span>
+  </div>
+`;
+document.body.appendChild(menuCores);
+
+let celulaSelecionada = null;
+
+// Abre menu ao clicar com botão direito no campo 'valor'
+document.querySelectorAll(".transferencias-salvas td[data-campo='valor']").forEach(td => {
+  td.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    celulaSelecionada = e.currentTarget;
+
+    // Posiciona o menu onde clicou
+    menuCores.style.top = e.pageY + "px";
+    menuCores.style.left = e.pageX + "px";
+    menuCores.style.display = "block";
+  });
+});
+
+// Clique no menu para aplicar cor
+menuCores.addEventListener("click", (e) => {
+  // Garante pegar o elemento com data-cor (o próprio div pai do span)
+  let target = e.target;
+  if (!target.hasAttribute("data-cor")) {
+    target = target.closest("[data-cor]");
+  }
+  if (!target) return;
+
+  const cor = target.getAttribute("data-cor");
+  if (cor && celulaSelecionada) {
+    const idTransferencia = celulaSelecionada.closest("tr").dataset.idTransferencia;
+    console.log("Salvando cor:", cor, "para id:", idTransferencia);
+
+    celulaSelecionada.style.backgroundColor = cor;
+    menuCores.style.display = "none";
+
+    fetch("/atualizarcorvalor", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: idTransferencia, cor: cor })
+    })
+    .then(res => res.json())
+    .then(data => {
+      console.log("Resposta do servidor:", data);
+      if (data.erro) {
+        alert("Erro ao salvar a cor: " + data.erro);
+      }
+    })
+    .catch(() => alert("Erro ao salvar a cor"));
+  }
+});
+
+
+</script>
+
+{% endblock %}
