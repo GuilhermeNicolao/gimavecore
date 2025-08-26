@@ -13,14 +13,14 @@ from datetime import date
 from io import BytesIO
 import mysql.connector
 import pandas as pd
+import traceback
 import locale
 import bcrypt
 import os
 import re
 
-# Load nas credenciais, parâmetros e no DB
+# Load nas credenciais, parâmetros e funções globais
 load_dotenv()
-DASH_TOKEN = 'gimavecore0011010000110101' #token exclusivo DASH
 app = Flask(__name__)
 app.secret_key = os.getenv("SK")
 locale.setlocale(locale.LC_ALL, '')
@@ -50,7 +50,6 @@ def modulo_requerido(*modulos_necessarios):
     return decorator
 
 def get_parametros_calculos():
-    # Exemplo simples para pegar parâmetro consumo_credenciado do banco
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor(dictionary=True)
     cursor.execute("SELECT consumo_credenciado, confeccao_cartoes, custos_operacionais, custos_operacionais_qtde, " \
@@ -89,8 +88,6 @@ def get_parametros_calculos():
 
     return parametros
 
-#Aqui pode-se registrar usuários que ficarão imunes ao timeout de inatividade
-immunity = {'DASH'} #Adicione os usernames aqui
 
 #---------------LOGIN E TELAS INICIAIS----------------#
 # Login
@@ -113,10 +110,7 @@ def login():
 
                 if bcrypt.checkpw(senha.encode('utf-8'), senha_hash.encode('utf-8') if isinstance(senha_hash, str) else senha_hash):
                     
-                    if username in immunity:
-                        app.permanent_session_lifetime = timedelta(days=3650)
-                    else:
-                        app.permanent_session_lifetime = timedelta(minutes=15) #Inatividade
+                    app.permanent_session_lifetime = timedelta(minutes=15) # Inatividade
                     
                     session.permanent = True
                     session['user_id'] = user_id
@@ -127,7 +121,7 @@ def login():
                         cursor.execute("SELECT modulo FROM modulos WHERE user_id = %s", (user_id,))
                         modulos = [row[0] for row in cursor.fetchall()]
                     else:
-                        modulos = ['COMPRAS', 'COMERCIALGESTOR' , 'COMERCIAL', 'FINANCEIRO', 'CONTASAPAGAR'] #ACESSO ADMIN!!
+                        modulos = ['COMPRAS', 'COMERCIALGESTOR' , 'COMERCIAL', 'FINANCEIRO', 'CONTASAPAGAR','CONTASARECEBER'] #ACESSO ADMIN!!
 
                     session['modulos'] = modulos
                     flash('Login realizado com sucesso!', 'success')
@@ -163,46 +157,6 @@ def logout():
 def renovar_sessao():
     session.permanent = True  # Garante que a sessão seja tratada como permanente
     session.modified = True   # Reinicia o tempo de expiração a cada requisição
-
-# Login Dash (Contorna o controle de inatividade)
-@app.route('/dash_login')
-def dash_login():
-    token = request.args.get('token')
-
-    if token != DASH_TOKEN:
-        abort(403)  # Bloqueia acessos sem token válido
-
-    try:
-        conexao = mysql.connector.connect(**db_config)
-        cursor = conexao.cursor()
-
-        cursor.execute("SELECT user_id, nivel FROM usuarios WHERE username = %s", ('DASH',))
-        resultado = cursor.fetchone()
-
-        if resultado:
-            user_id, nivel = resultado
-
-            session.permanent = True
-            app.permanent_session_lifetime = timedelta(days=3650)
-
-            session['user_id'] = user_id
-            session['username'] = 'DASH'
-            session['nivel'] = nivel
-            session['modulos'] = ['FINANCEIRO']  # ou os módulos certos pro DASH
-
-            return redirect(url_for('menu_principal'))
-
-    except mysql.connector.Error as err:
-        return f"Erro no login automático: {err}", 500
-
-    finally:
-        if 'cursor' in locals():
-            cursor.close()
-        if 'conexao' in locals():
-            conexao.close()
-
-    return "Usuário DASH não encontrado", 404
-
 
 # Registrar novos usuários
 @app.route('/usuarios', methods=['GET', 'POST'])
@@ -288,7 +242,7 @@ def gerenciar_modulos(user_id):
         flash('Você não tem permissão para acessar esta página.', 'danger')
         return redirect(url_for('menu_principal'))  
 
-    modulos_disponiveis = ['COMPRAS', 'COMERCIALGESTOR' , 'COMERCIAL', 'FINANCEIRO', 'CONTASAPAGAR']
+    modulos_disponiveis = ['COMPRAS', 'COMERCIALGESTOR' , 'COMERCIAL', 'FINANCEIRO', 'CONTASAPAGAR','CONTASARECEBER']
 
     try:
         conexao = mysql.connector.connect(**db_config)
@@ -3090,6 +3044,540 @@ def confirmar_selecao_parceiro():
 
 
 
+#--------ROTAS EUCARD (PRÓPRIO)-------------------------------------#
+@app.route('/simulacaoeucCOM')
+@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
+def simulacaoeucCOM():
+    #Verificaçãi de sessão ativa
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+    
+    #Renderização do template de Simulação
+    return render_template('simulacaoeucCOM.html')
+
+@app.route('/parametroseucCOM')
+@modulo_requerido('COMERCIALGESTOR')
+def parametroseucCOM():
+    #Verificação de sessão ativa
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+
+    #Renderização do template de parâmetros
+    return render_template('parametroseucCOM.html')
+
+@app.route('/get_parametroseuc')
+@modulo_requerido('COMERCIALGESTOR')
+def get_parametroseuc():
+    #Verificação de sessão ativa
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+
+    #Funcionalidade
+    try:
+        #Abertura de conexão com o DB
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor(dictionary=True)
+
+        #Consulta
+        cursor.execute("SELECT * FROM parametroseuc_com LIMIT 1")
+        resultado = cursor.fetchone()
+
+        #Envia as informações para o frontend
+        return jsonify(resultado)
+    
+    #Tratamento de exeção
+    except Exception as e:
+        return jsonify({"message": "Erro ao consultar os parâmetros."}), 500
+    
+    #Fechar conexão com o DB
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route('/salvar_parametroseuc', methods=['POST'])
+@modulo_requerido('COMERCIALGESTOR')
+def salvar_parametroseuc():
+    #Vericação de sessão ativa
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+    
+    #Armazenamento dos dados gerados no frontend
+    dados = request.json
+
+    #Funcionalidade
+    try:
+    
+        #Abertura de conexão com o DB
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
+
+        #Deleta as informações que estão no DB e substitui pelas novas. UPDATE com WHERE incrementa ao invés de sobrescrever
+        cursor.execute("DELETE FROM parametroseuc_com")  # Mantém só 1 registro
+        query = """
+            INSERT INTO parametroseuc_com (
+                consumo_credenciado, antecipacao_angels, apropriacao_credito, investimento,
+                confeccao_cartoes, confeccao_cartoes_qtde, segunda_via, segunda_via_qtde, 
+                custos_transacao, custos_transacao_qtde,
+                custos_cartaoativo, custos_cartaoativo_qtde,
+                custo_tag, custo_tag_qtde, custo_eus, custo_eus_qtde,
+                despesatag_envio, despesatag_tagfisica, despesatag_greenpass,
+                despesaeus_epharma, despesaeus_telemedicina, despesaeus_enviounico,
+                negociacao_aprovada, negociacao_pendente, rentabilidade_ideal
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+            %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+
+        #Repassa os valores do JSON para inserção no DB
+        valores = (
+            dados['consumo_credenciado'],
+            dados['antecipacao_angels'],
+            dados['apropriacao_credito'],
+            dados['investimento'],
+            dados['confeccao_cartoes'],
+            dados['confeccao_cartoes_qtde'],
+            dados['segunda_via'],
+            dados['segunda_via_qtde'],
+            dados['custos_transacao'],
+            dados['custos_transacao_qtde'],
+            dados['custos_cartaoativo'],
+            dados['custos_cartaoativo_qtde'],
+            dados['custo_tag'],
+            dados['custo_tag_qtde'],
+            dados['custo_eus'],
+            dados['custo_eus_qtde'],
+            dados['despesatag_envio'],
+            dados['despesatag_tagfisica'],
+            dados['despesatag_greenpass'],
+            dados['despesaeus_epharma'],
+            dados['despesaeus_telemedicina'],
+            dados['despesaeus_enviounico'],
+            dados['negociacao_aprovada'],
+            dados['negociacao_pendente'],
+            dados['rentabilidade_ideal'],
+        )
+        cursor.execute(query, valores)
+        conn.commit()
+        cursor.close()
+
+        #Envia as informações para o frontend
+        return jsonify({"status": "ok"})
+    
+    #Tratamento de exceção
+    except Exception as e:
+        return jsonify({"message": "Erro ao salvar os parâmetros."}), 500
+
+    #Fechar conexão com o DB
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route('/calcular_simulacaoeuc', methods=['POST'])
+@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
+def calcular_simulacaoeuc():
+    #Verificação de sessão ativa
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+
+    #Dados que serão utilizados para os cálculos
+    dados_form = request.json  # dicionário com os dados do formulário
+    parametros = get_parametros_calculos()  # dicionário com os parâmetros do banco
+
+    # Formulário simulacaoeucCOM.html
+    qtde_cartoes = float(dados_form.get('qtde_cartoes') or 0)
+    valor_credito = float(dados_form.get('valor_credito') or 0)
+    qtde_meses = int(dados_form.get('meses') or 0)
+    taxa_adm = float(dados_form.get('taxa_adm') or 0)
+    qtde_cartoes_tag = int(dados_form.get('qtde_cartoes_tag') or 0)
+    rec_tags = float(dados_form.get('rec_tags') or 0)
+    qtde_cartoes_eus = int(dados_form.get('qtde_cartoes_eus') or 0)
+    rec_saude = float(dados_form.get('rec_saude') or 0)
+
+    # Tabela banco de dados
+    consumo_credenciado = float(parametros.get('consumo_credenciado', 0))
+    antecipacao_angels = float(parametros.get('antecipacao_angels', 0))
+    apropriacao_credito = float(parametros.get('apropriacao_credito', 0))
+    investimento = float(parametros.get('investimento', 0))
+    confeccao_cartoes = float(parametros.get('confeccao_cartoes', 0))
+    confeccao_cartoes_qtde = float(parametros.get('confeccao_cartoes_qtde', 0))
+    segunda_via = float(parametros.get('segunda_via', 0))
+    segunda_via_qtde = float(parametros.get('segunda_via_qtde', 0))
+    custos_transacao = float(parametros.get('custos_transacao', 0))
+    custos_transacao_qtde = float(parametros.get('custos_transacao_qtde', 0))
+    custos_cartaoativo = float(parametros.get('custos_cartaoativo', 0))
+    custos_cartaoativo_qtde = float(parametros.get('custos_cartaoativo_qtde', 0))
+    custo_tag = float(parametros.get('custo_tag', 0))
+    custo_tag_qtde = float(parametros.get('custo_tag_qtde', 0))
+    custo_eus = float(parametros.get('custo_eus', 0))
+    custo_eus_qtde = float(parametros.get('custo_eus_qtde', 0))
+    despesatag_envio = float(parametros.get('despesatag_envio', 0))
+    despesatag_tagfisica = float(parametros.get('despesatag_tagfisica', 0))
+    despesatag_greenpass = float(parametros.get('despesatag_greenpass', 0))
+    despesaeus_epharma = float(parametros.get('despesaeus_epharma', 0))
+    despesaeus_telemedicina = float(parametros.get('despesaeus_telemedicina', 0))
+    despesaeus_enviounico = float(parametros.get('despesaeus_enviounico', 0))
+    negociacao_aprovada = float(parametros.get('negociacao_aprovada', 0))
+    negociacao_pendente = float(parametros.get('negociacao_pendente', 0))
+    rentabilidade_ideal = float(parametros.get('rentabilidade_ideal', 0))
+
+    #CÁLCULOS
+
+    # Volumetria
+    volumeMensal = qtde_cartoes * valor_credito
+    volumeAnual = volumeMensal * 12
+    volumeContrato = volumeMensal * qtde_meses
+
+    # Receitas Previstas - Cartão Eucard
+    consumoCredenciadoMensal = volumeMensal * (consumo_credenciado / 100)
+    consumoCredenciadoAnual = volumeAnual * (consumo_credenciado / 100)
+    consumoCredenciadoContrato = volumeContrato * (consumo_credenciado / 100)
+
+    taxaAdmMensal = volumeMensal * (taxa_adm / 100)
+    taxaAdmAnual = volumeAnual * (taxa_adm / 100)
+    taxaAdmContrato = volumeContrato * (taxa_adm / 100)
+
+    antecipacaoAngelsMensal = volumeMensal * (antecipacao_angels / 100)
+    antecipacaoAngelsAnual = volumeAnual * (antecipacao_angels / 100)
+    antecipacaoAngelsContrato = volumeContrato * (antecipacao_angels / 100)
+
+    apropriacaoCreditoMensal = volumeMensal * (apropriacao_credito / 100)
+    apropriacaoCreditoAnual = volumeAnual * (apropriacao_credito / 100)
+    apropriacaoCreditoContrato = volumeContrato * (apropriacao_credito / 100)
+
+    investimentoMensal = volumeMensal * (investimento / 100)
+    investimentoAnual = volumeAnual * (investimento / 100)
+    investimentoContrato = volumeContrato * (investimento / 100)
+
+    totalReceitasPrevistasMensal = consumoCredenciadoMensal + taxaAdmMensal + antecipacaoAngelsMensal + apropriacaoCreditoMensal + investimentoMensal
+    totalReceitasPrevistasAnual = consumoCredenciadoAnual + taxaAdmAnual + antecipacaoAngelsAnual + apropriacaoCreditoAnual + investimentoAnual
+    totalReceitasPrevistasContrato = consumoCredenciadoContrato + taxaAdmContrato + antecipacaoAngelsContrato + apropriacaoCreditoContrato + investimentoContrato
+
+
+
+
+    # Despesas Previstas - Cartão Eucard
+    confeccaoCartoesContrato = confeccao_cartoes * confeccao_cartoes_qtde
+    confeccaoCartoesAnual = confeccaoCartoesContrato / (qtde_meses / 12)
+    confeccaoCartoesMensal = confeccaoCartoesAnual / 12
+
+    segundaViaContrato = segunda_via * segunda_via_qtde 
+    segundaViaAnual = segundaViaContrato / (qtde_meses / 12)
+    segundaViaMensal = segundaViaAnual / 12
+
+    custosTransacaoContrato = custos_transacao * custos_transacao_qtde
+    custosTransacaoAnual = custosTransacaoContrato / (qtde_meses / 12)
+    custosTransacaoMensal = custosTransacaoAnual / 12
+
+    custosCartaoAtivoContrato = custos_cartaoativo * custos_cartaoativo_qtde
+    custosCartaoAtivoAnual = custosCartaoAtivoContrato / (qtde_meses / 12)
+    custosCartaoAtivoMensal = custosCartaoAtivoAnual / 12
+
+    totalDespesasPrevistasMensal = confeccaoCartoesMensal + segundaViaMensal + custosTransacaoMensal + custosCartaoAtivoMensal
+    totalDespesasPrevistasAnual = confeccaoCartoesAnual + segundaViaAnual + custosTransacaoAnual + custosCartaoAtivoAnual
+    totalDespesasPrevistasContrato = confeccaoCartoesContrato + segundaViaContrato + custosTransacaoContrato + custosCartaoAtivoContrato    
+
+
+
+    # Outros Produtos
+    receitaTagContrato = rec_tags * qtde_cartoes_tag * qtde_meses
+    despesaTagEnvioContrato = despesatag_envio * qtde_cartoes_tag
+    despesaTagFisicaContrato = despesatag_tagfisica * qtde_cartoes_tag
+    despesaTagGreenpassContrato = (despesatag_greenpass * qtde_cartoes_tag) * qtde_meses
+    custoTagContrato = (custo_tag * custo_tag_qtde * qtde_cartoes) * qtde_meses
+    totalDespesasTagContrato = custoTagContrato + despesaTagGreenpassContrato + despesaTagFisicaContrato + despesaTagEnvioContrato
+
+    receitaEusContrato = rec_saude * qtde_cartoes_eus * qtde_meses
+    despesaEusEpharma = despesaeus_epharma * qtde_cartoes_eus * qtde_meses
+    despesaEusTelemedicina = despesaeus_telemedicina * qtde_cartoes_eus
+    despesaEusEnvio = despesaeus_enviounico * qtde_cartoes_eus
+    custoEusContrato = (custo_eus * custo_eus_qtde * qtde_cartoes) * qtde_meses
+    totalDespesasEusContrato = custoEusContrato + despesaEusEnvio + despesaEusTelemedicina + despesaEusEpharma
+
+
+
+
+    # Resultados
+    resultReceitas = totalReceitasPrevistasContrato + receitaTagContrato + receitaEusContrato
+    resultDespesas = totalDespesasPrevistasContrato + totalDespesasTagContrato + totalDespesasEusContrato
+    rentabilidadeIdeal = rentabilidade_ideal
+    statusAprovado = negociacao_aprovada
+    statusPendente = negociacao_pendente
+    lucroOperacao = resultReceitas - resultDespesas
+    lucroOperacaoMensal = lucroOperacao / qtde_meses
+    rentabilidadeAtual = (lucroOperacao / volumeContrato) * 100
+    payback = resultDespesas / totalReceitasPrevistasMensal 
+
+
+    #JSON com os resultados que será enviado ao frontend
+    resultado = {
+        "volumeMensal": volumeMensal,
+        "volumeAnual": volumeAnual,
+        "volumeContrato": volumeContrato,
+        "consumoCredenciadoMensal": consumoCredenciadoMensal,
+        "consumoCredenciadoAnual": consumoCredenciadoMensal,
+        "consumoCredenciadoContrato": consumoCredenciadoContrato,
+        "taxaAdmMensal": taxaAdmMensal,
+        "taxaAdmAnual": taxaAdmAnual,
+        "taxaAdmContrato": taxaAdmContrato,
+        "totalReceitasPrevistasMensal": totalReceitasPrevistasMensal,
+        "totalReceitasPrevistasAnual": totalReceitasPrevistasAnual,
+        "totalReceitasPrevistasContrato": totalReceitasPrevistasContrato,
+        "confeccaoCartoesContrato": confeccaoCartoesContrato,
+        "custoTagContrato": custoTagContrato,
+        "custoEusContrato": custoEusContrato,  
+        "totalDespesasPrevistasContrato": totalDespesasPrevistasContrato,
+        "receitaTagContrato": receitaTagContrato,
+        "despesaTagEnvioContrato": despesaTagEnvioContrato,
+        "despesaTagFisicaContrato": despesaTagFisicaContrato,
+        "despesaTagGreenpassContrato": despesaTagGreenpassContrato,
+        "totalDespesasTagContrato": totalDespesasTagContrato,
+        "receitaEusContrato": receitaEusContrato,
+        "despesaEusEpharma": despesaEusEpharma,
+        "despesaEusTelemedicina": despesaEusTelemedicina,
+        "despesaEusEnvio": despesaEusEnvio,
+        "totalDespesasEusContrato": totalDespesasEusContrato,
+        "resultReceitas": resultReceitas,
+        "resultDespesas": resultDespesas,
+        "rentabilidadeIdeal": rentabilidadeIdeal,
+        "statusAprovado": statusAprovado,
+        "statusPendente": statusPendente,
+        "lucroOperacao": lucroOperacao,
+        "lucroOperacaoMensal": lucroOperacaoMensal,
+        "rentabilidadeAtual": rentabilidadeAtual,
+        "payback": payback     
+    }
+
+    return jsonify(resultado)
+
+@app.route('/gravar_propostaeucCOM', methods=['POST'])
+@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
+def gravar_propostaeucCOM():
+    #Verificação de sessão ativa
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+
+    #Dados enviados pelo front end, dados do usuário e status da simulação
+    data = request.get_json()
+    user_id = session.get('user_id')
+    status = data.get("status","PENDENTE")
+
+    try:
+        #Abertura de conexão com o DB
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
+
+        # Buscar os parâmetros no DB
+        cursor.execute("""
+            SELECT 
+                consumo_credenciado, antecipacao_angels, apropriacao_credito, investimento,
+                confeccao_cartoes, confeccao_cartoes_qtde, segunda_via, segunda_via_qtde,
+                custos_transacao, custos_transacao_qtde, custos_cartaoativo, custos_cartaoativo_qtde,
+                custo_tag, custo_tag_qtde, custo_eus, custo_eus_qtde,
+                despesatag_envio, despesatag_tagfisica, despesatag_greenpass,
+                despesaeus_epharma, despesaeus_telemedicina, despesaeus_enviounico,
+                negociacao_aprovada, negociacao_pendente, rentabilidade_ideal
+            FROM parametroseuc_com
+            ORDER BY id DESC LIMIT 1
+        """)
+        parametros = cursor.fetchone()
+
+        #Tratamento de exceção: Parâmetros
+        if not parametros:
+            return jsonify({"message": "Nenhum parâmetro cadastrado!"}), 400
+
+        parametros = list(parametros)  # Ignora o ID da linha
+
+        #Faz o tratamento dos valores antes de gravar no DB
+        def tratar_valor(valor):
+            return float(valor.replace("R$", "").replace(".", "").replace(",", ".").strip())
+
+        valores = (
+            int(data['qtde_cartoes']),
+            tratar_valor(data['valor_credito']),
+            int(data['meses']),
+            float(data['taxa_adm']),
+            int(data['qtde_cartoes_tag']),
+            tratar_valor(data['rec_tags']),
+            int(data['qtde_cartoes_eus']),
+            tratar_valor(data['rec_saude']),
+            *parametros,
+            float(data['lucroOperacao']),
+            float(data['lucroOperacaoMensal']),
+            float(data['rentabilidadeAtual']),
+            float(data['volumeMensal']),      
+            float(data['volumeAnual']),       
+            float(data['volumeContrato']),
+            float(data['payback']),
+            user_id,
+            status
+        )
+
+        #Insert
+        sql = """
+            INSERT INTO simulacaoeuc_com (
+                qtde_cartoes, valor_credito, qtde_meses, taxa_adm,
+                qtde_cartoes_tag, rec_tags, qtde_cartoes_eus, rec_saude,
+                consumo_credenciado, antecipacao_angels, apropriacao_credito, investimento,
+                confeccao_cartoes, confeccao_cartoes_qtde, segunda_via, segunda_via_qtde,
+                custos_transacao, custos_transacao_qtde, custos_cartaoativo, custos_cartaoativo_qtde,
+                custo_tag, custo_tag_qtde, custo_eus, custo_eus_qtde,
+                despesatag_envio, despesatag_tagfisica, despesatag_greenpass,
+                despesaeus_epharma, despesaeus_telemedicina, despesaeus_enviounico,
+                negociacao_aprovada, negociacao_pendente, rentabilidade_ideal,
+                lucro_operacao, lucro_operacao_mensal, rentabilidade_atual,
+                volume_mensal, volume_anual, volume_contrato, payback,
+                user_id, status
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s
+            )
+        """
+        
+        cursor.execute(sql, valores)
+        conn.commit()
+
+        return jsonify({"message": "Proposta gravada com sucesso!"})
+
+    except Exception as e:
+        print("Erro ao gravar proposta:", e)
+        return jsonify({"message": "Erro ao gravar proposta."}), 500
+
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route('/aprovacoeseucCOM')
+@modulo_requerido('COMERCIALGESTOR')
+def aprovacoeseucCOM():
+    #Verificação de sessão ativa
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+
+    #Renderização do template de aprovações
+    return render_template('aprovacoeseucCOM.html')
+
+@app.route('/enviar_para_aprovacaoeucCOM', methods=['POST'])
+@modulo_requerido('COMERCIALGESTOR')
+def enviar_para_aprovacaoeucCOM():
+    #Verificação de sessão ativa
+    if 'username' not in session:
+        return jsonify({"message": "Usuário não autenticado."}), 401
+
+    data = request.get_json()
+    id_proposta = data.get("id")
+
+    #Tratamento de exceção: Id Proposta
+    if not id_proposta:
+        return jsonify({"message": "ID da proposta é obrigatório."}), 400
+
+    #Funcionalidade
+    try:
+        #Abertura de conexão com o DB
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
+
+        #Update
+        cursor.execute("UPDATE simulacaoeuc_com SET status = 'APROVADO' WHERE id_simeuc = %s", (id_proposta,))
+        conn.commit()
+        
+        return jsonify({"message": "Status da proposta atualizado para APROVADO."})
+
+    #Tratamento de exceção
+    except Exception as e:
+        return jsonify({"message": f"Erro: {str(e)}"}), 500
+    
+    #Fechar conexão com o DB
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route('/listar_aprovacoeseucCOM', methods=['GET'])
+@modulo_requerido('COMERCIALGESTOR')
+def listar_aprovacoeseucCOM():
+    #Verificação de sessão ativa
+    if 'username' not in session:
+        return jsonify([])
+
+
+    try:
+        #Abertura de conexão com o DB
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor(dictionary=True)
+
+        #Funcionalidade
+        query = """
+            SELECT s.id_simeuc, s.qtde_cartoes, s.valor_credito, s.qtde_meses, s.rentabilidade_atual, s.user_id, u.nome AS usuario
+            FROM simulacaoeuc_com s
+            LEFT JOIN usuarios u ON u.user_id = s.user_id
+            WHERE s.status = 'PENDENTE'
+            ORDER BY s.id_simeuc DESC
+        """
+        cursor.execute(query)
+        propostas = cursor.fetchall()
+
+        #Envia o JSON para o frontend
+        return jsonify(propostas)
+
+    #Tratamento de exceção
+    except Exception as e:
+        print(f"Erro ao listar pendentes: {e}")
+        return jsonify({"message": f"Erro ao listar pendentes: {str(e)}"}), 500
+
+    #Fecha conexão com o DB
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route("/reprovar_propostaeucCOM", methods=["POST"])
+@modulo_requerido('COMERCIALGESTOR')
+def reprovar_propostaeucCOM():
+    #Verificação de sessão ativa
+    if 'username' not in session:
+        return jsonify({"message": "Usuário não autenticado."}), 401
+
+    data = request.get_json()
+    proposta_id = data.get("id")
+
+    #Tratamento de exceção: Id Proposta
+    if not proposta_id:
+        return jsonify({"message": "ID da proposta não informado."}), 400
+
+    try:
+        #Abre a conexão com o DB
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
+
+        # Deleta a proposta do banco
+        cursor.execute("DELETE FROM simulacaoeuc_com WHERE id_simeuc = %s AND status = 'PENDENTE'", (proposta_id,))
+        conn.commit()
+
+        if cursor.rowcount == 0:
+            return jsonify({"message": "Proposta não encontrada ou já foi aprovada/reprovada."}), 404
+
+        return jsonify({"message": "Proposta reprovada e removida com sucesso."})
+
+    #Tratamento de exceção
+    except Exception as e:
+        return jsonify({"message": f"Erro ao reprovar proposta: {str(e)}"}), 500
+
+    #Fechar a conexão com o DB
+    finally:
+        cursor.close()
+        conn.close()
+#------------------------------------------------------------------#
+
+
+
+
 #-----------ROTAS FINANCEIRO---------------------------------------#
 #Dashboard Conciliação Financeiro
 @app.route('/formularioconciliacaoFIN', methods=['GET'])
@@ -3233,8 +3721,13 @@ def dashboardconciliacaoFIN():
     except mysql.connector.Error as err:
         flash(f'Erro ao carregar dados: {err}', 'erro')
         return render_template('dashboardconciliacaoFIN.html', empresas=[])
+#------------------------------------------------------------------#
 
 
+
+
+
+#-----------CONTAS A PAGAR---------------------------------------#
 #Credenciados a Pagar
 @app.route('/uploadcredenciadocpgFIN', methods=['GET', 'POST'])
 @modulo_requerido('CONTASAPAGAR')
@@ -3839,8 +4332,8 @@ def credenciadosapagarcpgFIN():
             WHERE status = 'V' AND vencimento < %s
         """
 
-        ontem = date.today() - timedelta(days=1)
-        params_v = [ontem]
+        hoje = date.today()
+        params_v = [hoje]
 
 
         query_vencidos += " ORDER BY vencimento, valor, credenciado"
@@ -4041,7 +4534,6 @@ def atualizarcredenciadocpgFIN():
         if conn is not None:
             conn.close()
 
-
 @app.route('/credenciadoparcialcpgFIN', methods=['POST'])
 @modulo_requerido('CONTASAPAGAR')
 def credenciadoparcialcpgFIN():
@@ -4114,540 +4606,263 @@ def registrar_historico():
     finally:
         cursor.close()
         conn.close()
-#-------------------------------------------------------------------#
 
 
 
-
-#--------ROTAS EUCARD (PRÓPRIO)-------------------------------------#
-@app.route('/simulacaoeucCOM')
-@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
-def simulacaoeucCOM():
-    #Verificaçãi de sessão ativa
-    if 'username' not in session:
-        flash('Você precisa estar logado para acessar esta página.', 'warning')
-        return redirect(url_for('login'))
-    
-    #Renderização do template de Simulação
-    return render_template('simulacaoeucCOM.html')
-
-@app.route('/parametroseucCOM')
-@modulo_requerido('COMERCIALGESTOR')
-def parametroseucCOM():
-    #Verificação de sessão ativa
+#Transferências diárias
+@app.route('/transferenciasdiariascpgFIN')
+@modulo_requerido('CONTASAPAGAR')
+def transferenciasdiariascpgFIN():  
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
 
-    #Renderização do template de parâmetros
-    return render_template('parametroseucCOM.html')
+    data_selecionada = request.args.get('data', default=str(date.today()))
 
-@app.route('/get_parametroseuc')
-@modulo_requerido('COMERCIALGESTOR')
-def get_parametroseuc():
-    #Verificação de sessão ativa
-    if 'username' not in session:
-        flash('Você precisa estar logado para acessar esta página.', 'warning')
-        return redirect(url_for('login'))
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor(dictionary=True)
 
-    #Funcionalidade
     try:
-        #Abertura de conexão com o DB
-        conn = mysql.connector.connect(**db_config)
-        cursor = conn.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT t.*, h.descricao as historico_desc, e.empresa as empresa_nome, u.username as usuario
+            FROM transferenciasdiariascpg_fin t
+            LEFT JOIN historicos h ON t.id_historico = h.id_historico
+            LEFT JOIN empresas e ON t.id_empresa = e.id_empresa
+            LEFT JOIN usuarios u ON t.user_id = u.user_id
+            WHERE t.data_registro = %s
+            ORDER BY t.id_transferencia DESC
+        """, (data_selecionada,))
+        transferencias = cursor.fetchall()
 
-        #Consulta
-        cursor.execute("SELECT * FROM parametroseuc_com LIMIT 1")
-        resultado = cursor.fetchone()
-
-        #Envia as informações para o frontend
-        return jsonify(resultado)
-    
-    #Tratamento de exeção
     except Exception as e:
-        return jsonify({"message": "Erro ao consultar os parâmetros."}), 500
-    
-    #Fechar conexão com o DB
+        flash(f'Erro ao carregar transferências: {e}', 'danger')
+        transferencias = []
+
     finally:
         cursor.close()
         conn.close()
 
-@app.route('/salvar_parametroseuc', methods=['POST'])
-@modulo_requerido('COMERCIALGESTOR')
-def salvar_parametroseuc():
-    #Vericação de sessão ativa
+    return render_template('transferenciasdiariascpgFIN.html',
+                           data_selecionada=data_selecionada,
+                           transferencias=transferencias)
+
+@app.route('/listarcontascpgFIN')
+@modulo_requerido('CONTASAPAGAR')
+def listarcontascpgFIN():
+    # Verificação de sessão ativa
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
-    
-    #Armazenamento dos dados gerados no frontend
+
+    # Conexão com o banco
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        cursor.execute("""
+            SELECT id_historico, descricao
+            FROM historicos
+            ORDER BY descricao
+        """)
+        historicos = cursor.fetchall()
+
+        cursor.execute("""
+            SELECT conta, descricao
+            FROM contasbancarias
+            ORDER BY descricao
+        """)
+        contas = cursor.fetchall()
+
+        return jsonify({
+            'historicos': historicos,
+            'contas': contas
+        })
+
+    except Exception as e:
+        return jsonify({'erro': str(e)}), 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+@app.route('/salvartransferenciacpgFIN', methods=['POST'])
+@modulo_requerido('CONTASAPAGAR')
+def salvartransferenciacpgFIN():
+    if 'username' not in session:
+        return jsonify({'erro': 'Sessão expirada'}), 401
+
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'erro': 'Usuário não autenticado'}), 401
+
     dados = request.json
 
-    #Funcionalidade
     try:
-    
-        #Abertura de conexão com o DB
         conn = mysql.connector.connect(**db_config)
         cursor = conn.cursor()
 
-        #Deleta as informações que estão no DB e substitui pelas novas. UPDATE com WHERE incrementa ao invés de sobrescrever
-        cursor.execute("DELETE FROM parametroseuc_com")  # Mantém só 1 registro
         query = """
-            INSERT INTO parametroseuc_com (
-                consumo_credenciado, antecipacao_angels, apropriacao_credito, investimento,
-                confeccao_cartoes, confeccao_cartoes_qtde, segunda_via, segunda_via_qtde, 
-                custos_transacao, custos_transacao_qtde,
-                custos_cartaoativo, custos_cartaoativo_qtde,
-                custo_tag, custo_tag_qtde, custo_eus, custo_eus_qtde,
-                despesatag_envio, despesatag_tagfisica, despesatag_greenpass,
-                despesaeus_epharma, despesaeus_telemedicina, despesaeus_enviounico,
-                negociacao_aprovada, negociacao_pendente, rentabilidade_ideal
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-            %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO transferenciasdiariascpg_fin 
+            (id_historico, debito, credito, valor, comentarios, ok1, ok2, id_empresa, user_id, data_registro)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
 
-        #Repassa os valores do JSON para inserção no DB
-        valores = (
-            dados['consumo_credenciado'],
-            dados['antecipacao_angels'],
-            dados['apropriacao_credito'],
-            dados['investimento'],
-            dados['confeccao_cartoes'],
-            dados['confeccao_cartoes_qtde'],
-            dados['segunda_via'],
-            dados['segunda_via_qtde'],
-            dados['custos_transacao'],
-            dados['custos_transacao_qtde'],
-            dados['custos_cartaoativo'],
-            dados['custos_cartaoativo_qtde'],
-            dados['custo_tag'],
-            dados['custo_tag_qtde'],
-            dados['custo_eus'],
-            dados['custo_eus_qtde'],
-            dados['despesatag_envio'],
-            dados['despesatag_tagfisica'],
-            dados['despesatag_greenpass'],
-            dados['despesaeus_epharma'],
-            dados['despesaeus_telemedicina'],
-            dados['despesaeus_enviounico'],
-            dados['negociacao_aprovada'],
-            dados['negociacao_pendente'],
-            dados['rentabilidade_ideal'],
-        )
-        cursor.execute(query, valores)
+        for item in dados:
+            data_str = item.get('data_registro')
+            try:
+                data_registro = datetime.strptime(data_str, '%Y-%m-%d').date() if data_str else date.today()
+            except ValueError:
+                return jsonify({'erro': 'Formato de data inválido'}), 400
+
+            cursor.execute(query, (
+                item['id_historico'],
+                item['debito'],
+                item['credito'],
+                item['valor'],
+                item['comentarios'],
+                item['ok1'],
+                item['ok2'],
+                item['id_empresa'],
+                user_id,
+                data_registro
+            ))
+
+        conn.commit()
+        return jsonify({'mensagem': 'Transferências salvas com sucesso!'})
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'erro': str(e)}), 500
+
+    finally:
+        if cursor: cursor.close()
+        if conn: conn.close()
+
+@app.route('/atualizartransferenciacpgFIN', methods=['POST'])
+def atualizartransferenciacpgFIN():
+    if 'username' not in session:
+        return jsonify({'erro': 'Sessão expirada'}), 401
+
+    data = request.json
+
+    id = data.get("id")
+    campo = data.get("campo")
+    valor = data.get("valor")
+
+    if not id or not campo:
+        return jsonify({"erro": "ID e campo são obrigatórios"}), 400
+
+    try:
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
+        cursor.execute(f"UPDATE transferenciasdiariascpg_fin SET {campo} = %s WHERE id_transferencia = %s", (valor, id))
         conn.commit()
         cursor.close()
+        conn.close()
+        return jsonify({"mensagem": "Atualizado com sucesso!"})
+    except Exception as e:
+        return jsonify({"erro": str(e)}), 500
 
-        #Envia as informações para o frontend
-        return jsonify({"status": "ok"})
+@app.route('/removertransferenciacpgFIN', methods=['POST'])
+@modulo_requerido('CONTASAPAGAR')
+def removertransferenciacpgFIN():
+    if 'username' not in session:
+        return jsonify({'erro': 'Sessão expirada'}), 401
+
+    data = request.json
+    id = data.get("id")
+
+    if not id:
+        return jsonify({"erro": "ID é obrigatório"}), 400
+
+    try:
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM transferenciasdiariascpg_fin WHERE id_transferencia = %s", (id,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return jsonify({"mensagem": "Transferência removida com sucesso!"})
+    except Exception as e:
+        return jsonify({"erro": str(e)}), 500
+
+@app.route('/atualizarcorvalor', methods=['POST'])
+@modulo_requerido('CONTASAPAGAR')
+def atualizarcorvalor():
+    if 'username' not in session:
+        return jsonify({'erro': 'Sessão expirada'}), 401
     
-    #Tratamento de exceção
-    except Exception as e:
-        return jsonify({"message": "Erro ao salvar os parâmetros."}), 500
-
-    #Fechar conexão com o DB
-    finally:
-        cursor.close()
-        conn.close()
-
-@app.route('/calcular_simulacaoeuc', methods=['POST'])
-@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
-def calcular_simulacaoeuc():
-    #Verificação de sessão ativa
-    if 'username' not in session:
-        flash('Você precisa estar logado para acessar esta página.', 'warning')
-        return redirect(url_for('login'))
-
-    #Dados que serão utilizados para os cálculos
-    dados_form = request.json  # dicionário com os dados do formulário
-    parametros = get_parametros_calculos()  # dicionário com os parâmetros do banco
-
-    # Formulário simulacaoeucCOM.html
-    qtde_cartoes = float(dados_form.get('qtde_cartoes') or 0)
-    valor_credito = float(dados_form.get('valor_credito') or 0)
-    qtde_meses = int(dados_form.get('meses') or 0)
-    taxa_adm = float(dados_form.get('taxa_adm') or 0)
-    qtde_cartoes_tag = int(dados_form.get('qtde_cartoes_tag') or 0)
-    rec_tags = float(dados_form.get('rec_tags') or 0)
-    qtde_cartoes_eus = int(dados_form.get('qtde_cartoes_eus') or 0)
-    rec_saude = float(dados_form.get('rec_saude') or 0)
-
-    # Tabela banco de dados
-    consumo_credenciado = float(parametros.get('consumo_credenciado', 0))
-    antecipacao_angels = float(parametros.get('antecipacao_angels', 0))
-    apropriacao_credito = float(parametros.get('apropriacao_credito', 0))
-    investimento = float(parametros.get('investimento', 0))
-    confeccao_cartoes = float(parametros.get('confeccao_cartoes', 0))
-    confeccao_cartoes_qtde = float(parametros.get('confeccao_cartoes_qtde', 0))
-    segunda_via = float(parametros.get('segunda_via', 0))
-    segunda_via_qtde = float(parametros.get('segunda_via_qtde', 0))
-    custos_transacao = float(parametros.get('custos_transacao', 0))
-    custos_transacao_qtde = float(parametros.get('custos_transacao_qtde', 0))
-    custos_cartaoativo = float(parametros.get('custos_cartaoativo', 0))
-    custos_cartaoativo_qtde = float(parametros.get('custos_cartaoativo_qtde', 0))
-    custo_tag = float(parametros.get('custo_tag', 0))
-    custo_tag_qtde = float(parametros.get('custo_tag_qtde', 0))
-    custo_eus = float(parametros.get('custo_eus', 0))
-    custo_eus_qtde = float(parametros.get('custo_eus_qtde', 0))
-    despesatag_envio = float(parametros.get('despesatag_envio', 0))
-    despesatag_tagfisica = float(parametros.get('despesatag_tagfisica', 0))
-    despesatag_greenpass = float(parametros.get('despesatag_greenpass', 0))
-    despesaeus_epharma = float(parametros.get('despesaeus_epharma', 0))
-    despesaeus_telemedicina = float(parametros.get('despesaeus_telemedicina', 0))
-    despesaeus_enviounico = float(parametros.get('despesaeus_enviounico', 0))
-    negociacao_aprovada = float(parametros.get('negociacao_aprovada', 0))
-    negociacao_pendente = float(parametros.get('negociacao_pendente', 0))
-    rentabilidade_ideal = float(parametros.get('rentabilidade_ideal', 0))
-
-    #CÁLCULOS
-
-    # Volumetria
-    volumeMensal = qtde_cartoes * valor_credito
-    volumeAnual = volumeMensal * 12
-    volumeContrato = volumeMensal * qtde_meses
-
-    # Receitas Previstas - Cartão Eucard
-    consumoCredenciadoMensal = volumeMensal * (consumo_credenciado / 100)
-    consumoCredenciadoAnual = volumeAnual * (consumo_credenciado / 100)
-    consumoCredenciadoContrato = volumeContrato * (consumo_credenciado / 100)
-
-    taxaAdmMensal = volumeMensal * (taxa_adm / 100)
-    taxaAdmAnual = volumeAnual * (taxa_adm / 100)
-    taxaAdmContrato = volumeContrato * (taxa_adm / 100)
-
-    antecipacaoAngelsMensal = volumeMensal * (antecipacao_angels / 100)
-    antecipacaoAngelsAnual = volumeAnual * (antecipacao_angels / 100)
-    antecipacaoAngelsContrato = volumeContrato * (antecipacao_angels / 100)
-
-    apropriacaoCreditoMensal = volumeMensal * (apropriacao_credito / 100)
-    apropriacaoCreditoAnual = volumeAnual * (apropriacao_credito / 100)
-    apropriacaoCreditoContrato = volumeContrato * (apropriacao_credito / 100)
-
-    investimentoMensal = volumeMensal * (investimento / 100)
-    investimentoAnual = volumeAnual * (investimento / 100)
-    investimentoContrato = volumeContrato * (investimento / 100)
-
-    totalReceitasPrevistasMensal = consumoCredenciadoMensal + taxaAdmMensal + antecipacaoAngelsMensal + apropriacaoCreditoMensal + investimentoMensal
-    totalReceitasPrevistasAnual = consumoCredenciadoAnual + taxaAdmAnual + antecipacaoAngelsAnual + apropriacaoCreditoAnual + investimentoAnual
-    totalReceitasPrevistasContrato = consumoCredenciadoContrato + taxaAdmContrato + antecipacaoAngelsContrato + apropriacaoCreditoContrato + investimentoContrato
+    data = request.json
+    id_transferencia = data.get('id')
+    cor = data.get('cor')
 
 
 
-
-    # Despesas Previstas - Cartão Eucard
-    confeccaoCartoesContrato = confeccao_cartoes * confeccao_cartoes_qtde
-    confeccaoCartoesAnual = confeccaoCartoesContrato / (qtde_meses / 12)
-    confeccaoCartoesMensal = confeccaoCartoesAnual / 12
-
-    segundaViaContrato = segunda_via * segunda_via_qtde 
-    segundaViaAnual = segundaViaContrato / (qtde_meses / 12)
-    segundaViaMensal = segundaViaAnual / 12
-
-    custosTransacaoContrato = custos_transacao * custos_transacao_qtde
-    custosTransacaoAnual = custosTransacaoContrato / (qtde_meses / 12)
-    custosTransacaoMensal = custosTransacaoAnual / 12
-
-    custosCartaoAtivoContrato = custos_cartaoativo * custos_cartaoativo_qtde
-    custosCartaoAtivoAnual = custosCartaoAtivoContrato / (qtde_meses / 12)
-    custosCartaoAtivoMensal = custosCartaoAtivoAnual / 12
-
-    totalDespesasPrevistasMensal = confeccaoCartoesMensal + segundaViaMensal + custosTransacaoMensal + custosCartaoAtivoMensal
-    totalDespesasPrevistasAnual = confeccaoCartoesAnual + segundaViaAnual + custosTransacaoAnual + custosCartaoAtivoAnual
-    totalDespesasPrevistasContrato = confeccaoCartoesContrato + segundaViaContrato + custosTransacaoContrato + custosCartaoAtivoContrato    
-
-
-
-    # Outros Produtos
-    receitaTagContrato = rec_tags * qtde_cartoes_tag * qtde_meses
-    despesaTagEnvioContrato = despesatag_envio * qtde_cartoes_tag
-    despesaTagFisicaContrato = despesatag_tagfisica * qtde_cartoes_tag
-    despesaTagGreenpassContrato = (despesatag_greenpass * qtde_cartoes_tag) * qtde_meses
-    custoTagContrato = (custo_tag * custo_tag_qtde * qtde_cartoes) * qtde_meses
-    totalDespesasTagContrato = custoTagContrato + despesaTagGreenpassContrato + despesaTagFisicaContrato + despesaTagEnvioContrato
-
-    receitaEusContrato = rec_saude * qtde_cartoes_eus * qtde_meses
-    despesaEusEpharma = despesaeus_epharma * qtde_cartoes_eus * qtde_meses
-    despesaEusTelemedicina = despesaeus_telemedicina * qtde_cartoes_eus
-    despesaEusEnvio = despesaeus_enviounico * qtde_cartoes_eus
-    custoEusContrato = (custo_eus * custo_eus_qtde * qtde_cartoes) * qtde_meses
-    totalDespesasEusContrato = custoEusContrato + despesaEusEnvio + despesaEusTelemedicina + despesaEusEpharma
-
-
-
-
-    # Resultados
-    resultReceitas = totalReceitasPrevistasContrato + receitaTagContrato + receitaEusContrato
-    resultDespesas = totalDespesasPrevistasContrato + totalDespesasTagContrato + totalDespesasEusContrato
-    rentabilidadeIdeal = rentabilidade_ideal
-    statusAprovado = negociacao_aprovada
-    statusPendente = negociacao_pendente
-    lucroOperacao = resultReceitas - resultDespesas
-    lucroOperacaoMensal = lucroOperacao / qtde_meses
-    rentabilidadeAtual = (lucroOperacao / volumeContrato) * 100
-    payback = resultDespesas / totalReceitasPrevistasMensal 
-
-
-    #JSON com os resultados que será enviado ao frontend
-    resultado = {
-        "volumeMensal": volumeMensal,
-        "volumeAnual": volumeAnual,
-        "volumeContrato": volumeContrato,
-        "consumoCredenciadoMensal": consumoCredenciadoMensal,
-        "consumoCredenciadoAnual": consumoCredenciadoMensal,
-        "consumoCredenciadoContrato": consumoCredenciadoContrato,
-        "taxaAdmMensal": taxaAdmMensal,
-        "taxaAdmAnual": taxaAdmAnual,
-        "taxaAdmContrato": taxaAdmContrato,
-        "totalReceitasPrevistasMensal": totalReceitasPrevistasMensal,
-        "totalReceitasPrevistasAnual": totalReceitasPrevistasAnual,
-        "totalReceitasPrevistasContrato": totalReceitasPrevistasContrato,
-        "confeccaoCartoesContrato": confeccaoCartoesContrato,
-        "custoTagContrato": custoTagContrato,
-        "custoEusContrato": custoEusContrato,  
-        "totalDespesasPrevistasContrato": totalDespesasPrevistasContrato,
-        "receitaTagContrato": receitaTagContrato,
-        "despesaTagEnvioContrato": despesaTagEnvioContrato,
-        "despesaTagFisicaContrato": despesaTagFisicaContrato,
-        "despesaTagGreenpassContrato": despesaTagGreenpassContrato,
-        "totalDespesasTagContrato": totalDespesasTagContrato,
-        "receitaEusContrato": receitaEusContrato,
-        "despesaEusEpharma": despesaEusEpharma,
-        "despesaEusTelemedicina": despesaEusTelemedicina,
-        "despesaEusEnvio": despesaEusEnvio,
-        "totalDespesasEusContrato": totalDespesasEusContrato,
-        "resultReceitas": resultReceitas,
-        "resultDespesas": resultDespesas,
-        "rentabilidadeIdeal": rentabilidadeIdeal,
-        "statusAprovado": statusAprovado,
-        "statusPendente": statusPendente,
-        "lucroOperacao": lucroOperacao,
-        "lucroOperacaoMensal": lucroOperacaoMensal,
-        "rentabilidadeAtual": rentabilidadeAtual,
-        "payback": payback     
-    }
-
-    return jsonify(resultado)
-
-@app.route('/gravar_propostaeucCOM', methods=['POST'])
-@modulo_requerido('COMERCIAL','COMERCIALGESTOR')
-def gravar_propostaeucCOM():
-    #Verificação de sessão ativa
-    if 'username' not in session:
-        flash('Você precisa estar logado para acessar esta página.', 'warning')
-        return redirect(url_for('login'))
-
-    #Dados enviados pelo front end, dados do usuário e status da simulação
-    data = request.get_json()
-    user_id = session.get('user_id')
-    status = data.get("status","PENDENTE")
-
-    try:
-        #Abertura de conexão com o DB
-        conn = mysql.connector.connect(**db_config)
-        cursor = conn.cursor()
-
-        # Buscar os parâmetros no DB
-        cursor.execute("""
-            SELECT 
-                consumo_credenciado, antecipacao_angels, apropriacao_credito, investimento,
-                confeccao_cartoes, confeccao_cartoes_qtde, segunda_via, segunda_via_qtde,
-                custos_transacao, custos_transacao_qtde, custos_cartaoativo, custos_cartaoativo_qtde,
-                custo_tag, custo_tag_qtde, custo_eus, custo_eus_qtde,
-                despesatag_envio, despesatag_tagfisica, despesatag_greenpass,
-                despesaeus_epharma, despesaeus_telemedicina, despesaeus_enviounico,
-                negociacao_aprovada, negociacao_pendente, rentabilidade_ideal
-            FROM parametroseuc_com
-            ORDER BY id DESC LIMIT 1
-        """)
-        parametros = cursor.fetchone()
-
-        #Tratamento de exceção: Parâmetros
-        if not parametros:
-            return jsonify({"message": "Nenhum parâmetro cadastrado!"}), 400
-
-        parametros = list(parametros)  # Ignora o ID da linha
-
-        #Faz o tratamento dos valores antes de gravar no DB
-        def tratar_valor(valor):
-            return float(valor.replace("R$", "").replace(".", "").replace(",", ".").strip())
-
-        valores = (
-            int(data['qtde_cartoes']),
-            tratar_valor(data['valor_credito']),
-            int(data['meses']),
-            float(data['taxa_adm']),
-            int(data['qtde_cartoes_tag']),
-            tratar_valor(data['rec_tags']),
-            int(data['qtde_cartoes_eus']),
-            tratar_valor(data['rec_saude']),
-            *parametros,
-            float(data['lucroOperacao']),
-            float(data['lucroOperacaoMensal']),
-            float(data['rentabilidadeAtual']),
-            float(data['volumeMensal']),      
-            float(data['volumeAnual']),       
-            float(data['volumeContrato']),
-            float(data['payback']),
-            user_id,
-            status
-        )
-
-        #Insert
-        sql = """
-            INSERT INTO simulacaoeuc_com (
-                qtde_cartoes, valor_credito, qtde_meses, taxa_adm,
-                qtde_cartoes_tag, rec_tags, qtde_cartoes_eus, rec_saude,
-                consumo_credenciado, antecipacao_angels, apropriacao_credito, investimento,
-                confeccao_cartoes, confeccao_cartoes_qtde, segunda_via, segunda_via_qtde,
-                custos_transacao, custos_transacao_qtde, custos_cartaoativo, custos_cartaoativo_qtde,
-                custo_tag, custo_tag_qtde, custo_eus, custo_eus_qtde,
-                despesatag_envio, despesatag_tagfisica, despesatag_greenpass,
-                despesaeus_epharma, despesaeus_telemedicina, despesaeus_enviounico,
-                negociacao_aprovada, negociacao_pendente, rentabilidade_ideal,
-                lucro_operacao, lucro_operacao_mensal, rentabilidade_atual,
-                volume_mensal, volume_anual, volume_contrato, payback,
-                user_id, status
-            ) VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s
-            )
-        """
-        
-        cursor.execute(sql, valores)
-        conn.commit()
-
-        return jsonify({"message": "Proposta gravada com sucesso!"})
-
-    except Exception as e:
-        print("Erro ao gravar proposta:", e)
-        return jsonify({"message": "Erro ao gravar proposta."}), 500
-
-    finally:
-        cursor.close()
-        conn.close()
-
-@app.route('/aprovacoeseucCOM')
-@modulo_requerido('COMERCIALGESTOR')
-def aprovacoeseucCOM():
-    #Verificação de sessão ativa
-    if 'username' not in session:
-        flash('Você precisa estar logado para acessar esta página.', 'warning')
-        return redirect(url_for('login'))
-
-    #Renderização do template de aprovações
-    return render_template('aprovacoeseucCOM.html')
-
-@app.route('/enviar_para_aprovacaoeucCOM', methods=['POST'])
-@modulo_requerido('COMERCIALGESTOR')
-def enviar_para_aprovacaoeucCOM():
-    #Verificação de sessão ativa
-    if 'username' not in session:
-        return jsonify({"message": "Usuário não autenticado."}), 401
-
-    data = request.get_json()
-    id_proposta = data.get("id")
-
-    #Tratamento de exceção: Id Proposta
-    if not id_proposta:
-        return jsonify({"message": "ID da proposta é obrigatório."}), 400
-
-    #Funcionalidade
-    try:
-        #Abertura de conexão com o DB
-        conn = mysql.connector.connect(**db_config)
-        cursor = conn.cursor()
-
-        #Update
-        cursor.execute("UPDATE simulacaoeuc_com SET status = 'APROVADO' WHERE id_simeuc = %s", (id_proposta,))
-        conn.commit()
-        
-        return jsonify({"message": "Status da proposta atualizado para APROVADO."})
-
-    #Tratamento de exceção
-    except Exception as e:
-        return jsonify({"message": f"Erro: {str(e)}"}), 500
+    if not id_transferencia or not cor:
+        return jsonify({'erro': 'Parâmetros inválidos'}), 400
     
-    #Fechar conexão com o DB
-    finally:
-        cursor.close()
-        conn.close()
-
-@app.route('/listar_aprovacoeseucCOM', methods=['GET'])
-@modulo_requerido('COMERCIALGESTOR')
-def listar_aprovacoeseucCOM():
-    #Verificação de sessão ativa
-    if 'username' not in session:
-        return jsonify([])
-
-
     try:
-        #Abertura de conexão com o DB
-        conn = mysql.connector.connect(**db_config)
-        cursor = conn.cursor(dictionary=True)
-
-        #Funcionalidade
-        query = """
-            SELECT s.id_simeuc, s.qtde_cartoes, s.valor_credito, s.qtde_meses, s.rentabilidade_atual, s.user_id, u.nome AS usuario
-            FROM simulacaoeuc_com s
-            LEFT JOIN usuarios u ON u.user_id = s.user_id
-            WHERE s.status = 'PENDENTE'
-            ORDER BY s.id_simeuc DESC
-        """
-        cursor.execute(query)
-        propostas = cursor.fetchall()
-
-        #Envia o JSON para o frontend
-        return jsonify(propostas)
-
-    #Tratamento de exceção
-    except Exception as e:
-        print(f"Erro ao listar pendentes: {e}")
-        return jsonify({"message": f"Erro ao listar pendentes: {str(e)}"}), 500
-
-    #Fecha conexão com o DB
-    finally:
-        cursor.close()
-        conn.close()
-
-@app.route("/reprovar_propostaeucCOM", methods=["POST"])
-@modulo_requerido('COMERCIALGESTOR')
-def reprovar_propostaeucCOM():
-    #Verificação de sessão ativa
-    if 'username' not in session:
-        return jsonify({"message": "Usuário não autenticado."}), 401
-
-    data = request.get_json()
-    proposta_id = data.get("id")
-
-    #Tratamento de exceção: Id Proposta
-    if not proposta_id:
-        return jsonify({"message": "ID da proposta não informado."}), 400
-
-    try:
-        #Abre a conexão com o DB
         conn = mysql.connector.connect(**db_config)
         cursor = conn.cursor()
-
-        # Deleta a proposta do banco
-        cursor.execute("DELETE FROM simulacaoeuc_com WHERE id_simeuc = %s AND status = 'PENDENTE'", (proposta_id,))
+        query = "UPDATE transferenciasdiariascpg_fin SET cor = %s WHERE id_transferencia = %s"
+        cursor.execute(query, (cor, id_transferencia))
         conn.commit()
-
-        if cursor.rowcount == 0:
-            return jsonify({"message": "Proposta não encontrada ou já foi aprovada/reprovada."}), 404
-
-        return jsonify({"message": "Proposta reprovada e removida com sucesso."})
-
-    #Tratamento de exceção
-    except Exception as e:
-        return jsonify({"message": f"Erro ao reprovar proposta: {str(e)}"}), 500
-
-    #Fechar a conexão com o DB
-    finally:
         cursor.close()
         conn.close()
+        return jsonify({'mensagem': 'Cor atualizada com sucesso!'})
+    except Exception as e:
+        return jsonify({'erro': str(e)}), 500
+#------------------------------------------------------------------#
+
+
+
+
+#-----------CONTAS A RECEBER---------------------------------------#
+@app.route('/uploadpedidosavencercrcFIN', methods=['GET', 'POST'])
+@modulo_requerido('CONTASARECEBER')
+def uploadpedidosavencercrcFIN():
+    #Verificação de sessão ativa
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+    
+    #Verificação do arquivo
+    if request.method == 'POST':
+        arquivo = request.files.get('arquivo_excel')
+        if not arquivo:
+            flash('Nenhum arquivo enviado.', 'erro')
+            return redirect(url_for('uploadpedidosavencercrcFIN'))
+        
+        #Tratamento das informações
+        try:
+            df = pd.read_excel(arquivo, engine='openpyxl')
+
+            # Verifica se a coluna N existe (índice 13)
+            if len(df.columns) <= 13:
+                flash('O arquivo não possui a formatação esperada!', 'erro')
+                return redirect(url_for('uploadpedidosavencercrcFIN'))
+
+            
+            # Índices das colunas a serem excluídas (B,C,D respectivamente)
+            indices_para_excluir = [1, 2, 3]
+
+            # Garante que só remove colunas que existem
+            indices_existentes = [i for i in indices_para_excluir if i < df.shape[1]]
+            df_filtrado = df.drop(df.columns[indices_existentes], axis=1)
+
+
+        
+
+        except Exception as e:
+            flash(f'Erro ao processar o arquivo: {str(e)}', 'erro')
+            return redirect(url_for('uploadpedidosavencercrcFIN'))
+
+    return render_template('uploadpedidosavencercrcFIN.html')
+
+
+
 
 
 if __name__ == '__main__':
