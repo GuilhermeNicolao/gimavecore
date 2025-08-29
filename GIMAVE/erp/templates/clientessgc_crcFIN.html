@@ -1,0 +1,594 @@
+{% extends "base.html" %}
+
+{% block head_extra %}
+<style>
+        /* Formulário */
+        .form-container {
+            max-width: 450px;
+            margin: 20px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px #ccc;
+            margin-top: 50px;
+        }
+
+        label {
+            display: block;
+            margin-top: 15px;
+        }
+
+        input {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            box-sizing: border-box;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            margin-top: 20px;
+            padding: 10px;
+            width: 100%;
+            background-color: #333;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #555;
+        }
+
+        .form-container h2{
+            color: #7da8d2;
+            text-align: center;
+            font-family: Arial, sans-serif;
+            margin: 2px;
+        }
+
+
+        /* Alerta */
+        .flash-messages {
+            margin: 20px auto;
+            max-width: 500px;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .alert.sucesso {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert.erro {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+
+        /* Ícone Lupa */
+        .input-icon{
+            position: relative;
+        }
+
+        .input-icon input{
+            padding-right: 20px;
+            width: 100%;
+        }
+
+        .input-icon i{
+            position:absolute;
+            right: 10px;
+            top: 55%;
+            transform: translateY(-50%);
+            color: #666;
+            cursor: pointer;
+        }
+        
+
+        /* Modal */
+        .modal {
+        display: none;
+        position: fixed;
+        z-index: 1001;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0, 0, 0, 0.6); /* Fundo mais suave */
+        font-family: Arial, sans-serif;
+        transition: all 0.3s ease; /* Animação ao abrir e fechar */
+        }
+
+        .modal-content {
+        position: relative;
+        background-color: #f2f2f2;
+        margin: 5% auto;
+        padding: 25px;
+        width: 60%;
+        max-height: 80vh;
+        overflow-y: auto;
+        border-radius: 15px;
+        box-shadow: 0 6px 25px rgba(0, 0, 0, 0.2);
+        transition: transform 0.3s ease-in-out;
+        }
+
+        .close {
+        position: absolute;
+        top: 25px;
+        right: 15px;
+        color: #aaa;
+        font-size: 30px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: color 0.3s;
+        }
+
+        .close:hover {
+        color: #ff6347; /* Cor mais vibrante para o botão de fechar */
+        }
+
+        .modal-content h2 {
+        margin-top: 0;
+        font-size: 24px;
+        color: #0b448f;
+        font-weight: 600;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 15px;
+        text-align: center;
+        }
+
+
+        /* Tabela Fornecedores */
+        .tabela-clientes {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .tabela-clientes th, .tabela-clientes td {
+            padding: 8px 12px;
+            text-align: left;
+            font-size: 14px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .tabela-clientes th {
+            background-color: #cfcece;
+            color: #333;
+            text-align: center;
+        }
+
+        .tabela-clientes tr:hover {
+            background-color: #f5f5f5;
+            transform: scale(1.02);
+            transition: all 0.3s ease;
+        }
+
+        .tabela-clientes button {
+            padding: 6px 12px;
+            margin: 2px;
+            width: 180px;
+            font-weight: bold;
+            background-color: #646363;
+            border: 1px solid #696969;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .tabela-clientes button:hover {
+            background-color: #a5a5a5;
+        }
+
+        .tabela-clientes td {
+            text-align: center;
+            vertical-align: middle;
+        }
+
+
+        /* Lista de Fornecedores */
+        #lista-clientes {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        #lista-clientes li {
+            font-size: 12px;
+            padding: 6px 10px;
+            margin-bottom: 4px;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            transition: background-color 0.3s, transform 0.3s;
+            cursor: pointer;
+        }
+
+        #lista-clientes li:hover {
+            background-color: #eaeaea;
+            transform: scale(1.02);
+        }
+
+
+        /* Pop-up */    
+        .popup {
+            display: none;
+            position: fixed;
+            z-index: 1001;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            font-family: Arial, sans-serif;
+            transition: all 0.3s ease;
+        }
+
+        .popup-content {
+            position: relative;
+            background-color: #f2f2f2;
+            margin: 50px auto;
+            padding: 25px;
+            width: 40%;
+            max-height: 80vh;
+            border-radius: 8px;
+            box-shadow: 0 6px 25px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+
+        .popup button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin-top: 15px;
+            background-color: #646363;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .popup button:hover {
+            background-color: #555555;
+        }
+
+
+        /* Modal de Edição */
+        #modal-editar .modal-content {
+            width: 400px;
+        }
+
+        #modal-editar input {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .sugestao-item {
+            padding: 8px;
+            cursor: pointer;
+        }
+
+        /* Linhas ímpares */
+        .sugestao-item:nth-child(odd) {
+            background-color: #bebebe;
+        }
+
+        /* Linhas pares */
+        .sugestao-item:nth-child(even) {
+            background-color: #f5f5f5;
+        }
+
+        /* Efeito hover */
+        .sugestao-item:hover {
+            background-color: #e0e0e0;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<!-- Alert Box-->
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        <div class="flash-messages">
+            {% for category, message in messages %}
+                <div class="alert {{ category }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endwith %}
+
+
+<!--Formulário de Cadastro de Clientes-->
+<div class="form-container">
+    <h2>Cadastro de Clientes</h2>
+    <form action="{{ url_for('cadastrar_clientessgc_crcFIN') }}" method="POST" autocomplete="off">
+
+        <label for="clientesgc_id">Código SGC *</label>
+        <input type="text" id="clientesgc_id" name="clientesgc_id" placeholder="Apenas números" required>
+
+        <label for="grupo">Grupo *</label>
+        <input type="text" id="grupo" name="grupo" placeholder="Digite o nome." required>
+        
+        <label for="empresa">Empresa *</label>
+        <div class="input-icon">
+            <input type="hidden" id="id_cliente" name="id_cliente">   
+            <input type="text" id="empresa" name="empresa" placeholder="Digite o nome" required>
+            <i class="fa fa-search" onclick="abrirModalClientes()"></i>
+            <div id="sugestoes-cliente" class="autocomplete-box" style="display: none;"></div>
+        </div>
+
+        <label for="subgrupo">Subgrupo *</label>
+        <input type="text" id="subgrupo" name="subgrupo" placeholder="Digite o nome." required>
+        
+        <label for="cnpj">CNPJ *</label>
+        <input type="text" id="cnpj" name="cnpj" placeholder="Apenas números"  required>
+        
+        <label for="cidade">Cidade *</label>
+        <input type="text" id="cidade" name="cidade" placeholder="Digite o nome." required>
+
+                <label for="uf">UF: *</label>
+        <select id="uf" name="uf" required>
+            <option value="" disabled selected>Selecione o estado</option>
+            <option value="AC">AC</option>
+            <option value="AL">AL</option>
+            <option value="AP">AP</option>
+            <option value="AM">AM</option>
+            <option value="BA">BA</option>
+            <option value="CE">CE</option>
+            <option value="DF">DF</option>
+            <option value="ES">ES</option>
+            <option value="GO">GO</option>
+            <option value="MA">MA</option>
+            <option value="MT">MT</option>
+            <option value="MS">MS</option>
+            <option value="MG">MG</option>
+            <option value="PA">PA</option>
+            <option value="PB">PB</option>
+            <option value="PR">PR</option>
+            <option value="PE">PE</option>
+            <option value="PI">PI</option>
+            <option value="RJ">RJ</option>
+            <option value="RN">RN</option>
+            <option value="RS">RS</option>
+            <option value="RO">RO</option>
+            <option value="RR">RR</option>
+            <option value="SC">SC</option>
+            <option value="SP">SP</option>
+            <option value="SE">SE</option>
+            <option value="TO">TO</option>
+        </select>
+
+        <button type="submit"><b>CADASTRAR</b></button>
+    </form>
+</div>
+
+<!--Modal de clientes-->
+<div id="modal-clientes" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="fecharModalClientes()">&times;</span>
+        <h2>Clientes Cadastrados</h2>
+        <table class="tabela-clientes">
+            <thead>
+                <tr>
+                    <th>Descrição</th>
+                    <th>Ação</th>
+                </tr>
+            </thead>
+            <tbody id="lista-clientes">
+                <!-- Preenchido via JavaScript -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!--Modal de Edição do Cliente -->
+<div id="modal-editar" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="fecharModalEditar()">&times;</span>
+        <h2>Editar Cliente</h2>
+        <form id="form-editar-cliente">
+            <label for="novo-nome">Nova Descrição *</label>
+            <input type="text" id="novo-nome" name="novo-nome" required placeholder="Digite o novo cliente">
+            <button type="submit"><b>OK</b></button>
+        </form>
+    </div>
+</div>
+
+<!--Pop-up de Sucesso para Alteração -->
+<div id="popup-alteracao" class="popup">
+    <div class="popup-content">
+        <p>Alteração realizada!</p>
+        <button onclick="fecharPopup('popup-alteracao')">Ok</button>
+    </div>
+</div>
+
+<!--Pop-up de Confirmação de Exclusão -->
+<div id="popup-exclusao" class="popup">
+    <div class="popup-content">
+        <p><b>Deseja mesmo excluir este cliente?</b></p>
+        <button onclick="confirmarExclusao()">Sim</button>
+        <button onclick="fecharPopup('popup-exclusao')">Não</button>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+
+<script src="https://unpkg.com/imask"></script>
+<script>
+    // Abrir lista de Clientes
+    function abrirModalClientes() {
+        fetch('/api/clientessgc_crcFIN')
+            .then(response => response.json())
+            .then(data => {
+                const lista = document.getElementById('lista-clientes');
+                lista.innerHTML = '';
+                data.forEach(cat => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${cat.empresa}</td>
+                        <td>
+                            <button onclick="abrirModalEditar(${cat.cnpj}, '${cat.empresa}')">Editar</button>
+                            <button onclick="excluirCliente(${cat.cnpj})">Excluir</button>
+                        </td>
+                    `;
+                    lista.appendChild(row);
+                });
+                document.getElementById('modal-clientes').style.display = 'block';
+            })
+            .catch(err => console.error("Erro ao carregar clientes:", err));
+    }
+
+    // Fechar lista de Clientes
+    function fecharModalClientes() {
+        document.getElementById('modal-clientes').style.display = 'none';
+    }
+
+    // Exibir modal de edição de cliente
+    function abrirModalEditar(id, nomeAtual) {
+        document.getElementById('modal-editar').style.display = 'block';
+        document.getElementById('novo-nome').value = nomeAtual; 
+        document.getElementById('form-editar-cliente').onsubmit = function(event) {
+            event.preventDefault();
+            editarCliente(id); // Chama a função de editar ao submeter o formulário
+        };
+    }
+
+    // Fechar modal de edição
+    function fecharModalEditar() {
+        document.getElementById('modal-editar').style.display = 'none';
+    }
+
+    // Editar cliente
+    function editarCliente(id) {
+        const novoNome = document.getElementById('novo-nome').value.trim();
+        if (novoNome === "") return;
+
+        fetch(`/api/clientessgc_crcFIN/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nome: novoNome })
+        })
+        .then(response => {
+            if (response.ok) {
+                fecharModalEditar(); 
+                abrirModalClientes(); 
+                mostrarPopupAlteracao(); 
+            } else {
+                alert("Erro ao editar cliente.");
+            }
+        });
+    }
+
+    // Exibir pop-up de alteração realizada
+    function mostrarPopupAlteracao() {
+        document.getElementById('popup-alteracao').style.display = 'block';
+    }
+
+    // Excluir cliente
+    function excluirCliente(id) {
+        mostrarPopupExclusao(id); // Exibe o pop-up de confirmação
+    }
+
+    // Exibir pop-up de exclusão
+    function mostrarPopupExclusao(id) {
+        document.getElementById('popup-exclusao').style.display = 'block';
+        document.getElementById('popup-exclusao').dataset.idCliente = id;
+    }
+
+    // Confirmar exclusão
+    function confirmarExclusao() {
+        const idCliente = document.getElementById('popup-exclusao').dataset.idCliente;
+
+        fetch(`/api/clientessgc_crcFIN/${idCliente}`, { method: 'DELETE' })
+            .then(response => {
+                if (response.ok) {
+                    abrirModalClientes(); 
+                    mostrarPopupExclusaoSucesso();
+                    fecharPopup('popup-exclusao');
+                } else {
+                    alert("Erro ao excluir cliente.");
+                }
+            });
+    }
+
+    // Fechar qualquer pop-up
+    function fecharPopup(popupId) {
+        document.getElementById(popupId).style.display = 'none';
+    }
+
+    // Exibir pop-up de exclusão com sucesso
+    function mostrarPopupExclusaoSucesso() {
+        alert("Cliente excluído com sucesso!");
+    }
+
+    // Fechar pop-up de exclusão
+    function fecharModalExcluir() {
+        document.getElementById('popup-exclusao').style.display = 'none';
+    }
+
+    // Autocomplete
+    document.addEventListener('DOMContentLoaded', function () {
+    const input = document.getElementById('empresa'); // corrigido
+    const sugestoesBox = document.getElementById('sugestoes-cliente');
+    const hiddenInput = document.getElementById('id_cliente');
+
+    input.addEventListener('input', function () {
+        const termo = this.value.trim();
+        hiddenInput.value = ''; // Limpa o ID ao digitar
+
+        if (termo.length < 1) {
+            sugestoesBox.innerHTML = '';
+            sugestoesBox.style.display = 'none';
+            return;
+        }
+
+        fetch(`/clientessgc_crcFIN_sugestoes?q=${encodeURIComponent(termo)}`)
+            .then(response => response.json())
+            .then(dados => {
+                sugestoesBox.innerHTML = '';
+                if (dados.length > 0) {
+                    dados.forEach(item => {
+                        const div = document.createElement('div');
+                        div.textContent = item.nome;
+                        div.classList.add('sugestao-item');
+                        div.addEventListener('click', () => {
+                            input.value = item.nome;
+                            hiddenInput.value = item.id_cliente; // precisa existir no JSON
+                            sugestoesBox.innerHTML = '';
+                            sugestoesBox.style.display = 'none';
+                        });
+                        sugestoesBox.appendChild(div);
+                    });
+                    sugestoesBox.style.display = 'block';
+                } else {
+                    sugestoesBox.style.display = 'none';
+                }
+            });
+    });
+
+    document.addEventListener('click', function (e) {
+        if (!input.contains(e.target) && !sugestoesBox.contains(e.target)) {
+            sugestoesBox.innerHTML = '';
+            sugestoesBox.style.display = 'none';
+        }
+    });
+});
+
+</script>
+{% endblock %}

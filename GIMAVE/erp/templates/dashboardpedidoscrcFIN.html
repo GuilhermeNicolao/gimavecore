@@ -1,0 +1,384 @@
+{% extends "base.html" %}
+
+{% block head_extra %}
+<style>
+/* Corpo e títulos */
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  padding: 20px;
+  background: #f0f2f5;
+  color: #333;
+}
+
+h1 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-bottom: 15px;
+  padding-bottom: 8px;
+  border-bottom: 3px solid #3a465f;
+  color: #3a465f;
+}
+
+.h2-destaque { 
+  color: #0f9774; /* destaque no modal ou gráfico */
+  text-align: center; 
+  margin-bottom: 10px; 
+}
+
+/* Layout flexível */
+.container-flex { display: flex; gap: 20px; flex-wrap: wrap; }
+.left-panel { flex: 2; display: flex; flex-wrap: wrap; gap: 20px; }
+.right-panel { flex: 1; background: #fff; padding: 15px; border-radius: 12px; box-shadow: 0 3px 10px rgba(0,0,0,0.05); height: fit-content; }
+
+/* Tabelas compactas */
+.empresa-block { background: #fff; padding: 10px; border-radius: 12px; box-shadow: 0 3px 10px rgba(0,0,0,0.05); flex: 1 1 48%; }
+.empresa-block h2 { color: #3a465f; font-size: 1.2rem; margin-bottom: 5px; text-align: center; }
+
+.transfer-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 5px; }
+.transfer-table th, .transfer-table td { border: 1px solid #ccc; padding: 4px 6px; text-align: left; }
+.transfer-table th { background: linear-gradient(to bottom, #5d687c, #5d687c); color: white; font-weight: 600; }
+.transfer-table tr:nth-child(even) td { background-color: #f9fafb; }
+.transfer-table tr:hover td { background-color: #e0f7f1; transition: 0.2s; }
+.total-row { font-weight: bold; background-color: #bda696; }
+
+/* Canvas */
+canvas { max-width: 100%; height: auto; }
+
+/* Modal estilizado */
+.modal {
+  display: none; 
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(4px); /* desfoque suave do fundo */
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.modal-content {
+  background: #fff;
+  padding: 25px;
+  border-radius: 12px;
+  width: 70%;
+  max-height: 80%;
+  overflow-y: auto;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+  animation: slideUp 0.3s ease-in-out;
+  position: relative;
+}
+
+.close-btn {
+  position: absolute;
+  top: 15px;
+  right: 20px;
+  font-size: 22px;
+  font-weight: bold;
+  color: #ff4b4b;
+  cursor: pointer;
+  transition: color 0.2s ease-in-out;
+}
+.close-btn:hover {
+  color: #c0392b;
+}
+
+/* Tabela dentro do modal */
+.modal-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  font-size: 0.9rem;
+}
+
+.modal-content th, .modal-content td {
+  border: 1px solid #ddd;
+  padding: 6px 8px;
+  text-align: left;
+}
+
+.modal-content th {
+  background: #0f9774;
+  color: white;
+  font-weight: 600;
+}
+
+.modal-content tr:nth-child(even) td {
+  background-color: #f9f9f9;
+}
+
+.modal-content tr:hover td {
+  background-color: #e6f7f1;
+  transition: background-color 0.2s;
+}
+
+/* Animações */
+@keyframes fadeIn {
+  from {opacity: 0;}
+  to {opacity: 1;}
+}
+
+@keyframes slideUp {
+  from {transform: translateY(20px); opacity: 0;}
+  to {transform: translateY(0); opacity: 1;}
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>Dashboard Pedidos a Vencer - CRC</h1>
+
+<div class="container-flex">
+
+<!-- ESQUERDA: 5 tabelas em 2 colunas -->
+  <div class="left-panel">
+    {% set tabelas = [
+      {'data': tabela1, 'titulo': 'GRUPO EUCATUR', 'total': totais.tabela1},
+      {'data': tabela2, 'titulo': 'EXTRA GRUPO', 'total': totais.tabela2},
+      {'data': tabela3, 'titulo': 'LICITAÇÕES', 'total': totais.tabela3},
+      {'data': tabela4, 'titulo': 'MANAUS', 'total': totais.tabela4},
+      {'data': tabela5, 'titulo': 'SINETRAM', 'total': totais.tabela5}
+    ] %}
+
+    {% for tabela in tabelas %}
+    <div class="empresa-block">
+      <h2>{{ tabela.titulo }}</h2>
+      <table class="transfer-table">
+        <thead>
+          <tr>
+            <th>Empresa</th>
+            <th>Subgrupo</th>
+            <th>UF</th>
+            <th>Valor Total (R$)</th>
+            <th>Saldo Total (R$)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in tabela.data %}
+          <tr class="totalizador" data-id="{{ row.clientesgc_id }}">
+            <td>{{ row.empresa }}</td>
+            <td>{{ row.subgrupo }}</td>
+            <td>{{ row.uf }}</td>
+            <td>{{ "{:,.2f}".format(row.total_valor).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
+            <td>{{ "{:,.2f}".format(row.total_saldo).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
+          </tr>
+          {% endfor %}
+          <tr class="total-row">
+            <td colspan="3">TOTAL</td>
+            <td>{{ "{:,.2f}".format(tabela.total.valor).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
+            <td>{{ "{:,.2f}".format(tabela.total.saldo).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    {% endfor %}
+  </div>
+
+<!-- DIREITA: gráfico de pizza -->
+<div class="right-panel">
+  <h2 class="h2-destaque">Totais por Grupo (%)</h2>
+  <canvas id="pieChart"></canvas>
+
+  <!--"TOP 5"-->
+  <h2 class="h2-destaque" style="margin-top:30px;">Top 5 Maiores Valores a Receber</h2>
+  <div class="table-container">
+    <table class="transfer-table">
+      <thead>
+        <tr>
+          <th>Empresa</th>
+          <th>Subgrupo</th>
+          <th>UF</th>
+          <th>Pedido</th>
+          <th>Vencimento</th>
+          <th>Saldo (R$)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in top5 %}
+        <tr>
+          <td>{{ row.empresa }}</td>
+          <td>{{ row.subgrupo }}</td>
+          <td>{{ row.uf }}</td>
+          <td>{{ row.pedido }}</td>
+          <td>{{ row.vencimento.strftime('%d/%m/%Y') if row.vencimento else '' }}</td>
+          <td>{{ "{:,.2f}".format(row.saldo or 0).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal -->
+<div id="detalhesModal" class="modal">
+  <div class="modal-content">
+    <span class="close-btn">&times;</span>
+    <h2>Detalhes do Cliente</h2>
+    <table id="detalhesTable">
+      <thead>
+        <tr>
+          <th>Empresa</th>
+          <th>Vencimento</th>
+          <th>UF</th>
+          <th>Valor (R$)</th>
+          <th>Saldo (R$)</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const ctx = document.getElementById('pieChart').getContext('2d');
+const pieChart = new Chart(ctx, {
+    type: 'pie',
+    data: {
+        labels: ['GRUPO EUCATUR','EXTRA GRUPO','LICITAÇÕES','MANAUS','SINETRAM'],
+        datasets: [{
+            label: 'Total a Vencer',
+            data: [
+                {{ totais.tabela1.saldo }},
+                {{ totais.tabela2.saldo }},
+                {{ totais.tabela3.saldo }},
+                {{ totais.tabela4.saldo }},
+                {{ totais.tabela5.saldo }}
+            ],
+            backgroundColor: ['#8a90af', '#dfe3ec', '#4e5368', '#6978bd', '#8692ca'],
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { position: 'bottom' },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        let valor = context.raw;
+                        let total = {{ totais.tabela1.saldo + totais.tabela2.saldo + totais.tabela3.saldo + totais.tabela4.saldo + totais.tabela5.saldo }};
+                        let perc = ((valor / total) * 100).toFixed(2);
+                        return context.label + ': R$ ' + valor.toLocaleString('pt-BR') + ' (' + perc + '%)';
+                    }
+                }
+            }
+        }
+    }
+});
+
+
+document.addEventListener("DOMContentLoaded", function() {
+  // ====== ORDENAR ======
+  document.querySelectorAll(".transfer-table").forEach(table => {
+    const headers = table.querySelectorAll("th");
+
+    headers.forEach((header, index) => {
+      header.style.cursor = "pointer";
+      header.addEventListener("click", () => {
+        const rows = Array.from(table.querySelectorAll("tbody tr:not(.total-row)"));
+        const isNumeric = index >= 3; // a partir da coluna "Valor"
+
+        const sorted = rows.sort((a, b) => {
+          let valA = a.cells[index].innerText.trim();
+          let valB = b.cells[index].innerText.trim();
+
+          if (isNumeric) {
+            valA = parseFloat(valA.replace(",",".").replace(/[^\d.-]/g, "")) || 0;
+            valB = parseFloat(valB.replace(",",".").replace(/[^\d.-]/g, "")) || 0;
+          } else {
+            valA = valA.toLowerCase();
+            valB = valB.toLowerCase();
+          }
+
+          if (valA < valB) return -1;
+          if (valA > valB) return 1;
+          return 0;
+        });
+
+        if (header.classList.contains("asc")) {
+          sorted.reverse();
+          header.classList.remove("asc");
+          header.classList.add("desc");
+        } else {
+          header.classList.remove("desc");
+          header.classList.add("asc");
+        }
+
+        const tbody = table.querySelector("tbody");
+        const totalRow = table.querySelector(".total-row"); // pega a linha total
+        sorted.forEach(row => tbody.appendChild(row));
+        if (totalRow) tbody.appendChild(totalRow); // mantém o total no final
+      });
+    });
+  });
+
+  // ====== FILTRAR ======
+  const filtroTexto = document.getElementById("filtroTexto");
+  const filtroUF = document.getElementById("filtroUF");
+
+  function aplicarFiltros() {
+    const termo = filtroTexto.value.toLowerCase();
+    const ufSelecionada = filtroUF.value;
+
+    document.querySelectorAll(".transfer-table tbody tr").forEach(row => {
+      if (row.classList.contains("total-row")) return; // nunca esconde o total
+
+      const empresa = row.cells[0].innerText.toLowerCase();
+      const subgrupo = row.cells[1].innerText.toLowerCase();
+      const uf = row.cells[2].innerText;
+
+      const matchTexto = termo === "" || empresa.includes(termo) || subgrupo.includes(termo);
+      const matchUF = ufSelecionada === "" || uf === ufSelecionada;
+
+      row.style.display = (matchTexto && matchUF) ? "" : "none";
+    });
+  }
+
+  if (filtroTexto) filtroTexto.addEventListener("keyup", aplicarFiltros);
+  if (filtroUF) filtroUF.addEventListener("change", aplicarFiltros);
+});
+
+
+
+document.querySelectorAll(".totalizador").forEach(row => {
+  row.addEventListener("dblclick", () => {
+    let clienteId = row.getAttribute("data-id");
+
+    fetch(`/detalhadoavencercrcFIN/${clienteId}`)
+      .then(res => res.json())
+      .then(data => {
+        let tbody = document.querySelector("#detalhesTable tbody");
+        tbody.innerHTML = "";
+
+        data.forEach(item => {
+            tbody.innerHTML += `
+                <tr>
+                <td>${item.empresa}</td>
+                <td>${new Date(item.vencimento).toLocaleDateString("pt-BR")}</td>
+                <td>${item.uf}</td>
+                <td>${Number(item.valor).toLocaleString("pt-BR", {style: "currency", currency: "BRL"})}</td>
+                <td>${Number(item.saldo).toLocaleString("pt-BR", {style: "currency", currency: "BRL"})}</td>
+                </tr>
+            `;
+        });
+
+        document.getElementById("detalhesModal").style.display = "flex";
+      });
+  });
+});
+
+// Fechar modal
+document.querySelector(".close-btn").onclick = () => {
+  document.getElementById("detalhesModal").style.display = "none";
+};
+window.onclick = (event) => {
+  if (event.target.classList.contains("modal")) {
+    document.getElementById("detalhesModal").style.display = "none";
+  }
+};
+</script>
+
+{% endblock %}
