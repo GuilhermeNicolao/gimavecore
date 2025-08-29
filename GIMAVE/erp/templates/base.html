@@ -233,8 +233,26 @@
                         <a href="{{ url_for('credenciadosapagarcpgFIN') }}">Credenciados a Pagar</a>
                         <a href="{{ url_for('transferenciasdiariascpgFIN') }}">Transferências Diárias</a>
                 </div>
+        {% endif %}
+
+                {% if 'CONTASARECEBER' in session['modulos'] %}
+                <div class="dropdown">
+                    <div class="dropdown-btn"><b>Contas a Receber</b></div>
+                    <div class="dropdown-container">
+                        <a href="{{ url_for('uploadpedidosavencercrcFIN') }}">Upload Pedidos a Vencer</a>
+                        <a href="{{ url_for('dashboardpedidoscrcFIN') }}">Dashboard Pedidos SGC</a>
+                </div>
+
+                <div class="dropdown">
+                    <div class="dropdown-btn"><b>Cadastros</b></div>
+                    <div class="dropdown-container">
+                        <a href="{{ url_for('clientessgc_crcFIN') }}">Clientes</a>
+                    </div>
             </div>
         {% endif %}
+
+        </div>
+        </div>
         </div>
         </div>
         </div>
