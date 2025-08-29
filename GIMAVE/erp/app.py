@@ -4820,23 +4820,23 @@ def atualizarcorvalor():
 
 
 #-----------CONTAS A RECEBER---------------------------------------#
+#Uploads SGC
 @app.route('/uploadpedidosavencercrcFIN', methods=['GET', 'POST'])
 @modulo_requerido('CONTASARECEBER')
 def uploadpedidosavencercrcFIN():
-    #Verificação de sessão ativa
+    # Verificação de sessão ativa
     if 'username' not in session:
         flash('Você precisa estar logado para acessar esta página.', 'warning')
         return redirect(url_for('login'))
     
-    #Verificação do arquivo
     if request.method == 'POST':
         arquivo = request.files.get('arquivo_excel')
         if not arquivo:
             flash('Nenhum arquivo enviado.', 'erro')
             return redirect(url_for('uploadpedidosavencercrcFIN'))
         
-        #Tratamento das informações
         try:
+            # Leitura do Excel
             df = pd.read_excel(arquivo, engine='openpyxl')
 
             # Verifica se a coluna N existe (índice 13)
@@ -4844,26 +4844,390 @@ def uploadpedidosavencercrcFIN():
                 flash('O arquivo não possui a formatação esperada!', 'erro')
                 return redirect(url_for('uploadpedidosavencercrcFIN'))
 
-            
-            # Índices das colunas a serem excluídas (B,C,D respectivamente)
+            # Remove colunas B, C, D
             indices_para_excluir = [1, 2, 3]
-
-            # Garante que só remove colunas que existem
             indices_existentes = [i for i in indices_para_excluir if i < df.shape[1]]
             df_filtrado = df.drop(df.columns[indices_existentes], axis=1)
 
+            # Renomeia colunas conforme tabela
+            df_filtrado.columns = [
+                "clientesgc_id",
+                "pedido",
+                "vencimento",
+                "fatura",
+                "razao_social",
+                "status",
+                "valor",
+                "juros",
+                "multa",
+                "valor_recebido",
+                "saldo"
+            ]
 
-        
+            # Normalizações
+            df_filtrado["vencimento"] = pd.to_datetime(df_filtrado["vencimento"], errors="coerce")
+            for col in ["valor", "juros", "multa", "valor_recebido", "saldo"]:
+                df_filtrado[col] = pd.to_numeric(df_filtrado[col], errors="coerce").fillna(0)
+
+            if not df_filtrado.empty:
+                try:
+                    conn = mysql.connector.connect(**db_config)
+                    cursor = conn.cursor(dictionary=True)
+
+                    # Busca IDs válidos da tabela pai
+                    cursor.execute("SELECT clientesgc_id FROM clientessgc")
+                    ids_validos = {row["clientesgc_id"] for row in cursor.fetchall()}
+
+                    # Prepara listas
+                    dados_validos = []
+                    ids_invalidos = set()
+
+                    for _, row in df_filtrado.iterrows():
+                        try:
+                            cliente_id = int(row["clientesgc_id"])
+                        except:
+                            continue  # ignora se não for número
+
+                        if cliente_id in ids_validos:
+                            dados_validos.append((
+                                cliente_id,
+                                int(row["pedido"]) if pd.notna(row["pedido"]) else None,
+                                row["vencimento"].date() if pd.notnull(row["vencimento"]) else None,
+                                int(row["fatura"]) if pd.notna(row["fatura"]) else None,
+                                str(row["razao_social"]),
+                                str(row["status"]),
+                                float(row["valor"]),
+                                float(row["juros"]),
+                                float(row["multa"]),
+                                float(row["valor_recebido"]),
+                                float(row["saldo"]),
+                            ))
+                        else:
+                            ids_invalidos.add(cliente_id)
+
+                    # Limpa tabela antes de inserir novos dados
+                    cursor.execute("DELETE FROM pedidosavencersgc_crc")
+                    conn.commit()
+
+                    # Se houver dados válidos, insere
+                    if dados_validos:
+                        query = """
+                            INSERT INTO pedidosavencersgc_crc 
+                            (clientesgc_id, pedido, vencimento, fatura, razao_social, status, valor, juros, multa, valor_recebido, saldo)
+                            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                        """
+                        cursor.executemany(query, dados_validos)
+                        conn.commit()
+                        flash(f"Tabela atualizada com {cursor.rowcount} pedido(s).", "sucesso")
+                    
+                    # Feedback de inválidos
+                    if ids_invalidos:
+                        flash(f"Os seguintes clientes não estão cadastrados e foram ignorados: {', '.join(map(str, ids_invalidos))}", "warning")
+
+                except Error as db_error:
+                    flash(f"Erro ao atualizar os dados no banco: {db_error}", "erro")
+
+                finally:
+                    cursor.close()
+                    conn.close()
+            
+            else:
+                flash("Nenhum pedido encontrado para importar.", "info")
 
         except Exception as e:
-            flash(f'Erro ao processar o arquivo: {str(e)}', 'erro')
+            flash(f"Erro ao processar o arquivo: {str(e)}", "erro")
             return redirect(url_for('uploadpedidosavencercrcFIN'))
 
     return render_template('uploadpedidosavencercrcFIN.html')
 
+#Dash Pedidos a Vencer
+@app.route('/dashboardpedidosavencercrcFIN')
+@modulo_requerido('CONTASARECEBER')
+def dashboardpedidoscrcFIN():
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor(dictionary=True)
+
+    # ================== TABELA 1: GRUPO EUCATUR ==================
+    cursor.execute("""
+        SELECT c.clientesgc_id, c.empresa, c.subgrupo, c.uf,
+               SUM(p.valor) AS total_valor,
+               SUM(p.saldo) AS total_saldo
+        FROM pedidosavencersgc_crc p
+        JOIN clientessgc c ON c.clientesgc_id = p.clientesgc_id
+        WHERE c.subgrupo = 'GRUPO EUCATUR'
+        GROUP BY c.clientesgc_id, c.empresa, c.subgrupo, c.uf
+    """)
+    tabela1 = cursor.fetchall()
+    totais_tabela1 = {
+        "valor": sum(row["total_valor"] or 0 for row in tabela1),
+        "saldo": sum(row["total_saldo"] or 0 for row in tabela1)
+    }
+
+    # ================== TABELA 2: EXTRA GRUPO ==================
+    cursor.execute("""
+        SELECT c.clientesgc_id, c.empresa, c.subgrupo, c.uf,
+               SUM(p.valor) AS total_valor,
+               SUM(p.saldo) AS total_saldo
+        FROM pedidosavencersgc_crc p
+        JOIN clientessgc c ON c.clientesgc_id = p.clientesgc_id
+        WHERE c.subgrupo = 'EXTRAGRUPO'
+        GROUP BY c.clientesgc_id, c.empresa, c.subgrupo, c.uf
+    """)
+    tabela2 = cursor.fetchall()
+    totais_tabela2 = {
+        "valor": sum(row["total_valor"] or 0 for row in tabela2),
+        "saldo": sum(row["total_saldo"] or 0 for row in tabela2)
+    }
+
+    # ================== TABELA 3: LICITAÇÕES ==================
+    cursor.execute("""
+        SELECT c.clientesgc_id, c.empresa, c.subgrupo, c.uf,
+               SUM(p.valor) AS total_valor,
+               SUM(p.saldo) AS total_saldo
+        FROM pedidosavencersgc_crc p
+        JOIN clientessgc c ON c.clientesgc_id = p.clientesgc_id
+        WHERE c.subgrupo = 'LICITAÇÕES'
+        GROUP BY c.clientesgc_id, c.empresa, c.subgrupo, c.uf
+    """)
+    tabela3 = cursor.fetchall()
+    totais_tabela3 = {
+        "valor": sum(row["total_valor"] or 0 for row in tabela3),
+        "saldo": sum(row["total_saldo"] or 0 for row in tabela3)
+    }
+
+    # ================== TABELA 4: UF AM, Exceto SINETRAM ==================
+    cursor.execute("""
+        SELECT c.clientesgc_id, c.empresa, c.subgrupo, c.uf,
+               SUM(p.valor) AS total_valor,
+               SUM(p.saldo) AS total_saldo
+        FROM pedidosavencersgc_crc p
+        JOIN clientessgc c ON c.clientesgc_id = p.clientesgc_id
+        WHERE c.uf = 'AM' AND c.subgrupo != 'SINETRAM'
+        GROUP BY c.clientesgc_id, c.empresa, c.subgrupo, c.uf
+    """)
+    tabela4 = cursor.fetchall()
+    totais_tabela4 = {
+        "valor": sum(row["total_valor"] or 0 for row in tabela4),
+        "saldo": sum(row["total_saldo"] or 0 for row in tabela4)
+    }
+
+    # ================== TABELA 5: SINETRAM ==================
+    cursor.execute("""
+        SELECT c.clientesgc_id, c.empresa, c.subgrupo, c.uf,
+               SUM(p.valor) AS total_valor,
+               SUM(p.saldo) AS total_saldo
+        FROM pedidosavencersgc_crc p
+        JOIN clientessgc c ON c.clientesgc_id = p.clientesgc_id
+        WHERE c.subgrupo = 'SINETRAM'
+        GROUP BY c.clientesgc_id, c.empresa, c.subgrupo, c.uf
+    """)
+    tabela5 = cursor.fetchall()
+    totais_tabela5 = {
+        "valor": sum(row["total_valor"] or 0 for row in tabela5),
+        "saldo": sum(row["total_saldo"] or 0 for row in tabela5)
+    }
+
+    cursor.close()
+    conn.close()
+
+    # ================== TOP 5 MAIORES VALORES ==================
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT c.empresa, c.subgrupo, c.uf, 
+               p.pedido, p.vencimento, 
+               p.saldo
+        FROM pedidosavencersgc_crc p
+        JOIN clientessgc c ON c.clientesgc_id = p.clientesgc_id
+        ORDER BY p.saldo DESC
+        LIMIT 5
+    """)
+    top5 = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    totais = {
+        "tabela1": totais_tabela1,
+        "tabela2": totais_tabela2,
+        "tabela3": totais_tabela3,
+        "tabela4": totais_tabela4,
+        "tabela5": totais_tabela5
+    }
+
+    return render_template(
+        "dashboardpedidoscrcFIN.html",
+        tabela1=tabela1,
+        tabela2=tabela2,
+        tabela3=tabela3,
+        tabela4=tabela4,
+        tabela5=tabela5,
+        totais=totais,
+        top5=top5
+    )
+
+#Detalhado pedidos a Vencer
+@app.route("/detalhadoavencercrcFIN/<int:cliente_id>")
+def detalhadoavencercrcFIN(cliente_id):
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT c.empresa,
+               p.vencimento,
+               c.uf,
+               p.valor,
+               p.saldo
+        FROM pedidosavencersgc_crc p
+        JOIN clientessgc c ON c.clientesgc_id = p.clientesgc_id
+        WHERE c.clientesgc_id = %s
+        ORDER BY p.vencimento
+    """, (cliente_id,))
+
+    detalhes = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return jsonify(detalhes)
 
 
 
+#Cadastro clientes SGC
+@app.route('/clientessgc_crcFIN')
+@modulo_requerido('CONTASARECEBER')
+def clientessgc_crcFIN():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+    return render_template('clientessgc_crcFIN.html')
 
+@app.route('/api/clientessgc_crcFIN')
+@modulo_requerido('CONTASARECEBER')
+def listar_clientessgc_crcFIN():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+    
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("SELECT * FROM clientessgc ORDER BY clientesgc_id")
+    clientessgc = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return jsonify(clientessgc)
+
+@app.route('/cadastrar_clientessgc_crcFIN', methods=['POST'])
+@modulo_requerido('CONTASARECEBER')
+def cadastrar_clientessgc_crcFIN():
+    if 'username' not in session:
+        flash('Você precisa estar logado para acessar esta página.', 'warning')
+        return redirect(url_for('login'))
+    
+    try:
+        # Coleta de dados do formulário
+        clientesgc_id = request.form['clientesgc_id'].strip()
+        grupo = request.form['grupo'].strip()
+        empresa = request.form['empresa'].strip()
+        subgrupo = request.form['subgrupo'].strip()
+        cnpj = re.sub(r'\D', '', request.form['cnpj'].strip())
+        cidade = request.form['cidade'].strip()
+        uf = request.form['uf'].strip()
+
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor(dictionary=True)
+
+        # Verifica duplicidade de CNPJ
+        cursor.execute("SELECT COUNT(*) AS total FROM clientessgc WHERE cnpj = %s", (cnpj,))
+        if int(cursor.fetchone()['total']) > 0:
+            flash("Já existe um cliente com esse CNPJ.", "erro")
+            return redirect('/clientessgc_crcFIN')
+
+        # Inserção
+        query = """
+            INSERT INTO clientessgc (clientesgc_id, grupo, empresa, subgrupo, cnpj, cidade, uf)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """
+        cursor.execute(query, (clientesgc_id, grupo, empresa, subgrupo, cnpj, cidade, uf))
+        conn.commit()
+
+        flash('Cliente cadastrado com sucesso!', 'sucesso')
+        return redirect('/clientessgc_crcFIN')
+
+    except mysql.connector.Error as err:
+        flash(f'Erro ao inserir os dados: {err}', 'erro')
+        return redirect('/clientessgc_crcFIN')
+    
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+@app.route('/api/clientessgc_crcFIN/<int:id>', methods=['PUT'])
+@modulo_requerido('CONTASARECEBER')
+def editar_clientessgc_crcFIN(id):
+    novo_nome = request.json.get('nome', '').strip()
+
+    if not novo_nome:
+        return jsonify({'erro': 'Nome não pode estar vazio'}), 400
+
+    try:
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor(dictionary=True)
+
+        cursor.execute("""
+            SELECT COUNT(*) AS total FROM clientessgc 
+            WHERE LOWER(TRIM(empresa)) = LOWER(%s) AND cnpj != %s
+        """, (novo_nome, id))
+        if cursor.fetchone()['total'] > 0:
+            return jsonify({'erro': 'Já existe outro cliente com essa razão social.'}), 400
+
+        # Atualiza a razão social
+        cursor.execute("UPDATE fornecedores_cmp SET razao_social = %s WHERE cnpj = %s", (novo_nome, id))
+        conn.commit()
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({'sucesso': True})
+
+    except mysql.connector.Error as err:
+        return jsonify({'erro': str(err)}), 500    
+
+@app.route('/api/clientessgc_crcFIN/<int:id>', methods=['DELETE'])
+@modulo_requerido('CONTASARECEBER')
+def excluir_clientessgc_crcFIN(id):
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM clientessgc WHERE cnpj = %s", (id,))
+    conn.commit()
+
+    cursor.close()
+    conn.close()
+
+    return jsonify({'sucesso': True})
+
+@app.route('/clientessgc_crcFIN_sugestoes')
+@modulo_requerido('CONTASARECEBER')
+def clientessgc_crcFIN_sugestoes():
+    termo = request.args.get('q', '').strip()
+
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT clientesgc_id, empresa FROM clientessgc WHERE empresa LIKE %s LIMIT 10", (f'%{termo}%',))
+    resultados = [{'id_cliente': row[0], 'nome': row[1]} for row in cursor.fetchall()]
+
+    cursor.close()
+    conn.close()
+
+    return jsonify(resultados)
+
+
+#------------------------------------------------------------------#
 if __name__ == '__main__':
     app.run(debug=True) 
